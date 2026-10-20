@@ -75,7 +75,7 @@ export async function handle(request,db,{now=()=>new Date()}={}){
   if(path.length===2&&request.method==='GET')return json({workspaceId:workspace,name:row.name,revision:row.revision,actor:{role:m.role,staffId:m.staff_id},today:asOf,state:project(state,m)});
   if(path.length===3&&path[2]==='delete'&&request.method==='POST'){
    manager(m);const body=await readBody(request);if(body.confirmName!==row.name)problem(400,'Business name does not match.');
-   await db.prepare('DELETE FROM workspaces WHERE id = ?').bind(workspace).run();return json({deleted:true});
+   const removed=await db.batch([db.prepare("DELETE FROM workspaces WHERE id = ? AND EXISTS (SELECT 1 FROM memberships WHERE workspace_id = workspaces.id AND user_id = ? AND role = 'manager') RETURNING id").bind(workspace,user)]);if(!removed[0].results?.length)problem(403,'Manager access changed. Reload before editing.');return json({deleted:true});
   }
   if(path.length===3&&path[2]==='invitations'){
    manager(m);
@@ -86,19 +86,19 @@ export async function handle(request,db,{now=()=>new Date()}={}){
    const body=await readBody(request);
    if(body.revoke){
     const invite=await db.prepare('SELECT * FROM invitations WHERE workspace_id = ? AND hash = ?').bind(workspace,body.revoke).first();if(!invite)problem(404,'Invitation not found.');
-    await db.batch([
-     db.prepare("DELETE FROM memberships WHERE workspace_id = ? AND user_id = ? AND role = 'staff' AND staff_id = ?").bind(workspace,invite.accepted_by||'',invite.staff_id),
-     db.prepare('DELETE FROM invitations WHERE workspace_id = ? AND hash = ?').bind(workspace,body.revoke),
-     db.prepare('INSERT INTO events (workspace_id,id,user_id,action,created_at) VALUES (?,?,?,?,?)').bind(workspace,id(),user,'member.revoke',timestamp)
-    ]);return json({revoked:true});
+    const revoked=await db.batch([
+     db.prepare("DELETE FROM memberships WHERE workspace_id = ? AND role = 'staff' AND staff_id = ? AND user_id IN (SELECT accepted_by FROM invitations WHERE workspace_id = ? AND staff_id = ? AND email = ?) AND EXISTS (SELECT 1 FROM memberships AS authority WHERE authority.workspace_id = ? AND authority.user_id = ? AND authority.role = 'manager')").bind(workspace,invite.staff_id,workspace,invite.staff_id,invite.email,workspace,user),
+     db.prepare("DELETE FROM invitations WHERE workspace_id = ? AND staff_id = ? AND email = ? AND EXISTS (SELECT 1 FROM memberships WHERE workspace_id = ? AND user_id = ? AND role = 'manager')").bind(workspace,invite.staff_id,invite.email,workspace,user),
+     db.prepare("INSERT INTO events (workspace_id,id,user_id,action,created_at) SELECT ?,?,?,?,? WHERE EXISTS (SELECT 1 FROM memberships WHERE workspace_id = ? AND user_id = ? AND role = 'manager') RETURNING id").bind(workspace,id(),user,'member.revoke',timestamp,workspace,user)
+    ]);if(!revoked[2].results?.length)problem(403,'Manager access changed. Reload before editing.');return json({revoked:true});
    }
    if(typeof body.email!=='string'||body.email.length>150||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)||!state.staff.some(s=>s.id===body.staffId))problem(400,'Choose a staff member and valid account email.');
    const pending=await db.prepare('SELECT COUNT(*) AS n FROM invitations WHERE workspace_id = ? AND expires_at > ? AND accepted_by IS NULL').bind(workspace,timestamp).first();if(pending.n>=20)problem(429,'Revoke unused invitations before creating more.');
    const token=id()+id(),hash=await hashToken(token),expiresAt=new Date(new Date(timestamp).getTime()+7*86400000).toISOString();
-   await db.batch([
-    db.prepare('INSERT INTO invitations (hash,workspace_id,email,staff_id,expires_at,created_at) VALUES (?,?,?,?,?,?)').bind(hash,workspace,body.email.toLowerCase(),body.staffId,expiresAt,timestamp),
-    db.prepare('INSERT INTO events (workspace_id,id,user_id,action,created_at) VALUES (?,?,?,?,?)').bind(workspace,id(),user,'member.invite',timestamp)
-   ]);return json({token,expiresAt},201);
+   const invited=await db.batch([
+    db.prepare("INSERT INTO invitations (hash,workspace_id,email,staff_id,expires_at,created_at) SELECT ?,?,?,?,?,? WHERE EXISTS (SELECT 1 FROM memberships WHERE workspace_id = ? AND user_id = ? AND role = 'manager') AND (SELECT COUNT(*) FROM invitations WHERE workspace_id = ? AND expires_at > ? AND accepted_by IS NULL) < 20 RETURNING hash").bind(hash,workspace,body.email.toLowerCase(),body.staffId,expiresAt,timestamp,workspace,user,workspace,timestamp),
+    db.prepare('INSERT INTO events (workspace_id,id,user_id,action,created_at) SELECT ?,?,?,?,? WHERE EXISTS (SELECT 1 FROM invitations WHERE workspace_id = ? AND hash = ?)').bind(workspace,id(),user,'member.invite',timestamp,workspace,hash)
+   ]);if(!invited[0].results?.length){manager(await membership(db,workspace,user));problem(429,'Revoke unused invitations before creating more.');}return json({token,expiresAt},201);
   }
   if(path.length===3&&path[2]==='backups'&&request.method==='GET'){
    manager(m);const result=await db.prepare('SELECT revision, created_at FROM history WHERE workspace_id = ? ORDER BY revision DESC LIMIT 20').bind(workspace).all();return json({backups:result.results});
@@ -106,8 +106,9 @@ export async function handle(request,db,{now=()=>new Date()}={}){
   if(path.length!==3||path[2]!=='commands'||request.method!=='POST')problem(404,'Route not found.');
   const body=await readBody(request);
   if(!validId(body.requestId)||!Number.isSafeInteger(body.revision)||body.revision<0||typeof body.action!=='string'||!body.data||typeof body.data!=='object'||Array.isArray(body.data))problem(400,'Invalid command.');
+  const requestHash=await hashToken(JSON.stringify({revision:body.revision,action:body.action,data:body.data}));
   const prior=await db.prepare('SELECT user_id, response FROM operations WHERE workspace_id = ? AND id = ?').bind(workspace,body.requestId).first();
-  if(prior){if(prior.user_id!==user)problem(409,'Request ID already used.');const replay=JSON.parse(prior.response);return json({...replay,result:m.role==='manager'?replay.result:null,replayed:true})}
+  if(prior){if(prior.user_id!==user)problem(409,'Request ID already used.');const {_requestHash,...replay}=JSON.parse(prior.response);if(_requestHash&&_requestHash!==requestHash)problem(409,'Request ID was already used for a different command.');return json({...replay,result:m.role==='manager'?replay.result:null,replayed:true})}
   const recent=await db.prepare('SELECT COUNT(*) AS n FROM operations WHERE workspace_id = ? AND user_id = ? AND created_at >= ?').bind(workspace,user,new Date(new Date(timestamp).getTime()-60000).toISOString()).first();if(recent.n>=120)problem(429,'Too many updates. Wait a minute and try again.');
   if(body.revision!==row.revision)problem(409,'Workspace changed. Reload and try again.');
   const data=body.data,actor={role:m.role,staffId:m.staff_id};let result=null;
@@ -117,6 +118,7 @@ export async function handle(request,db,{now=()=>new Date()}={}){
     case 'customer.archive':D.archiveCustomer(state,actor,data.id);break;
     case 'staff.add':result=D.addStaff(state,actor,data);break;
     case 'job.save':result=D.saveJob(state,actor,data,data.id);break;
+    case 'job.series':result=D.updateSeries(state,actor,data,asOf);break;
     case 'job.update':{
      const job=D.getJob(state,actor,data.id);
      if(data.action==='start'&&job.date>asOf)problem(400,'Future visits cannot be started.');
@@ -138,14 +140,14 @@ export async function handle(request,db,{now=()=>new Date()}={}){
   const document=JSON.stringify(state);if(new TextEncoder().encode(document).byteLength>524288)problem(413,'Workspace storage limit reached. Export your records and contact support.');
   const reply={revision:row.revision+1,result};
   const statements=[
-   db.prepare('INSERT INTO history (workspace_id,revision,document,created_at) SELECT id,revision,document,? FROM workspaces WHERE id = ? AND revision = ?').bind(timestamp,workspace,row.revision),
-   db.prepare('UPDATE workspaces SET document = ?, revision = revision + 1, last_operation = ?, updated_at = ? WHERE id = ? AND revision = ? RETURNING revision').bind(document,body.requestId,timestamp,workspace,row.revision),
-   db.prepare('INSERT INTO operations (workspace_id,id,user_id,response,created_at) SELECT id,?,?,?,? FROM workspaces WHERE id = ? AND last_operation = ?').bind(body.requestId,user,JSON.stringify(reply),timestamp,workspace,body.requestId),
+   db.prepare("INSERT INTO history (workspace_id,revision,document,created_at) SELECT id,revision,document,? FROM workspaces WHERE id = ? AND revision = ? AND EXISTS (SELECT 1 FROM memberships WHERE workspace_id = ? AND user_id = ? AND role = ? AND COALESCE(staff_id,'') = ?)").bind(timestamp,workspace,row.revision,workspace,user,m.role,m.staff_id||''),
+   db.prepare("UPDATE workspaces SET document = ?, revision = revision + 1, last_operation = ?, updated_at = ? WHERE id = ? AND revision = ? AND EXISTS (SELECT 1 FROM memberships WHERE workspace_id = ? AND user_id = ? AND role = ? AND COALESCE(staff_id,'') = ?) RETURNING revision").bind(document,body.requestId,timestamp,workspace,row.revision,workspace,user,m.role,m.staff_id||''),
+   db.prepare('INSERT INTO operations (workspace_id,id,user_id,response,created_at) SELECT id,?,?,?,? FROM workspaces WHERE id = ? AND last_operation = ?').bind(body.requestId,user,JSON.stringify({...reply,_requestHash:requestHash}),timestamp,workspace,body.requestId),
    db.prepare('INSERT INTO events (workspace_id,id,user_id,action,created_at) SELECT id,?,?,?,? FROM workspaces WHERE id = ? AND last_operation = ?').bind(body.requestId,user,body.action,timestamp,workspace,body.requestId),
    db.prepare('DELETE FROM history WHERE workspace_id = ? AND revision < ?').bind(workspace,Math.max(0,row.revision-19))
   ];
   const committed=await db.batch(statements);
-  if(!committed[1].results?.length)problem(409,'Workspace changed. Reload and try again.');
+  if(!committed[1].results?.length){const current=await membership(db,workspace,user);if(current.role!==m.role||current.staff_id!==m.staff_id)problem(403,'Your access changed. Reload before editing.');problem(409,'Workspace changed. Reload and try again.');}
   return json(reply);
  }catch(e){return json({error:e instanceof Problem?e.message:'Service temporarily unavailable.',code:e instanceof Problem?e.status:503},e instanceof Problem?e.status:503)}
 }
