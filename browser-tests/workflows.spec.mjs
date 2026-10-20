@@ -115,3 +115,12 @@ test('fictional demo checklist uses the same native tick and keeps it after reop
  await page.reload();await page.locator('nav a[href="#jobs"]').click();await visit().click();await expect(first()).toBeChecked();
  await first().uncheck();await expect(first()).not.toBeChecked();await checkboxGeometry(first());
 });
+
+test('mobile preview renders the actual responsive app within a phone-width frame',async({page})=>{
+ await page.goto('/mobile.html');await expect(page.getByRole('heading',{name:'Mobile preview',exact:true})).toBeVisible();
+ const phone=page.locator('iframe');const bounds=await phone.boundingBox();expect(bounds.width).toBeLessThanOrEqual(390);expect(bounds.width).toBeGreaterThan(300);
+ const app=page.frameLocator('iframe');await expect(app.getByRole('heading',{name:'A clearer day starts here.'})).toBeVisible();
+ const inner=await phone.elementHandle();const frame=await inner.contentFrame();expect(await frame.evaluate(()=>window.innerWidth)).toBeLessThanOrEqual(390);
+ await page.getByRole('link',{name:'My workspace',exact:true}).click();await expect(app.locator('main#main')).toBeVisible();await expect(app.locator('main#main')).not.toContainText('Fictional demo workspace');
+ await fits(page);
+});
