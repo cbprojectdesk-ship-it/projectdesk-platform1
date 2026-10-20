@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <title>Private test walkthrough · Quenvira</title>
+  <link rel="stylesheet" href="/legal.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header><a href="/">Quenvira</a><a href="/workspace.html">Open test workspace</a></header>
+  <main id="main" tabindex="-1">
+    <p class="eyebrow">PRIVATE TEST WALKTHROUGH · 20 OCTOBER 2026</p>
+    <h1>Try a complete working day.</h1>
+    <aside aria-label="Test status"><strong>Use fictional records only.</strong><p>This is a development candidate, not an approved commercial release. This guide does not create records automatically or overwrite existing data. A step passes only after it is actually performed and its expected result observed.</p></aside>
+    <nav aria-label="Walkthrough sections"><a href="#records">Test records</a><a href="#day">Working day</a><a href="#recurring">Recurring visits</a><a href="#failure">Recovery</a><a href="#devices">Devices &amp; access</a><a href="#results">Results</a></nav>
+    <section id="records">
+      <h2>1. Enter the fictional records</h2>
+      <p>Open the workspace in a second tab. If offered initial setup, name the business <strong>Fictional QA Cleaning</strong>. If a workspace already exists, check its contents first; do not delete or replace records to follow this guide.</p>
+      <ul>
+        <li><strong>Customer:</strong> QA Willow House · Domestic · 10 Example Lane (fictional) · willow@example.com · “Ring before arrival; fictional test instructions.”</li>
+        <li><strong>Second customer:</strong> QA Harbour Studio · Commercial · 20 Example Court (fictional) · studio@example.com · “Reception first; fictional test instructions.”</li>
+        <li><strong>Staff:</strong> QA Maya Ellis · Cleaning specialist · 480 minutes daily capacity. Adding this record does not create a sign-in account.</li>
+      </ul>
+      <p><strong>Expected:</strong> both customers appear under Customers and the staff record appears under Team. Reload the browser and check they remain.</p>
+    </section>
+    <section id="day">
+      <h2>2. Complete a working day</h2>
+      <ol>
+        <li>Book QA Willow House for the business date shown in Overview: 09:00, 120 minutes, net price £78.99, QA Maya Ellis, round “QA local”, One-off, one visit.</li>
+        <li>Check Overview, Jobs, Schedule and Team agree on the visit and 120 booked minutes.</li>
+        <li>Try booking QA Harbour Studio for the same worker at 10:00 on the same date. Expect an overlap error and no second booking. Then book it at 13:00 for 60 minutes and £40.00.</li>
+        <li>Open the 09:00 visit and start it. Try completing it before finishing the checklist: expect an error and status In progress.</li>
+        <li>Finish every checklist item, save “QA visit completed”, then complete the visit. Reload and verify the status, note and checklist persist.</li>
+        <li>Create a draft invoice with 20% test VAT. Expect net £78.99, VAT £15.80 and total <strong>£94.79</strong>. Try creating another invoice for the same visit: it must be refused.</li>
+        <li>Record the manual test payment. Expect Paid, no duplicate invoice, and the paid draft excluded from unpaid totals. Reload and verify again.</li>
+      </ol>
+      <p>VAT here tests arithmetic only. Do not send the draft to a customer or treat it as an approved tax invoice. No money is collected.</p>
+    </section>
+    <section id="recurring">
+      <h2>3. Change a recurring series</h2>
+      <ol>
+        <li>Book three weekly visits for QA Harbour Studio, starting tomorrow, at 09:00 for 60 minutes, £40.00, assigned to QA Maya Ellis.</li>
+        <li>From the first visit, pause future visits. Expect all three to show Paused, reserve no staff capacity and offer no Start action.</li>
+        <li>Change future visits to 13:00 and £45.00. Expect three visits seven days apart, with their paused status preserved.</li>
+        <li>Resume the series. Expect three Scheduled visits, subject to conflict checks.</li>
+        <li>From the second visit, cancel future visits. Expect the second and third cancelled and the first unchanged.</li>
+      </ol>
+      <p>These are finite bookings: no fourth visit is generated automatically.</p>
+    </section>
+    <section id="failure">
+      <h2>4. Check failures and recovery</h2>
+      <ul>
+        <li><strong>Offline:</strong> turn off the network and attempt to save a fictional customer. Expect a visible error. Restore the network and retry the same action. Reload and confirm there is exactly one customer record.</li>
+        <li><strong>Two tabs:</strong> open the same workspace in both tabs. Save an edit in tab A, then a different edit in stale tab B. Expect a conflict and refreshed records, not silent overwriting. Review before retrying.</li>
+        <li><strong>Export:</strong> in Settings &amp; backups, export records. Check the JSON contains only this workspace's fictional records. Keep exports private.</li>
+        <li><strong>Recovery history:</strong> only in a workspace containing exclusively disposable fictional data, note its revision and record counts, make a reversible edit, then restore the preceding revision. Expect a new revision with the earlier values. This replaces later changes: do not do it in a workspace containing real data.</li>
+      </ul>
+      <p>In-database recovery history is not an independent backup. A protected off-platform backup and timed restoration into isolated storage remain separate release requirements.</p>
+    </section>
+    <section id="devices">
+      <h2>5. Check devices and account boundaries</h2>
+      <ul>
+        <li>Repeat the working-day steps on Android Chrome and a desktop browser. Also check tablet width, portrait/landscape and 200% zoom. Record the actual device, browser version and width.</li>
+        <li>Use keyboard-only navigation on desktop. Check visible focus, labelled fields, opening/closing dialogs, error messages, scrolling tables and browser back/forward.</li>
+        <li>Check Legal &amp; privacy, sign-out and signing back in. Records must remain associated with the correct account.</li>
+        <li><strong>Staff account test is gated:</strong> this site is owner-only. A second staff account needs separately authorised hosting access as well as an email-bound staff invitation. Do not share the owner's login or change audience to public. Once access is arranged, verify staff see only assigned jobs and cannot access invoices, customer management, other tenants or manager actions.</li>
+        <li>Use an unapproved account or signed-out session to confirm private workspace access is denied. Never enter real customer information during these tests.</li>
+      </ul>
+    </section>
+    <section id="results">
+      <h2>6. Record what actually happened</h2>
+      <p>For each step, record Pass / Fail / Blocked, device and browser version, date and time, expected result, actual result and the shortest reproduction steps. Mark an unperformed step Not run. Keep any screenshots private and remove names, emails and sign-in links.</p>
+      <p>Source tests and successful deployment do not establish browser acceptance. Hosted identity, independent recovery, operational readiness and approved legal/commercial documents remain launch gates.</p>
+    </section>
+  </main>
+  <footer><a href="/workspace.html">Open test workspace</a> · <a href="/legal.html">Legal &amp; privacy</a></footer>
+</body>
+</html>
