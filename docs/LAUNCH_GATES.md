@@ -1,6 +1,6 @@
 # Quenvira launch gates
 
-Status (20 October 2026): private server-backed development candidate, with a separate fictional-data demonstration. The API/database and client-adapter tests pass locally; hosted identity, real-browser acceptance, operations, legal readiness and commercial invoicing remain unverified. The sections below are release requirements, not a statement that all are missing or completed.
+Status (20 October 2026): private server-backed development candidate, with a separate fictional-data demonstration. The API/database and client-adapter tests pass locally; hosted identity, physical-device acceptance, operations, legal readiness and commercial invoicing remain unverified. The sections below are release requirements, not a statement that all are missing or completed.
 
 ## 1. Server architecture and identity
 
@@ -40,3 +40,9 @@ The launch hardening branch fixes duplicate records after an acknowledged write 
 Remaining priorities: supported browser/device acceptance; live multi-user and trusted identity boundary testing; independent backup/restore and incident/rollback exercises; recurring generation and load limits; compliant issued invoices/credit notes; approved legal documents and explicit launch approval. No real customer data, billing or sales claims should be introduced while these gates remain open.
 
 The merged recurring-series controls now support pausing, resuming, cancelling and editing pending future visits, with atomic overlap/capacity checks. They still book finite batches of at most twelve visits and do not provide unattended generation. See `QA_AUDIT_2026-10-20.md` for the current evidence and rollback constraints.
+
+## Browser and recovery progress
+
+Thirty browser cases passed on GitHub in Chromium, Firefox and WebKit desktop and Chromium 360/390/768px projects using the real client/API and isolated SQLite with simulated identity. Evidence: PR #8 and its linked Actions run. This is not hosted authentication, D1 or physical-device certification.
+
+The operator recovery module and three added regression cases exercise authenticated encryption, recovery into an empty isolated database after closing the source, preservation of paid invoices and paused visits, tenant denial, wrong keys, tampering and transactional rollback. These are synthetic tests, not scheduled independent production backups. See OPERATIONS_RUNBOOK.md.
