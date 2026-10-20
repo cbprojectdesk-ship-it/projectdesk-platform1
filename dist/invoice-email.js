@@ -16,7 +16,7 @@ export function prepareInvoiceEmail(invoice,email,businessName='Quenvira'){
   `Status: ${invoice.status}`,...(invoice.paidOn?[`Manual payment recorded: ${invoice.paidOn}`]:[]),'',
   'This is a development-release draft for review, not a valid tax invoice or a request for payment.',
   'No payment is collected through this message.'
- ].join('\n');
- return {to,subject,body,href:valid?`mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`:null,
+ ].join('\n').replace(/\r\n?|\n/g,'\r\n');
+ return {to,subject,body,href:valid?`mailto:${encodeURIComponent(local)}@${to.split('@')[1]}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`:null,
   recipientError:valid?'':to?'Save a single valid customer email address before preparing an email.':'Add the customer’s email address in Customers before preparing an email.'};
 }

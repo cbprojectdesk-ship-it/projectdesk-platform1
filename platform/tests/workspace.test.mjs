@@ -47,7 +47,7 @@ test('invoice email preview uses saved recipient, stays read-only, and handles a
  const db=database(),w=await setup(db),f=await fixtures(db,w),j=(await command(db,w,'job.save',job(f))).body.result[0];
  await command(db,w,'job.update',{id:j.id,action:'start'});for(let n=0;n<4;n++)await command(db,w,'job.update',{id:j.id,action:'check',value:n});await command(db,w,'job.update',{id:j.id,action:'complete'});
  const i=(await command(db,w,'invoice.create',{jobId:j.id,vat:20})).body.result,h=await browserAdapter(db);
- const before=JSON.stringify(h.ui.data());await h.ui.act('email-invoice',i.id);assert.match(h.elements.get('#modal').innerHTML,/mailto:home%40example.com/);assert.match(h.elements.get('#modal').innerHTML,/does not send it or track delivery/);assert.equal(JSON.stringify(h.ui.data()),before);
+ const before=JSON.stringify(h.ui.data());await h.ui.act('email-invoice',i.id);assert.match(h.elements.get('#modal').innerHTML,/mailto:home@example.com/);assert.match(h.elements.get('#modal').innerHTML,/does not send it or track delivery/);assert.equal(JSON.stringify(h.ui.data()),before);
  await command(db,w,'customer.save',{...customer,id:f.customerId,email:''});await h.ui.reload();await h.ui.act('email-invoice',i.id);assert.ok(!h.elements.get('#modal').innerHTML.includes('mailto:'));assert.match(h.elements.get('#modal').innerHTML,/Add the customer/);
  db.sqlite.close();
 });

@@ -83,4 +83,4 @@ test('failed form submission shows an error and preserves existing state',()=>{
  assert.equal(JSON.stringify(ui.state()),before);
 });
 
-test('demo email preview uses saved address and workers cannot open it',()=>{const {ui}=harness();ui.act('email-invoice',{dataset:{id:'i0'}});assert.match(ui.modal(),/mailto:willow%40example.com/);assert.match(ui.modal(),/does not send it or track delivery/);ui.setActor({role:'staff',staffId:'s1'});assert.throws(()=>ui.act('email-invoice',{dataset:{id:'i0'}}),/Manager/)});
+test('demo email preview uses saved address and workers cannot open it',()=>{const {ui}=harness();ui.act('email-invoice',{dataset:{id:'i0'}});assert.match(ui.modal(),/mailto:willow@example.com/);assert.match(ui.modal(),/does not send it or track delivery/);ui.setActor({role:'staff',staffId:'s1'});assert.throws(()=>ui.act('email-invoice',{dataset:{id:'i0'}}),/Manager/)});

@@ -6,7 +6,7 @@ const invoice={number:'QV-1001',customerName:'Fictional Client',address:'Example
 
 test('email preparation uses the single saved address and exact invoice amounts without mutating the invoice',()=>{
  const before=structuredClone(invoice),mail=prepareInvoiceEmail(invoice,'client+cleaning@example.com','Example Cleaning');
- const uri=new URL(mail.href);assert.equal(uri.protocol,'mailto:');assert.equal(decodeURIComponent(uri.pathname),'client+cleaning@example.com');
+ assert.ok(mail.href.startsWith('mailto:client%2Bcleaning@example.com?'));assert.match(mail.href,/%0D%0A/);const uri=new URL(mail.href);assert.equal(uri.protocol,'mailto:');assert.equal(decodeURIComponent(uri.pathname),'client+cleaning@example.com');
  assert.equal(uri.searchParams.get('subject'),mail.subject);assert.equal(uri.searchParams.get('body'),mail.body);assert.equal(mail.recipientError,'');
  assert.match(mail.body,/DRAFT — NOT A VALID TAX INVOICE/);assert.match(mail.body,/Net: £78\.99/);assert.match(mail.body,/VAT \(20%\): £15\.80/);assert.match(mail.body,/Total: £94\.79/);assert.deepEqual(invoice,before);
 });
