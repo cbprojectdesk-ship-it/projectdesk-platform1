@@ -87,3 +87,31 @@ test('export, recovery history, keyboard entry and all manager pages at this vie
  for(const route of ['dashboard','schedule','jobs','customers','team','invoices','settings']){await navigate(page,route);await expect(page.locator('main h1')).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),'horizontal page overflow on '+route).toBeTruthy()}
  await page.getByRole('link',{name:'Test walkthrough',exact:true}).click();await expect(page.getByRole('heading',{name:'Try a complete working day.'})).toBeVisible();await page.getByRole('link',{name:'Legal & privacy',exact:true}).click();await expect(page.getByRole('heading',{name:'Clear terms before launch.'})).toBeVisible();expect(errors).toEqual([]);
 });
+
+// Text-field padding used to expand these 18px controls and obscure their native tick.
+async function checkboxGeometry(box){
+ await expect(box).toBeVisible();
+ const style=await box.evaluate(el=>{const c=getComputedStyle(el),r=el.getBoundingClientRect();return {padding:c.padding,appearance:c.appearance,width:r.width,height:r.height}});
+ expect(style.padding).toBe('0px');expect(style.appearance).not.toBe('none');expect(style.width).toBe(18);expect(style.height).toBe(18);
+}
+test('checklist native tick remains visible-sized through label, keyboard and persisted reload',async({page,context})=>{
+ await page.goto('/workspace.html');await addCustomer(page);await addStaff(page);await book(page);
+ await page.getByRole('button',{name:'Open visit',exact:true}).click();await page.getByRole('button',{name:'Start visit',exact:true}).click();await ready(page);
+ const first=()=>page.locator('#modal .checklist input[type=checkbox]').first();
+ await checkboxGeometry(first());await expect(first()).not.toBeChecked();
+ await page.locator('#modal .checklist label').first().click();await ready(page);await expect(first()).toBeChecked();await checkboxGeometry(first());
+ expect((await state(context)).state.jobs[0].checklist[0].done).toBe(true);
+ await page.reload();await ready(page);await page.getByRole('button',{name:'Open visit',exact:true}).click();await expect(first()).toBeChecked();await checkboxGeometry(first());
+ await first().focus();await page.keyboard.press('Space');await ready(page);await expect(first()).not.toBeChecked();expect((await state(context)).state.jobs[0].checklist[0].done).toBe(false);
+ await first().check();await ready(page);await expect(first()).toBeChecked();await checkboxGeometry(first());
+});
+
+test('fictional demo checklist uses the same native tick and keeps it after reopening',async({page})=>{
+ await page.goto('/demo/index.html');await page.locator('nav a[href="#jobs"]').click();
+ const visit=()=>page.locator('[data-action="job-detail"][data-id="j0-4"]').first();await visit().click();
+ await page.locator('[data-action="start-job"]').click();
+ const first=()=>page.locator('#modal .checklist input[type=checkbox]').first();
+ await checkboxGeometry(first());await expect(first()).not.toBeChecked();await page.locator('#modal .checklist label').first().click();await expect(first()).toBeChecked();await checkboxGeometry(first());
+ await page.reload();await page.locator('nav a[href="#jobs"]').click();await visit().click();await expect(first()).toBeChecked();
+ await first().uncheck();await expect(first()).not.toBeChecked();await checkboxGeometry(first());
+});
