@@ -20,3 +20,7 @@ export function prepareInvoiceEmail(invoice,email,businessName='Quenvira'){
  return {to,subject,body,href:valid?`mailto:${encodeURIComponent(local)}@${to.split('@')[1]}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`:null,
   recipientError:valid?'':to?'Save a single valid customer email address before preparing an email.':'Add the customer’s email address in Customers before preparing an email.'};
 }
+
+export async function copyInvoiceText(text,clipboard,select){
+ try{if(typeof clipboard?.writeText!=='function')throw Error('Clipboard unavailable');await clipboard.writeText(text);return true}catch{select();return false}
+}

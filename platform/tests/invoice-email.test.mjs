@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {prepareInvoiceEmail} from '../public/invoice-email.js';
+import {prepareInvoiceEmail,copyInvoiceText} from '../public/invoice-email.js';
 const invoice={number:'QV-1001',customerName:'Fictional Client',address:'Example Street',issued:'2026-10-20',due:'2026-11-03',description:'Cleaning service',net:7899,tax:1580,total:9479,vat:20,status:'Draft',paidOn:null};
 
 test('email preparation uses the single saved address and exact invoice amounts without mutating the invoice',()=>{
@@ -25,4 +25,11 @@ test('inconsistent totals refuse preparation and recorded payment remains clearl
 });
 test('secure and fictional demo email helpers remain identical',()=>{
  assert.equal(fs.readFileSync(new URL('../public/invoice-email.js',import.meta.url),'utf8'),fs.readFileSync(new URL('../public/demo/invoice-email.js',import.meta.url),'utf8'));
+});
+
+test('copy reports success only after clipboard writes and selects text when unavailable or blocked',async()=>{
+ let copied='',selected=0;const select=()=>selected++;
+ assert.equal(await copyInvoiceText('Draft £94.79',{writeText:async text=>{copied=text}},select),true);assert.equal(copied,'Draft £94.79');assert.equal(selected,0);
+ assert.equal(await copyInvoiceText('Draft',undefined,select),false);assert.equal(selected,1);
+ assert.equal(await copyInvoiceText('Draft',{writeText:async()=>{throw Error('Permission denied')}},select),false);assert.equal(selected,2);
 });
