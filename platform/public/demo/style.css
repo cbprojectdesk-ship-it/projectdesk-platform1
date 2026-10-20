@@ -6,3 +6,5 @@
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 
 @media(max-width:570px){.mobile-job-table{overflow:visible}.mobile-job-table table,.mobile-job-table tbody{display:block;white-space:normal}.mobile-job-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}.mobile-job-table tbody tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;padding:17px;border-bottom:1px solid var(--line)}.mobile-job-table tbody tr:last-child{border-bottom:0}.mobile-job-table td{display:block;border:0;padding:0;min-width:0;overflow-wrap:anywhere;font-size:12px}.mobile-job-table td:first-child{grid-column:1/-1}.mobile-job-table td::before{content:attr(data-label);display:block;font-size:10px;color:#617160;margin-bottom:5px}.mobile-job-table .customer-name{white-space:normal;text-align:left;min-height:44px}.mobile-job-table td:last-child button{min-height:44px}.mobile-job-table .amount{text-align:left}}
+
+.checklist span,.checklist-option span{min-width:0;overflow-wrap:anywhere}.checklist-option label{display:flex;gap:12px;align-items:center}

@@ -13,7 +13,7 @@ function project(state,m){
  if(m.role==='manager')return state;
  const jobs=state.jobs.filter(j=>j.staffId===m.staff_id).map(({price,invoiceId,...j})=>j);
  const customerIds=new Set(jobs.map(j=>j.customerId));
- return {version:1,jobs,customers:state.customers.filter(c=>customerIds.has(c.id)).map(({email,active,...c})=>c),staff:state.staff.filter(s=>s.id===m.staff_id),invoices:[],audit:[]};
+ return {version:1,jobs,customers:state.customers.filter(c=>customerIds.has(c.id)).map(({email,active,checklistTemplate,...c})=>c),staff:state.staff.filter(s=>s.id===m.staff_id),invoices:[],audit:[]};
 }
 async function readBody(request){
  if(!request.headers.get('content-type')?.startsWith('application/json'))problem(415,'Use JSON requests.');
