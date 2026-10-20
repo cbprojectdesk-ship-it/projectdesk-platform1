@@ -4,13 +4,14 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import * as domain from '../dist/domain.js';
-const src=fs.readFileSync(new URL('../dist/app.js',import.meta.url),'utf8').replace(/^import .*?;\n/,'');
+import {prepareInvoiceEmail} from '../dist/invoice-email.js';
+const src=fs.readFileSync(new URL('../dist/app.js',import.meta.url),'utf8').replace(/^import .*?;\n/gm,'');
 function harness(saved){
  const elements=new Map();
  const make=()=>({innerHTML:'',textContent:'',open:false,value:'',dataset:{},classList:{add(){},remove(){}},addEventListener(){},querySelector(){return null},querySelectorAll(){return []},showModal(){this.open=true},close(){this.open=false},focus(){},setSelectionRange(){},click(){}});
  for(const id of ['#app','#modal','#toast','#persona','#form-error'])elements.set(id,make());
  const storage=new Map(saved?[['quenvira-demo-v1',saved]]:[]);
- const context={...domain,Intl,Date,JSON,Number,String,Error,Array,Set,Math,crypto,structuredClone,Blob,URL,setTimeout:()=>0,clearTimeout(){},confirm:()=>true,location:{hash:'#dashboard'},localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},document:{querySelector:s=>elements.get(s)||null,addEventListener(){},createElement:make},window:{addEventListener(){}}};
+ const context={...domain,prepareInvoiceEmail,Intl,Date,JSON,Number,String,Error,Array,Set,Math,crypto,structuredClone,Blob,URL,setTimeout:()=>0,clearTimeout(){},confirm:()=>true,location:{hash:'#dashboard'},localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},document:{querySelector:s=>elements.get(s)||null,addEventListener(){},createElement:make},window:{addEventListener(){}}};
  vm.createContext(context);vm.runInContext(src+`\nglobalThis.testing={route,render,act,bindModal,jobDetail,customerForm,jobForm,invoiceForm,invoiceDetail,state:()=>state,actor:()=>actor,setActor:a=>actor=a,setView:v=>view=v,html:()=>document.querySelector('#app').innerHTML,modal:()=>document.querySelector('#modal').innerHTML};`,context);return {ui:context.testing,context,elements,storage};
 }
 test('all seven routes render meaningful content without runtime failures',()=>{const {ui,context}=harness();for(const route of ['dashboard','schedule','jobs','customers','team','invoices','settings']){context.location.hash='#'+route;ui.route();assert.match(ui.html(),/<main id="main"/);assert.match(ui.html(),/<h1>[^<]+<\/h1>/);assert.ok(!ui.html().includes('undefined'))}});
@@ -81,3 +82,5 @@ test('failed form submission shows an error and preserves existing state',()=>{
  form.onsubmit({preventDefault(){}});assert.match(elements.get('#form-error').textContent,/name is required/);
  assert.equal(JSON.stringify(ui.state()),before);
 });
+
+test('demo email preview uses saved address and workers cannot open it',()=>{const {ui}=harness();ui.act('email-invoice',{dataset:{id:'i0'}});assert.match(ui.modal(),/mailto:willow@example.com/);assert.match(ui.modal(),/does not send it or track delivery/);ui.setActor({role:'staff',staffId:'s1'});assert.throws(()=>ui.act('email-invoice',{dataset:{id:'i0'}}),/Manager/)});

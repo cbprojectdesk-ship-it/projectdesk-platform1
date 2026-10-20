@@ -148,3 +148,22 @@ test('fictional demo allows a bespoke customer checklist and explicit refresh of
  await visit().click();await expect(page.locator('#modal .checklist span')).toHaveText(['Inside conservatory glass','Leave porch secure']);await page.locator('[data-action="start-job"]').click();
  for(let n=0;n<2;n++)await page.locator('#modal [data-check]').nth(n).check();await page.locator('[data-action="complete-job"]').click();await expect(page.locator('#modal .badge')).toHaveText('Completed');
 });
+
+test('completed visit offers optional email copy to saved address; composing never claims delivery',async({page,context})=>{
+ await page.goto('/workspace.html');await addCustomer(page);await addStaff(page);await book(page);
+ await page.getByRole('button',{name:'Open visit',exact:true}).click();await page.getByRole('button',{name:'Start visit',exact:true}).click();await ready(page);
+ for(let n=0;n<4;n++){await page.locator('#modal [data-check]').nth(n).check();await ready(page)}
+ await page.getByRole('button',{name:'Complete visit',exact:true}).click();await ready(page);await page.getByRole('button',{name:'Create invoice',exact:true}).click();
+ const option=page.getByLabel('Prepare an email copy after creating this draft',{exact:true});await expect(option).not.toBeChecked();await option.check();await page.getByLabel('VAT for registered suppliers only').selectOption('20');await page.getByRole('button',{name:'Create draft',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Review draft invoice email'})).toBeVisible();await expect(page.getByLabel('Email text',{exact:true})).toHaveValue(/Total: £94\.79/);
+ const href=await page.getByRole('link',{name:'Open email app',exact:true}).getAttribute('href'),uri=new URL(href);expect(decodeURIComponent(uri.pathname)).toBe('willow@example.com');expect(uri.searchParams.get('body')).toContain('NOT A VALID TAX INVOICE');expect(uri.searchParams.get('subject')).toContain('QV-1001');
+ expect(await page.locator('#modal').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+ const before=await state(context);expect(before.state.invoices).toHaveLength(1);await page.getByRole('button',{name:'Back to invoice',exact:true}).click();await page.getByRole('button',{name:'Prepare email copy',exact:true}).click();expect(await state(context)).toEqual(before);
+ await close(page);await navigate(page,'customers');await page.getByRole('button',{name:'View & edit',exact:true}).click();await page.getByLabel('Email',{exact:true}).fill('');await page.getByRole('button',{name:'Save customer',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible();
+ await navigate(page,'invoices');await page.getByRole('button',{name:'View',exact:true}).click();await page.getByRole('button',{name:'Prepare email copy',exact:true}).click();await expect(page.locator('#modal [role=alert]').first()).toContainText('Add the customer');await expect(page.getByRole('link',{name:'Open email app',exact:true})).toHaveCount(0);await page.getByRole('button',{name:'Edit customer email',exact:true}).click();await expect(page.getByLabel('Email',{exact:true})).toHaveValue('');
+});
+
+test('fictional demo invoice provides a reviewed email copy using its saved customer email',async({page})=>{
+ await page.goto('/demo/index.html');await page.locator('nav a[href="#invoices"]').click();await expect(page.locator('[data-action="invoice-detail"][data-id="i0"]')).toBeVisible();await page.locator('[data-action="invoice-detail"][data-id="i0"]').click();await page.getByRole('button',{name:'Prepare email copy',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Review draft invoice email'})).toBeVisible();const uri=new URL(await page.getByRole('link',{name:'Open email app',exact:true}).getAttribute('href'));expect(decodeURIComponent(uri.pathname)).toBe('willow@example.com');await expect(page.getByLabel('Email text',{exact:true})).toHaveValue(/NOT A VALID TAX INVOICE/);expect(await page.locator('#modal').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+});
