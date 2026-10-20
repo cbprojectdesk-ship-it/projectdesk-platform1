@@ -1,7 +1,7 @@
 import {defineConfig} from '@playwright/test';
 export default defineConfig({
  testDir:'.',testMatch:'*.spec.mjs',fullyParallel:false,workers:1,retries:0,
- forbidOnly:true,timeout:45000,expect:{timeout:8000},
+ forbidOnly:true,maxFailures:3,timeout:30000,expect:{timeout:8000},
  reporter:[['list'],['json',{outputFile:'results.json'}]],
  use:{baseURL:'http://127.0.0.1:4173',locale:'en-GB',timezoneId:'Europe/London',trace:'off',screenshot:'off',video:'off'},
  projects:[

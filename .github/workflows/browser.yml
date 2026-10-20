@@ -1,7 +1,7 @@
 name: Free browser acceptance
 on:
   push:
-    branches: [main, test/free-browser-acceptance]
+    branches: [main]
     paths: ['browser-tests/**', 'platform/public/**', 'platform/server/**', 'platform/drizzle/**', 'platform/tests/support/**', '.github/workflows/browser.yml']
   pull_request:
     paths: ['browser-tests/**', 'platform/public/**', 'platform/server/**', 'platform/drizzle/**', 'platform/tests/support/**', '.github/workflows/browser.yml']
