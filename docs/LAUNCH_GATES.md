@@ -1,6 +1,6 @@
 # Quenvira launch gates
 
-Status: fictional-data review demo. None of the production gates below is satisfied by client-side role previews or DOM-adapter tests.
+Status (20 October 2026): private server-backed development candidate, with a separate fictional-data demonstration. The API/database and client-adapter tests pass locally; hosted identity, real-browser acceptance, operations, legal readiness and commercial invoicing remain unverified. The sections below are release requirements, not a statement that all are missing or completed.
 
 ## 1. Server architecture and identity
 
@@ -29,3 +29,12 @@ Implement supplier identity, legal/contact address, VAT registration where appli
 Run automated checks on the exact proposed commit. Perform real-browser acceptance on desktop Chrome/Edge/Firefox/Safari, iOS Safari and Android Chrome at 360, 390, 768 and 1440 CSS pixels. Verify every link/button/form, keyboard navigation, dialogs, screen-reader labels, zoom, horizontal scrolling, downloads, print, reload, failed storage, offline behaviour and stale/multiple tabs. Test data migration, concurrent bookings, database failure, restore, rate limiting and cross-tenant attacks. Record actual results and device/browser versions.
 
 Do not describe the application as production-ready until these results and security/deployment evidence are available. Run a limited, consented pilot only after the real-data gates pass. Paid launch additionally needs owner approval, clear terms/refunds, pricing, billing, support ownership, monitoring and a rollback drill. Branch protection and required checks should be configured once a stable consolidated check is selected; current workflow success alone does not prove branch protection.
+
+
+## Current verification record — 20 October 2026
+
+The server-backed app is under `platform/`. Source review and SQLite-backed tests verify membership isolation, assigned-worker projections, optimistic concurrency, idempotent requests, bounded revision history, invitations and deletion. These checks do not establish live hosting boundary security, independent backups or commercial readiness.
+
+The launch hardening branch fixes duplicate records after an acknowledged write followed by a failed refresh, malformed response or upstream error. Six added regression cases exercise these failures and prevent a different mutation from replacing an unresolved retry. The Legal & Privacy section is a development-status page only; reviewed terms, privacy and subscription agreements are still required.
+
+Remaining priorities: supported browser/device acceptance; live multi-user and trusted identity boundary testing; independent backup/restore and incident/rollback exercises; recurring-series pause/change-future controls and load limits; compliant issued invoices/credit notes; approved legal documents and explicit launch approval. No real customer data, billing or sales claims should be introduced while these gates remain open.
