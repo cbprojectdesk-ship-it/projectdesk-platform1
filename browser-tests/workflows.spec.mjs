@@ -125,3 +125,26 @@ test('mobile preview renders the actual responsive app within a phone-width fram
  await page.getByRole('link',{name:'My workspace',exact:true}).click();await expect(app.locator('main#main')).toBeVisible();await expect(app.locator('nav a[href="#settings"]')).toHaveText(/Settings/);
  await fits(page);
 });
+
+test('customer-specific tasks persist, new visits inherit them and existing visits refresh only by choice',async({page,context})=>{
+ await page.goto('/workspace.html');await addCustomer(page);await addStaff(page);
+ async function template(value){await navigate(page,'customers');await page.getByRole('button',{name:'View & edit',exact:true}).click();await page.getByLabel('Customer checklist (one task per line)',{exact:true}).fill(value);await page.getByRole('button',{name:'Save customer',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible()}
+ await template('Conservatory <b>glass</b>\nMarble-safe surfaces');await book(page,{repeat:'Weekly',count:'2'});
+ await page.getByRole('button',{name:'Open visit',exact:true}).click();await expect(page.locator('#modal .checklist span')).toHaveText(['Conservatory <b>glass</b>','Marble-safe surfaces']);await expect(page.locator('#modal .checklist b')).toHaveCount(0);await close(page);
+ await template('Porch\nFinal quality check');await navigate(page,'jobs');await page.getByRole('button',{name:'Open visit',exact:true}).click();await expect(page.locator('#modal .checklist span')).toHaveText(['Conservatory <b>glass</b>','Marble-safe surfaces']);
+ await page.getByRole('button',{name:'Edit',exact:true}).click();await page.getByLabel('Use customer’s latest checklist for this visit',{exact:true}).check();await page.getByRole('button',{name:'Save visit',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible();
+ await page.getByRole('button',{name:'Open visit',exact:true}).click();await expect(page.locator('#modal .checklist span')).toHaveText(['Porch','Final quality check']);
+ await page.getByRole('button',{name:'Start visit',exact:true}).click();await ready(page);await page.getByRole('button',{name:'Complete visit',exact:true}).click();await expect(page.locator('#form-error')).toContainText('checklist');
+ for(let n=0;n<2;n++){await page.locator('#modal [data-check]').nth(n).check();await ready(page)}
+ await page.getByRole('button',{name:'Complete visit',exact:true}).click();await ready(page);await expect(page.locator('#modal .badge')).toHaveText('Completed');await page.reload();await ready(page);
+ const saved=(await state(context)).state;expect(saved.customers[0].checklistTemplate).toEqual(['Porch','Final quality check']);expect(saved.jobs[0].checklist).toEqual([{label:'Porch',done:true},{label:'Final quality check',done:true}]);expect(saved.jobs[1].checklist).toEqual([{label:'Conservatory <b>glass</b>',done:false},{label:'Marble-safe surfaces',done:false}]);await fits(page);
+});
+
+test('fictional demo allows a bespoke customer checklist and explicit refresh of a booked visit',async({page})=>{
+ await page.goto('/demo/index.html');await page.locator('nav a[href="#customers"]').click();await expect(page.locator('[data-action="customer-detail"][data-id="c5"]')).toBeVisible();await page.locator('[data-action="customer-detail"][data-id="c5"]').click();
+ await page.getByLabel('Customer checklist (one task per line)',{exact:true}).fill('Inside conservatory glass\nLeave porch secure');await page.getByRole('button',{name:'Save customer',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible();
+ await page.locator('nav a[href="#jobs"]').click();await expect(page.getByRole('heading',{name:'Every job, in order.'})).toBeVisible();
+ const visit=()=>page.locator('[data-action="job-detail"][data-id="j0-4"]').first();await visit().click();await page.locator('[data-action="edit-job"]').click();await page.getByLabel('Use customer’s latest checklist for this visit',{exact:true}).check();await page.getByRole('button',{name:'Save visit',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible();
+ await visit().click();await expect(page.locator('#modal .checklist span')).toHaveText(['Inside conservatory glass','Leave porch secure']);await page.locator('[data-action="start-job"]').click();
+ for(let n=0;n<2;n++)await page.locator('#modal [data-check]').nth(n).check();await page.locator('[data-action="complete-job"]').click();await expect(page.locator('#modal .badge')).toHaveText('Completed');
+});
