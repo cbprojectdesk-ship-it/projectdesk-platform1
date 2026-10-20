@@ -25,3 +25,7 @@ Remaining before real-data/customer release:
 7. Owner approval before spending, customer outreach, contracts or a paid launch. No such actions are performed by this release.
 
 The starter security versions were updated from Next 16.3.4 to 16.3.8 and React/RSC 19.2.6 to 19.2.8, alongside patched transitive dependencies. Advisory references include https://github.com/advisories/GHSA-vcvr-r3jv-pc5j and https://github.com/advisories/GHSA-wx67-qw84-cm4g . The remaining developer-only issue is https://github.com/advisories/GHSA-vfj7-8cjw-p6xm .
+
+## Later verification update
+
+The earlier 81-test count above is historical. The platform suite now has 114 cases, including three added synthetic disaster-recovery cases. All passed locally on 20 October 2026. Thirty separate cross-browser cases passed on GitHub for PR #8 (five scenarios in six browser/viewport projects). A new encrypted operator recovery module and Help page are being checked as a follow-up; exact PR-head checks must pass before merging. Hosted identity, actual-device and independent D1 recovery gates remain open.
