@@ -107,7 +107,8 @@ test('checklist native tick remains visible-sized through label, keyboard and pe
 });
 
 test('fictional demo checklist uses the same native tick and keeps it after reopening',async({page})=>{
- await page.goto('/demo/index.html');await page.locator('nav a[href="#jobs"]').click();
+ await page.goto('/demo/index.html');await page.locator('nav a[href="#jobs"]').click();await expect(page.getByRole('heading',{name:'Every job, in order.'})).toBeVisible();
+ const phone=(page.viewportSize().width<=570);await expect(page.locator('.mobile-job-table tbody tr').first()).toHaveCSS('display',phone?'grid':'table-row');await fits(page);
  const visit=()=>page.locator('[data-action="job-detail"][data-id="j0-4"]').first();await visit().click();
  await page.locator('[data-action="start-job"]').click();
  const first=()=>page.locator('#modal .checklist input[type=checkbox]').first();
@@ -121,6 +122,6 @@ test('mobile preview renders the actual responsive app within a phone-width fram
  const phone=page.locator('iframe');const bounds=await phone.boundingBox();expect(bounds.width).toBeLessThanOrEqual(390);expect(bounds.width).toBeGreaterThan(300);
  const app=page.frameLocator('iframe');await expect(app.getByRole('heading',{name:'A clearer day starts here.'})).toBeVisible();
  const inner=await phone.elementHandle();const frame=await inner.contentFrame();expect(await frame.evaluate(()=>window.innerWidth)).toBeLessThanOrEqual(390);
- await page.getByRole('link',{name:'My workspace',exact:true}).click();await expect(app.locator('main#main')).toBeVisible();await expect(app.locator('main#main')).not.toContainText('Fictional demo workspace');
+ await page.getByRole('link',{name:'My workspace',exact:true}).click();await expect(app.locator('main#main')).toBeVisible();await expect(app.locator('nav a[href="#settings"]')).toHaveText(/Settings/);
  await fits(page);
 });
