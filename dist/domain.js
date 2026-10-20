@@ -1,13 +1,19 @@
 // All prices use integer pence. This module models demo permissions, not authentication.
 export const TODAY='2026-10-20';
 export const money=n=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(n/100);
-export function dayAdd(day,n){const d=new Date(day+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)}
+export function dayAdd(day,n){
+ if(!validDate(day))throw Error('Choose a valid calendar date.');
+ if(!Number.isSafeInteger(n))throw Error('Days must be an integer.');
+ const d=new Date(day+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+n);
+ if(!Number.isFinite(d.getTime())||d.getUTCFullYear()<1||d.getUTCFullYear()>9999)throw Error('Date is outside the supported calendar.');
+ return d.toISOString().slice(0,10);
+}
 export const dateLabel=day=>new Date(day+'T12:00:00Z').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',timeZone:'Europe/London'});
 export const minutes=t=>Number(t.slice(0,2))*60+Number(t.slice(3));
 const uid=prefix=>prefix+'-'+crypto.randomUUID();
 const fail=m=>{throw Error(m)};
 const text=(v,max=500)=>{if(typeof v!=='string'||v.length>max)fail('Text is too long or invalid.');return v.trim()};
-export function validDate(v){return typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&!isNaN(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v}
+export function validDate(v){return typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&v>='0001-01-01'&&!isNaN(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v}
 export function seed(){
  const customers=[
  ['c1','The Willow House','Domestic','14 Willow Lane, Southport · PR8 (fictional)','willow@example.com','Use fragrance-free products. Ring the bell before arrival.'],
@@ -30,7 +36,7 @@ export function seed(){
  return state;
 }
 export function requireManager(actor){if(actor?.role!=='manager')fail('Manager permission required.');}
-export function accessibleJobs(state,actor){return actor?.role==='manager'?state.jobs:state.jobs.filter(j=>j.staffId===actor?.staffId)}
+export function accessibleJobs(state,actor){if(actor?.role==='manager')return state.jobs;if(actor?.role!=='staff'||!state.staff.some(s=>s.id===actor.staffId))return [];return state.jobs.filter(j=>j.staffId===actor.staffId)}
 export function getJob(state,actor,id){const j=accessibleJobs(state,actor).find(j=>j.id===id);if(!j)fail('Job not found or not assigned to you.');return j}
 function log(state,actor,message){state.audit.unshift({at:new Date().toISOString(),actor:actor.role==='manager'?'Manager':actor.staffId,message});state.audit=state.audit.slice(0,200)}
 export function saveCustomer(state,actor,data,id){requireManager(actor);const name=text(data.name,100);if(!name)fail('Customer name is required.');const email=text(data.email,150);if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))fail('Enter a valid email address.');if(!['Domestic','Commercial','End of tenancy'].includes(data.type))fail('Choose a customer type.');const customer={name,email,type:data.type,address:text(data.address,250),notes:text(data.notes,1000),active:true};if(!customer.address)fail('Service address is required.');if(id){const old=state.customers.find(c=>c.id===id);if(!old)fail('Customer not found.');Object.assign(old,customer);log(state,actor,'Updated customer '+name);return old}customer.id=uid('c');state.customers.push(customer);log(state,actor,'Created customer '+name);return customer}
@@ -46,4 +52,20 @@ export function createInvoice(state,actor,jobId,vat=0){requireManager(actor);con
 export function markPaid(state,actor,id){requireManager(actor);const i=state.invoices.find(i=>i.id===id);if(!i||i.status==='Paid')fail('Invoice not found or already paid.');i.status='Paid';i.paidOn=TODAY;log(state,actor,'Recorded manual payment '+i.number)}
 export function metrics(state){const jobs=state.jobs.filter(j=>j.date===TODAY&&j.status!=='Cancelled');return {today:jobs.length,completed:jobs.filter(j=>j.status==='Completed').length,unassigned:state.jobs.filter(j=>j.date>=TODAY&&j.status==='Scheduled'&&!j.staffId).length,scheduledValue:jobs.reduce((a,j)=>a+j.price,0),outstanding:state.invoices.filter(i=>i.status!=='Paid').reduce((a,i)=>a+i.total,0),paid:state.invoices.filter(i=>i.status==='Paid').reduce((a,i)=>a+i.total,0)}}
 export function csv(rows){return rows.map(row=>row.map(v=>{let s=String(v??'');if(/^(?:[\s]*[=+\-@]|[\t\r])/.test(s))s="'"+s;return '"'+s.replaceAll('"','""')+'"'}).join(',')).join('\r\n')}
-export function validateState(s){return !!s&&s.version===1&&['customers','staff','jobs','invoices','audit'].every(k=>Array.isArray(s[k]))&&s.customers.every(c=>typeof c.name==='string')&&s.staff.every(m=>typeof m.name==='string')&&s.jobs.every(j=>validDate(j.date)&&typeof j.time==='string'&&Number.isSafeInteger(j.price)&&Number.isFinite(j.duration)&&Array.isArray(j.checklist)&&s.customers.some(c=>c.id===j.customerId))&&s.invoices.every(i=>Number.isSafeInteger(i.total)&&Number.isSafeInteger(i.net)&&Number.isSafeInteger(i.tax))}
+// Treat browser storage as untrusted. Validate before rendering any nested record.
+export function validateState(s){
+ const record=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
+ const str=(v,max,required=false)=>typeof v==='string'&&v.length<=max&&(!required||v.trim().length>0);
+ const id=v=>str(v,100,true);
+ const amount=v=>Number.isSafeInteger(v)&&v>=0&&v<=12000000;
+ const unique=rows=>rows.every(record)&&rows.every(r=>id(r.id))&&new Set(rows.map(r=>r.id)).size===rows.length;
+ if(!record(s)||s.version!==1||!['customers','staff','jobs','invoices','audit'].every(k=>Array.isArray(s[k])&&s[k].length<=10000))return false;
+ if(!['customers','staff','jobs','invoices'].every(k=>unique(s[k])))return false;
+ const customers=new Map(s.customers.map(c=>[c.id,c])),staff=new Map(s.staff.map(m=>[m.id,m])),jobs=new Map(s.jobs.map(j=>[j.id,j])),invoices=new Map(s.invoices.map(i=>[i.id,i]));
+ if(!s.customers.every(c=>str(c.name,100,true)&&str(c.address,250,true)&&str(c.email,150)&&(!c.email||/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email))&&str(c.notes,1000)&&['Domestic','Commercial','End of tenancy'].includes(c.type)&&typeof c.active==='boolean'))return false;
+ if(!s.staff.every(m=>str(m.name,100,true)&&str(m.role,100,true)&&['green','blue','orange','purple'].includes(m.colour)&&Number.isInteger(m.capacity)&&m.capacity>=60&&m.capacity<=720))return false;
+ if(!s.jobs.every(j=>customers.has(j.customerId)&&(j.staffId===''||staff.has(j.staffId))&&validDate(j.date)&&typeof j.time==='string'&&/^([01]\d|2[0-3]):[0-5]\d$/.test(j.time)&&Number.isInteger(j.duration)&&j.duration>=15&&j.duration<=720&&minutes(j.time)+j.duration<=1440&&amount(j.price)&&j.price<=10000000&&str(j.round,80,true)&&['One-off','Weekly','Fortnightly','Four-weekly'].includes(j.repeat)&&id(j.seriesId)&&['Scheduled','In progress','Completed','Cancelled'].includes(j.status)&&str(j.notes,2000)&&Array.isArray(j.checklist)&&j.checklist.length>0&&j.checklist.length<=100&&j.checklist.every(c=>record(c)&&str(c.label,200,true)&&typeof c.done==='boolean')&&(j.status!=='Completed'||j.checklist.every(c=>c.done))&&(j.invoiceId===null||(invoices.has(j.invoiceId)&&invoices.get(j.invoiceId).jobId===j.id&&j.status==='Completed'))))return false;
+ if(new Set(s.invoices.map(i=>i.number)).size!==s.invoices.length)return false;
+ if(!s.invoices.every(i=>jobs.has(i.jobId)&&jobs.get(i.jobId).invoiceId===i.id&&jobs.get(i.jobId).customerId===i.customerId&&customers.has(i.customerId)&&str(i.number,30)&&/^QV-[1-9]\d{3,11}$/.test(i.number)&&str(i.customerName,100,true)&&str(i.address,250,true)&&str(i.description,500,true)&&validDate(i.issued)&&validDate(i.due)&&i.due>=i.issued&&amount(i.net)&&amount(i.tax)&&amount(i.total)&&[0,20].includes(i.vat)&&i.tax===Math.round(i.net*i.vat/100)&&i.total===i.net+i.tax&&['Draft','Paid'].includes(i.status)&&(i.status==='Paid'?validDate(i.paidOn)&&i.paidOn>=i.issued:i.paidOn===null)))return false;
+ return s.audit.length<=200&&s.audit.every(a=>record(a)&&str(a.at,40,true)&&Number.isFinite(Date.parse(a.at))&&str(a.actor,100,true)&&str(a.message,2200,true));
+}
