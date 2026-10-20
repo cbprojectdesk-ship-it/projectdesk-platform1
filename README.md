@@ -41,3 +41,12 @@ Saved records are validated before rendering. Detected stale-tab edits are
 blocked until reload; this is not transactional multi-user concurrency control.
 The demo clock is deliberately fixed to 20 October 2026. Browser/real-device
 acceptance remains outstanding; automated UI tests run against DOM adapters.
+
+## Server-backed workspace
+
+`platform/` now contains the private server-backed development candidate with
+managed sign-in, server-enforced business/worker access, transactional records,
+idempotent writes, staff invitation/revocation and revision recovery. It includes
+81 automated checks, preserving the original demo under `platform/public/demo/`.
+See `platform/README.md` and `platform/docs/RELEASE_STATUS.md` for setup, security
+boundaries and remaining production gates. This does not certify a paid launch.
