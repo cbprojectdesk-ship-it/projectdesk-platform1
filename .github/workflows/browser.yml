@@ -1,0 +1,43 @@
+name: Free browser acceptance
+on:
+  push:
+    branches: [main]
+    paths: ['browser-tests/**', 'platform/public/**', 'platform/server/**', 'platform/drizzle/**', 'platform/tests/support/**', '.github/workflows/browser.yml']
+  pull_request:
+    paths: ['browser-tests/**', 'platform/public/**', 'platform/server/**', 'platform/drizzle/**', 'platform/tests/support/**', '.github/workflows/browser.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browsers:
+    # Standard hosted runners are free for public repositories. Fail closed if
+    # repository visibility changes; no paid/larger runner or artifact uploads.
+    if: github.event.repository.private == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      QUENVIRA_E2E: '1'
+    defaults:
+      run:
+        working-directory: browser-tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: npm test
+      - name: Browser result summary
+        if: always()
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const file='results.json';
+          if(!fs.existsSync(file)){
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,'Browser tests did not produce a result. Inspect the installation/server logs.\n');
+          }else{
+            const {stats}=JSON.parse(fs.readFileSync(file,'utf8'));
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,`## Quenvira browser acceptance\n\nPassed: ${stats.expected}; failed: ${stats.unexpected}; skipped: ${stats.skipped}; flaky: ${stats.flaky}.\n\nChromium, Firefox and WebKit on Linux; desktop, 360px/390px mobile and 768px tablet viewports. Real browser/client/API/SQLite tests with simulated platform identity. This does not verify live Sites sign-in, D1, real hardware, independent backups or legal readiness. No stored artifacts.\n`);
+          }
+          NODE
