@@ -172,7 +172,7 @@ test('phone preview can open the real app full screen and preserves invoice text
  await context.addInitScript(()=>{Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:()=>Promise.reject(new Error('Clipboard blocked for fixture'))}})});
  await page.goto('/mobile.html');await page.getByRole('link',{name:'Open demo full screen',exact:true}).click();await expect(page).toHaveURL(/\/demo\/index.html$/);await expect(page.locator('iframe')).toHaveCount(0);
  await page.locator('nav a[href="#invoices"]').click();await page.locator('[data-action="invoice-detail"][data-id="i0"]').click();await page.getByRole('button',{name:'Prepare email copy',exact:true}).click();
- const link=page.getByRole('link',{name:'Open email app',exact:true});await expect(link).toHaveAttribute('target','_blank');await expect(link).toHaveAttribute('rel','noopener noreferrer');
+ const originalURL=page.url();const link=page.getByRole('link',{name:'Open email app',exact:true});await expect(link).toHaveAttribute('target','_blank');await expect(link).toHaveAttribute('rel','noopener noreferrer');
  await page.getByRole('button',{name:'Copy message text',exact:true}).click();await expect(page.getByRole('status')).toContainText('Text selected');const area=page.getByLabel('Email text',{exact:true});
- expect(await area.evaluate(el=>el.selectionStart===0&&el.selectionEnd===el.value.length)).toBe(true);await expect(page.getByRole('heading',{name:'Review draft invoice email'})).toBeVisible();await expect(page).toHaveURL(/\/demo\/index.html$/);
+ expect(await area.evaluate(el=>el.selectionStart===0&&el.selectionEnd===el.value.length)).toBe(true);await expect(page.getByRole('heading',{name:'Review draft invoice email'})).toBeVisible();await expect(page).toHaveURL(originalURL);
 });
