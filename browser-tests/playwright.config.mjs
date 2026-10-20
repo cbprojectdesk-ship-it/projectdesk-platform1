@@ -8,6 +8,7 @@ export default defineConfig({
   {name:'chromium-desktop',use:{browserName:'chromium',viewport:{width:1440,height:900}}},
   {name:'firefox-desktop',use:{browserName:'firefox',viewport:{width:1440,height:900}}},
   {name:'webkit-desktop',use:{browserName:'webkit',viewport:{width:1440,height:900}}},
+  {name:'chromium-small-mobile',use:{browserName:'chromium',viewport:{width:360,height:800},isMobile:true,hasTouch:true}},
   {name:'chromium-mobile',use:{browserName:'chromium',viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
   {name:'chromium-tablet',use:{browserName:'chromium',viewport:{width:768,height:1024},hasTouch:true}}
  ],

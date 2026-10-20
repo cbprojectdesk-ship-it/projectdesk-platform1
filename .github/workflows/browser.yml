@@ -38,6 +38,6 @@ jobs:
             fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,'Browser tests did not produce a result. Inspect the installation/server logs.\n');
           }else{
             const {stats}=JSON.parse(fs.readFileSync(file,'utf8'));
-            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,`## Quenvira browser acceptance\n\nPassed: ${stats.expected}; failed: ${stats.unexpected}; skipped: ${stats.skipped}; flaky: ${stats.flaky}.\n\nChromium, Firefox and WebKit on Linux; desktop, 390px mobile and 768px tablet viewports. Real browser/client/API/SQLite tests with simulated platform identity. This does not verify live Sites sign-in, D1, real hardware, independent backups or legal readiness. No stored artifacts.\n`);
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,`## Quenvira browser acceptance\n\nPassed: ${stats.expected}; failed: ${stats.unexpected}; skipped: ${stats.skipped}; flaky: ${stats.flaky}.\n\nChromium, Firefox and WebKit on Linux; desktop, 360px/390px mobile and 768px tablet viewports. Real browser/client/API/SQLite tests with simulated platform identity. This does not verify live Sites sign-in, D1, real hardware, independent backups or legal readiness. No stored artifacts.\n`);
           }
           NODE

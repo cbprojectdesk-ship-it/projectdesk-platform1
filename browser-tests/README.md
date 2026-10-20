@@ -2,7 +2,7 @@
 
 GitHub Actions runs Playwright against the real secure workspace HTML, JavaScript,
 styles, API handlers, domain logic and disposable SQLite databases. Five scenarios
-run in five projects: Chromium/Firefox/WebKit desktop, Chromium 390px mobile and
+run in six projects: Chromium/Firefox/WebKit desktop, Chromium 360px/390px mobile and
 Chromium 768px tablet. These are browser engines on Linux, not physical devices or
 installed Safari/Android Chrome acceptance.
 
