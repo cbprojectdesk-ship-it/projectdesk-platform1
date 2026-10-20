@@ -10,8 +10,9 @@ test.beforeEach(async({context,page})=>{
  const response=await context.request.post('/__test/seed',{data:{}});expect(response.ok()).toBeTruthy();
  page.on('dialog',dialog=>dialog.accept());
 });
-const close=page=>page.locator('#modal [data-action="close"]').click();
+const close=page=>page.locator('#modal > header [data-action="close"]').click();
 async function navigate(page,route){await page.locator(`nav a[href="#${route}"]`).click();await expect(page.locator('main#main')).toBeVisible();await expect(page.locator('#app')).not.toHaveAttribute('aria-busy','true')}
+async function fits(page){const size=await page.evaluate(()=>({actual:document.documentElement.scrollWidth,available:window.innerWidth}));expect(size.actual,'page overflow with saved records').toBeLessThanOrEqual(size.available+1)}
 async function ready(page){await expect(page.locator('main#main')).toBeVisible();await expect(page.locator('#app')).not.toHaveAttribute('aria-busy','true')}
 async function state(context){const session=await (await context.request.get('/api/quenvira/session')).json();return (await context.request.get('/api/quenvira/workspaces/'+session.workspaces[0].id)).json()}
 async function addCustomer(page,name='QA Willow House'){
@@ -30,14 +31,14 @@ async function book(page,{repeat='One-off',count='1',date='2026-10-20',time='09:
 }
 
 test('customer to completed checklist, exact VAT, download, payment and persisted reload',async({page,context})=>{
- const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('/workspace.html');await addCustomer(page);await addStaff(page);await book(page);
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('/workspace.html');await addCustomer(page);await addStaff(page);await book(page);await fits(page);
  await page.getByRole('button',{name:'Open visit',exact:true}).click();await page.getByRole('button',{name:'Start visit',exact:true}).click();await ready(page);
  await page.getByRole('button',{name:'Complete visit',exact:true}).click();await expect(page.locator('#form-error')).toContainText('checklist');
  await page.getByLabel('Visit notes').fill('QA visit completed');await page.getByRole('button',{name:'Save note',exact:true}).click();await ready(page);
  for(let n=0;n<4;n++){await page.locator('#modal input[type=checkbox]').nth(n).check();await ready(page);await expect(page.locator('#modal input[type=checkbox]').nth(n)).toBeChecked()}
  await page.getByRole('button',{name:'Complete visit',exact:true}).click();await ready(page);await expect(page.locator('#modal .badge')).toHaveText('Completed');
  await page.getByRole('button',{name:'Create invoice',exact:true}).click();await page.getByLabel('VAT for registered suppliers only').selectOption('20');await page.getByRole('button',{name:'Create draft',exact:true}).click();await ready(page);
- await expect(page.locator('.invoice-totals')).toContainText('£94.79');await expect(page.locator('.invoice-totals')).toContainText('£15.80');
+ await fits(page);await expect(page.locator('.invoice-totals')).toContainText('£94.79');await expect(page.locator('.invoice-totals')).toContainText('£15.80');
  const downloaded=page.waitForEvent('download');await page.getByRole('button',{name:'Download draft',exact:true}).click();const download=await downloaded;
  expect(download.suggestedFilename()).toMatch(/DRAFT\.txt$/);expect(await fs.readFile(await download.path(),'utf8')).toContain('Total £94.79');
  await page.getByRole('button',{name:'Record manual payment',exact:true}).click();await ready(page);await expect(page.locator('#modal .badge')).toHaveText('Paid');
