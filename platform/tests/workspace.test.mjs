@@ -1,0 +1,31 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import {database,setup,request,fixtures,command,job,ORIGIN} from './support/database.mjs';
+const source=fs.readFileSync(new URL('../public/workspace.js',import.meta.url),'utf8');
+async function browserAdapter(db,user='alice'){
+ const elements=new Map(),events=new Map();
+ const make=()=>({innerHTML:'',textContent:'',open:false,dataset:{},setAttribute(){},classList:{add(){},remove(){}},showModal(){this.open=true},close(){this.open=false},click(){},focus(){},setSelectionRange(){}});
+ for(const k of ['#app','#modal','#toast','#form-error','#workspace-select'])elements.set(k,make());
+ const control={dropNextResponse:false};
+ const context={console,Map,Set,Object,String,Array,Number,Math,Date,Intl,Error,URL,Blob,crypto,JSON,setTimeout(){return 0},confirm:()=>true,location:{hash:'',pathname:'/workspace.html',origin:ORIGIN},history:{replaceState(){}},document:{querySelector:s=>elements.get(s)||null,querySelectorAll:()=>[],addEventListener:(name,fn)=>events.set(name,fn),createElement:make},window:{addEventListener:(name,fn)=>events.set(name,fn)},FormData:class{constructor(form){return new Map(Object.entries(form.values))}},fetch:async(path,options)=>{const value=await request(db,path.replace('/api/quenvira/',''),options.body?JSON.parse(options.body):undefined,user);if(control.dropNextResponse){control.dropNextResponse=false;throw Error('Lost response after commit')}return new Response(JSON.stringify(value.body),{status:value.status,headers:{'Content-Type':'application/json'}})}};
+ vm.createContext(context);vm.runInContext(source.replace(/start\(\);\s*$/,`globalThis.ready=start();globalThis.ui={act,command,reload,render,formCustomer,formJob,jobDetail,formInvoice,invoiceDetail,data:()=>data,busy:()=>busy};`),context);
+ await context.ready;
+ return {ui:context.ui,context,elements,control,async submit(kind,values,id=''){const form={dataset:{form:kind,id},values,closest(){return this}};events.get('submit')({target:form,preventDefault(){}});let count=0;while(context.ui.busy()){if(count++>100)throw Error('Form did not settle');await new Promise(setImmediate)}}};
+}
+test('secure client forms exercise customer, worker, booking, checklist, invoicing and persistence through real server handlers',async()=>{const db=database(),w=await setup(db),h=await browserAdapter(db);
+ await h.submit('customer',{name:'Fictional Customer',type:'Domestic',address:'Invented Road',email:'client@example.com',notes:'Invented preferences'});
+ await h.submit('staff',{name:'Fictional Worker',role:'Cleaner',capacity:'480'});
+ const state=h.ui.data().state;
+ await h.submit('job',{customerId:state.customers[0].id,staffId:state.staff[0].id,date:'2026-10-20',time:'09:00',duration:'120',price:'78.99',round:'Local',repeat:'One-off',count:'1'});
+ const id=h.ui.data().state.jobs[0].id;await h.ui.act('start-job',id);
+ for(let n=0;n<4;n++)await h.ui.command('job.update',{id,action:'check',value:n});
+ await h.submit('note',{note:'Work complete'},id);await h.ui.act('complete-job',id);
+ await h.submit('invoice',{jobId:id,vat:'20'});const invoice=h.ui.data().state.invoices[0];assert.equal(invoice.total,9479);
+ await h.ui.act('pay',invoice.id);const reloaded=await browserAdapter(db);assert.equal(reloaded.ui.data().state.invoices[0].status,'Paid');assert.equal(reloaded.ui.data().state.jobs[0].notes,'Work complete');assert.equal(reloaded.ui.data().workspaceId,w);
+});
+test('client retries a lost response using the same request ID without creating duplicate records',async()=>{const db=database();await setup(db);const h=await browserAdapter(db),values={name:'Retry customer',type:'Domestic',address:'Invented',email:'',notes:''};h.control.dropNextResponse=true;await assert.rejects(()=>h.ui.command('customer.save',values),/Connection lost/);await h.ui.command('customer.save',values);assert.equal(h.ui.data().state.customers.length,1)});
+test('client refreshes stale state on a conflict and does not overwrite another session',async()=>{const db=database(),w=await setup(db),h=await browserAdapter(db);await command(db,w,'customer.save',{name:'Other session',type:'Domestic',address:'Invented',email:'',notes:''});await assert.rejects(()=>h.ui.command('staff.add',{name:'New worker',role:'Cleaner',capacity:480}),/Latest records/);assert.equal(h.ui.data().state.customers.length,1);assert.equal(h.ui.data().state.staff.length,0)});
+test('assigned worker UI renders no manager navigation or invoices',async()=>{const db=database(),w=await setup(db),f=await fixtures(db,w);await command(db,w,'job.save',job(f));db.sqlite.prepare("INSERT INTO memberships VALUES (?,?,'staff',?)").run(w,'worker',f.staffId);const h=await browserAdapter(db,'worker'),html=h.elements.get('#app').innerHTML;assert.ok(html.includes('Your jobs. Your day.'));assert.ok(!html.includes('href="#invoices"'));assert.ok(!html.includes('href="#customers"'));assert.equal(h.ui.data().state.jobs[0].price,undefined)});
+test('secure client does not write personal data or tokens to browser storage, and forms have dedicated handlers',()=>{assert.ok(!/localStorage|sessionStorage/.test(source.replace(/^\/\/.*$/gm,'')));for(const form of ['setup','customer','staff','job','note','invoice','invite'])assert.match(source,new RegExp("case '"+form+"'"));const html=fs.readFileSync(new URL('../public/workspace.html',import.meta.url),'utf8');assert.match(html,/connect-src 'self'/);assert.ok(!html.includes('unsafe-inline'))});

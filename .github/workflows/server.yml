@@ -1,0 +1,28 @@
+name: Server workspace checks
+on:
+  push:
+    paths: ['platform/**', '.github/workflows/server.yml']
+  pull_request:
+    paths: ['platform/**', '.github/workflows/server.yml']
+permissions:
+  contents: read
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: platform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm run check
+      - run: npm test
+      - run: corepack enable
+      - run: corepack prepare pnpm@11.25.0 --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec tsc --noEmit
+      - run: pnpm audit --prod --audit-level high
+      - run: npm run build
