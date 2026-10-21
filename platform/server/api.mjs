@@ -1,3 +1,4 @@
+import {photoKey,decodePhoto,setStaffPhoto} from './staff-photos.mjs';
 import {saveSupplier,issueInvoice,creditInvoice,assertFinancialRestore} from './billing.mjs';
 import * as D from './domain.mjs';
 const headers={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store, private','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'};
@@ -16,11 +17,11 @@ function project(state,m){
  const customerIds=new Set(jobs.map(j=>j.customerId));
  return {version:1,jobs,customers:state.customers.filter(c=>customerIds.has(c.id)).map(({email,active,checklistTemplate,...c})=>c),staff:state.staff.filter(s=>s.id===m.staff_id),invoices:[],audit:[]};
 }
-async function readBody(request){
+async function readBody(request,maximum=16384){
  if(!request.headers.get('content-type')?.startsWith('application/json'))problem(415,'Use JSON requests.');
- if(Number(request.headers.get('content-length')||0)>16384)problem(413,'Request too large.');
+ if(Number(request.headers.get('content-length')||0)>maximum)problem(413,'Request too large.');
  const reader=request.body?.getReader();if(!reader)problem(400,'JSON body required.');let size=0,chunks=[];
- while(true){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>16384){await reader.cancel();problem(413,'Request too large.')}chunks.push(value)}
+ while(true){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>maximum){await reader.cancel();problem(413,'Request too large.')}chunks.push(value)}
  try{const bytes=new Uint8Array(size);let n=0;for(const c of chunks){bytes.set(c,n);n+=c.length}const value=JSON.parse(new TextDecoder().decode(bytes));if(!value||typeof value!=='object'||Array.isArray(value))problem(400,'JSON object required.');return value}catch(e){if(e instanceof Problem)throw e;problem(400,'Invalid JSON.');}
 }
 async function membership(db,workspace,user){
@@ -29,7 +30,7 @@ async function membership(db,workspace,user){
  if(!m||!['manager','staff'].includes(m.role))problem(404,'Workspace not found.');return m;
 }
 async function load(db,workspace){const row=await db.prepare('SELECT * FROM workspaces WHERE id = ?').bind(workspace).first();if(!row)problem(404,'Workspace not found.');let state;try{state=JSON.parse(row.document)}catch{problem(503,'Workspace data needs recovery.')}if(!D.validateState(state))problem(503,'Workspace data needs recovery.');return {row,state}}
-export async function handle(request,db,{now=()=>new Date()}={}){
+export async function handle(request,db,{now=()=>new Date(),bucket}={}){
  try{
   // Sites dispatch must overwrite identity headers and keep the Worker origin private.
   const user=request.headers.get('oai-authenticated-user-id');
@@ -74,9 +75,18 @@ export async function handle(request,db,{now=()=>new Date()}={}){
   const workspace=path[1],m=await membership(db,workspace,user);
   const {row,state}=await load(db,workspace);
   if(path.length===2&&request.method==='GET')return json({workspaceId:workspace,name:row.name,revision:row.revision,actor:{role:m.role,staffId:m.staff_id},today:asOf,state:project(state,m)});
+  if(path.length===5&&path[2]==='staff'&&path[4]==='photo'&&request.method==='GET'){
+   const staff=state.staff.find(s=>s.id===path[3]);if(!staff||m.role!=='manager'&&m.staff_id!==staff.id)problem(404,'Staff photo not found.');
+   if(!staff.photoId)problem(404,'Staff photo not found.');if(!bucket)problem(503,'Photo storage is unavailable.');
+   const photo=await bucket.get(photoKey(workspace,staff.id,staff.photoId));if(!photo)problem(404,'Staff photo not found.');
+   return new Response(photo.body,{headers:{'Content-Type':'image/jpeg','Cross-Origin-Resource-Policy':'same-origin','Cache-Control':'no-store, private','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'",'Referrer-Policy':'no-referrer'}});
+  }
   if(path.length===3&&path[2]==='delete'&&request.method==='POST'){
    manager(m);const body=await readBody(request);if(body.confirmName!==row.name)problem(400,'Business name does not match.');
-   const removed=await db.batch([db.prepare("DELETE FROM workspaces WHERE id = ? AND EXISTS (SELECT 1 FROM memberships WHERE workspace_id = workspaces.id AND user_id = ? AND role = 'manager') RETURNING id").bind(workspace,user)]);if(!removed[0].results?.length)problem(403,'Manager access changed. Reload before editing.');return json({deleted:true});
+   const removed=await db.batch([db.prepare("DELETE FROM workspaces WHERE id = ? AND EXISTS (SELECT 1 FROM memberships WHERE workspace_id = workspaces.id AND user_id = ? AND role = 'manager') RETURNING id").bind(workspace,user)]);if(!removed[0].results?.length)problem(403,'Manager access changed. Reload before editing.');
+   let photoCleanupPending=false;
+   if(bucket){try{let cursor;do{const page=await bucket.list({prefix:workspace+'/',limit:1000,...(cursor?{cursor}:{})});if(page.objects.length)await bucket.delete(page.objects.map(o=>o.key));cursor=page.truncated?page.cursor:undefined;}while(cursor)}catch{photoCleanupPending=true;console.error('Quenvira photo cleanup requires operator attention.');}}
+   return json({deleted:true,photoCleanupPending});
   }
   if(path.length===3&&path[2]==='invitations'){
    manager(m);
@@ -104,8 +114,10 @@ export async function handle(request,db,{now=()=>new Date()}={}){
   if(path.length===3&&path[2]==='backups'&&request.method==='GET'){
    manager(m);const result=await db.prepare('SELECT revision, created_at FROM history WHERE workspace_id = ? ORDER BY revision DESC LIMIT 20').bind(workspace).all();return json({backups:result.results});
   }
-  if(path.length!==3||path[2]!=='commands'||request.method!=='POST')problem(404,'Route not found.');
-  const body=await readBody(request);
+  const photoCommand=path.length===4&&path[2]==='commands'&&path[3]==='photo';
+  if(!(path.length===3&&path[2]==='commands'||photoCommand)||request.method!=='POST')problem(404,'Route not found.');
+  const body=await readBody(request,photoCommand?65536:16384);
+  if(photoCommand!==(body.action==='staff.photo'))problem(400,'Use the correct command endpoint.');
   if(!validId(body.requestId)||!Number.isSafeInteger(body.revision)||body.revision<0||typeof body.action!=='string'||!body.data||typeof body.data!=='object'||Array.isArray(body.data))problem(400,'Invalid command.');
   const requestHash=await hashToken(JSON.stringify({revision:body.revision,action:body.action,data:body.data}));
   const prior=await db.prepare('SELECT user_id, response FROM operations WHERE workspace_id = ? AND id = ?').bind(workspace,body.requestId).first();
@@ -117,6 +129,14 @@ export async function handle(request,db,{now=()=>new Date()}={}){
    switch(body.action){
     case 'customer.save':result=D.saveCustomer(state,actor,data,data.id);break;
     case 'customer.archive':D.archiveCustomer(state,actor,data.id);break;
+    case 'staff.photo':{
+     manager(m);if(!state.staff.some(s=>s.id===data.id))problem(404,'Staff member not found.');
+     if(data.jpegBase64===null){result=setStaffPhoto(state,actor,data.id,null);break}
+     if(!bucket)problem(503,'Photo storage is unavailable.');
+     const bytes=decodePhoto(data.jpegBase64),photoId=await hashToken(data.jpegBase64);
+     try{await bucket.put(photoKey(workspace,data.id,photoId),bytes,{httpMetadata:{contentType:'image/jpeg'}})}catch{problem(503,'Photo could not be saved. Try again.');}
+     result=setStaffPhoto(state,actor,data.id,photoId);break;
+    }
     case 'staff.add':result=D.addStaff(state,actor,data);break;
     case 'job.save':result=D.saveJob(state,actor,data,data.id);break;
     case 'job.series':result=D.updateSeries(state,actor,data,asOf);break;
