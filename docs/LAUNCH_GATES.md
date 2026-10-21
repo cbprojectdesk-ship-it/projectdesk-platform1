@@ -46,3 +46,36 @@ The merged recurring-series controls now support pausing, resuming, cancelling a
 Thirty browser cases passed on GitHub in Chromium, Firefox and WebKit desktop and Chromium 360/390/768px projects using the real client/API and isolated SQLite with simulated identity. Evidence: PR #8 and its linked Actions run. This is not hosted authentication, D1 or physical-device certification.
 
 The operator recovery module and three added regression cases exercise authenticated encryption, recovery into an empty isolated database after closing the source, preservation of paid invoices and paused visits, tenant denial, wrong keys, tampering and transactional rollback. These are synthetic tests, not scheduled independent production backups. See OPERATIONS_RUNBOOK.md.
+
+## Invoice engineering update — 21 October 2026
+
+PR #13's outside-frame email-app handoff and copy fallback is merged and privately
+deployed. Real Android mail-app launch and actual send/receipt remain device checks.
+
+The invoice engineering candidate adds a required UK supplier profile, issue-time
+supplier/customer/service/line snapshots, Issued and Credited states, full credits
+for unpaid issued invoices, payment guards, print/save-PDF styling and frozen
+supplier details in email/text output. Workspace recovery refuses revisions that
+would remove or alter an issued invoice, payment or credit. Independent operator
+recovery remains available. No SQL migration is required. Old server validators
+cannot read the new invoice statuses: do not roll back to a pre-invoice release
+after issuing test documents.
+
+This is limited to GBP, one visit per invoice, 14-day terms and 0%/20% VAT. Partial
+credits, paid-invoice refunds, other tax regimes/rates, editable draft lines,
+automatic PDF attachments, email delivery and accounting integrations are not
+implemented. All issued documents retain private-test markings; this work is not
+accountant approval, legal certification or permission to bill customers.
+
+The supplier profile follows the fields identified in GOV.UK's invoice guidance:
+https://www.gov.uk/invoicing-and-taking-payment-from-customers/invoices-what-they-must-include
+Credit handling is limited to a full genuine correction/agreed reduction:
+https://www.gov.uk/guidance/vat-guide-notice-700
+https://www.gov.uk/guidance/relief-from-vat-on-bad-debts-notice-70018
+
+Remaining launch gates: actual device/mail handoff and two-account hosted access,
+independent automated backups plus real managed-database restore, monitoring and
+rollback drills, long-running recurrence/scale limits, legal/privacy/contact and
+accounting acceptance. Native database inspection found a populated fictional-test
+workspace at revision 26 on 21 October; this is evidence of saved records, not a
+complete sign-in, multi-device or multi-user acceptance run.
