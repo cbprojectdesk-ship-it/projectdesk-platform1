@@ -205,3 +205,17 @@ test('guided setup takes an owner from staff to customer to booked visit and ass
  await page.goto('/workspace.html');await ready(page);await expect(page.getByRole('heading',{name:'Your jobs. Your day.',exact:true})).toBeVisible();await expect(page.locator('main')).toContainText('10 Guided Lane (fictional)');await expect(page.locator('main')).toContainText('Jobs today');await expect(page.locator('nav a[href="#dashboard"]')).toHaveCount(0);await expect(page.locator('nav a[href="#invoices"]')).toHaveCount(0);await fits(page);
  await page.getByRole('link',{name:'View my calendar',exact:false}).click();await expect(page.getByLabel('Calendar from',{exact:true})).toBeVisible();await page.getByLabel('Calendar from',{exact:true}).fill('2026-10-21');await expect(page.locator('main')).toContainText('2026-10-21 – 2026-10-27');await fits(page);
 });
+
+
+test('subscription controls preserve the disabled pilot and remain manager-only',async({page,context})=>{
+ await page.goto('/workspace.html');await ready(page);await navigate(page,'settings');
+ await page.getByRole('button',{name:'Subscription & billing',exact:true}).click();
+ await expect(page.locator('#modal')).toContainText('Paid subscriptions are not activated');
+ await expect(page.locator('#modal')).not.toContainText('Continue to secure checkout');await close(page);
+ const seeded=await context.request.post('/__test/seed',{data:{scenario:'seeded'}});expect(seeded.ok()).toBeTruthy();const {workspaceId}=await seeded.json();
+ await context.setExtraHTTPHeaders({'x-e2e-session':testSessions.get(context),'x-e2e-user':'worker'});
+ await page.goto('/workspace.html');await ready(page);await navigate(page,'settings');
+ await expect(page.getByRole('heading',{name:'My account',exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Subscription & billing',exact:true})).toHaveCount(0);
+ const billing=await context.request.get('/api/quenvira/workspaces/'+workspaceId+'/subscription');expect(billing.status()).toBe(403);await fits(page);
+});
