@@ -30,6 +30,7 @@ async function membership(db,workspace,user){
  if(!m||!['manager','staff'].includes(m.role))problem(404,'Workspace not found.');return m;
 }
 async function load(db,workspace){const row=await db.prepare('SELECT * FROM workspaces WHERE id = ?').bind(workspace).first();if(!row)problem(404,'Workspace not found.');let state;try{state=JSON.parse(row.document)}catch{problem(503,'Workspace data needs recovery.')}if(!D.validateState(state))problem(503,'Workspace data needs recovery.');return {row,state}}
+/** @param {Request} request @param {D1Database | undefined} db @param {{now?: () => Date, bucket?: R2Bucket}} [options] */
 export async function handle(request,db,{now=()=>new Date(),bucket}={}){
  try{
   // Sites dispatch must overwrite identity headers and keep the Worker origin private.
