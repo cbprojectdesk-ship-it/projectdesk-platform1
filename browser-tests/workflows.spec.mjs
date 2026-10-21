@@ -16,7 +16,7 @@ async function fits(page){const size=await page.evaluate(()=>({actual:document.d
 async function ready(page){await expect(page.locator('main#main')).toBeVisible();await expect(page.locator('#app')).not.toHaveAttribute('aria-busy','true')}
 async function state(context){const session=await (await context.request.get('/api/quenvira/session')).json();return (await context.request.get('/api/quenvira/workspaces/'+session.workspaces[0].id)).json()}
 async function addCustomer(page,name='QA Willow House'){
- await navigate(page,'customers');await page.getByRole('button',{name:'Add customer',exact:false}).click();
+ await navigate(page,'customers');await page.locator('.page-heading').getByRole('button',{name:'Add customer',exact:false}).click();
  await page.getByLabel('Name',{exact:true}).fill(name);await page.getByLabel('Service address').fill('10 Example Lane (fictional)');
  await page.getByLabel('Email',{exact:true}).fill('willow@example.com');await page.getByLabel('Service preferences').fill('Fictional instructions');
  await page.getByRole('button',{name:'Save customer',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible();
@@ -57,7 +57,7 @@ test('recurring controls persist; overlap rejection leaves the existing bookings
 });
 
 test('offline retry and stale tabs do not silently duplicate or overwrite records',async({page,context})=>{
- await page.goto('/workspace.html');await navigate(page,'customers');await page.getByRole('button',{name:'Add customer',exact:false}).click();await page.getByLabel('Name',{exact:true}).fill('Offline QA');await page.getByLabel('Service address').fill('Fictional');
+ await page.goto('/workspace.html');await navigate(page,'customers');await page.locator('.page-heading').getByRole('button',{name:'Add customer',exact:false}).click();await page.getByLabel('Name',{exact:true}).fill('Offline QA');await page.getByLabel('Service address').fill('Fictional');
  await context.setOffline(true);await page.getByRole('button',{name:'Save customer',exact:true}).click();await expect(page.locator('#form-error')).toContainText('Connection lost');await context.setOffline(false);await page.getByRole('button',{name:'Save customer',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible();expect((await state(context)).state.customers).toHaveLength(1);
  const other=await context.newPage();await other.goto('/workspace.html#customers');await expect(other.getByRole('button',{name:'View & edit',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'View & edit',exact:true}).click();await page.getByLabel('Name',{exact:true}).fill('Newer edit');await page.getByRole('button',{name:'Save customer',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible();
