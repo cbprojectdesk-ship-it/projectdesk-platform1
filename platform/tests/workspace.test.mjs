@@ -58,3 +58,15 @@ test('copy fallback enables and selects the preview text without mutating saved 
  h.context.navigator={clipboard:{writeText:async()=>{throw Error('Blocked')}}};const before=JSON.stringify(h.ui.data());await h.ui.act('copy-invoice-text');
  assert.equal(focused,true);assert.equal(selected,true);assert.match(h.elements.get('#toast').textContent,/Text selected/);assert.equal(JSON.stringify(h.ui.data()),before);db.sqlite.close();
 });
+
+test('guided start progresses through persisted staff, customer, booking and assignment without losing existing records',async()=>{
+ const db=database();await setup(db);let h=await browserAdapter(db);const html=()=>h.elements.get('#app').innerHTML;
+ assert.match(html(),/STEP 1 OF 4/);await h.ui.act('guide-staff');await h.submit('staff',{name:'Guided worker',role:'Cleaner',capacity:'480'});assert.match(html(),/STEP 2 OF 4/);
+ await h.ui.act('guide-customer');assert.match(h.elements.get('#modal').innerHTML,/<details>/);await h.submit('customer',{name:'Guided client',type:'Domestic',address:'Fictional guided address',email:'',notes:''});assert.match(html(),/STEP 3 OF 4/);
+ await h.ui.act('guide-job');assert.match(h.elements.get('#modal').innerHTML,/Next step: assign a team member/);const state=h.ui.data().state;
+ await h.submit('job',{customerId:state.customers[0].id,staffId:'',date:'2026-10-20',time:'09:00',duration:'60',price:'45.00',round:'Local',repeat:'One-off',count:'1'});assert.match(html(),/STEP 4 OF 4/);
+ h=await browserAdapter(db);assert.match(html(),/STEP 4 OF 4/);await h.ui.act('guide-assign');await h.submit('assignment',{staffId:h.ui.data().state.staff[0].id},h.ui.data().state.jobs[0].id);assert.match(html(),/What would you like to do next/);assert.equal(h.ui.data().state.jobs[0].staffId,h.ui.data().state.staff[0].id);assert.equal(h.ui.data().state.customers.length,1);assert.equal(h.ui.data().state.jobs.length,1);db.sqlite.close();
+});
+test('staff landing shows assigned addresses, day counts and upcoming work without manager finance data',async()=>{
+ const db=database(),w=await setup(db),f=await fixtures(db,w);await command(db,w,'job.save',{...job(f),repeat:'Weekly',count:3});db.sqlite.prepare("INSERT INTO memberships VALUES (?,?,'staff',?)").run(w,'worker',f.staffId);const h=await browserAdapter(db,'worker'),html=h.elements.get('#app').innerHTML;assert.match(html,/Jobs today/);assert.match(html,/Upcoming jobs/);assert.match(html,/Fictional Street/);assert.match(html,/View my calendar/);assert.match(html,/2026-10-27/);assert.ok(!html.includes('Owner report'));assert.ok(!html.includes('Net value'));assert.ok(!html.includes('home@example.com'));db.sqlite.close();
+});
