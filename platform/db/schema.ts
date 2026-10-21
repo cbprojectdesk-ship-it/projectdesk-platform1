@@ -23,3 +23,15 @@ export const invitations=sqliteTable('invitations',{
  hash:text('hash').primaryKey(),workspaceId:text('workspace_id').notNull().references(()=>workspaces.id,{onDelete:'cascade'}),
  email:text('email').notNull(),staffId:text('staff_id').notNull(),expiresAt:text('expires_at').notNull(),acceptedBy:text('accepted_by'),createdAt:text('created_at').notNull()
 });
+
+// Survive workspace deletion to retain trial and external billing identity.
+export const subscriptionAccounts=sqliteTable('subscription_accounts',{
+ workspaceId:text('workspace_id').primaryKey(),trialEnd:text('trial_end').notNull(),
+ customerId:text('customer_id').unique(),checkoutId:text('checkout_id'),
+ checkoutGeneration:integer('checkout_generation').notNull().default(0),
+ termsVersion:text('terms_version'),termsAcceptedAt:text('terms_accepted_at')
+});
+export const subscriptionEvents=sqliteTable('subscription_events',{
+ id:text('id').primaryKey(),workspaceId:text('workspace_id').notNull(),
+ type:text('type').notNull(),receivedAt:text('received_at').notNull()
+});

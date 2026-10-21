@@ -15,6 +15,13 @@
       "when": 1792492519359,
       "tag": "0001_rapid_stature",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792626233656,
+      "tag": "0002_confused_robbie_robertson",
+      "breakpoints": true
     }
   ]
 }

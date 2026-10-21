@@ -14,6 +14,8 @@ test('encrypted external snapshot recovers populated state after original databa
  const invoice=await command(source,w,'invoice.create',{jobId:id,vat:20});await command(source,w,'invoice.paid',{id:invoice.body.result.id});
  const series=await command(source,w,'job.save',{...job(f),date:'2026-10-21',repeat:'Weekly',count:3});await command(source,w,'job.series',{id:series.body.result[0].id,action:'pause'});
  const invitation=await request(source,`workspaces/${w}/invitations`,{email:'worker@example.com',staffId:f.staffId});assert.equal(invitation.status,201);
+ source.sqlite.prepare('INSERT INTO subscription_accounts (workspace_id,trial_end,customer_id,checkout_generation) VALUES (?,?,?,?)').run(w,'2026-11-05T12:00:00Z','cus_recovery',2);
+ source.sqlite.prepare('INSERT INTO subscription_events VALUES (?,?,?,?)').run('evt_recovery',w,'invoice.paid','2026-10-22T12:00:00Z');
  const before=(await request(source,'workspaces/'+w)).body;
  const dir=await mkdtemp(join(tmpdir(),'quenvira-recovery-')),key=randomBytes(32),snapshot=snapshotDatabase(source.sqlite),started=performance.now();
  try{
@@ -34,4 +36,8 @@ test('restore refuses nonempty targets and rolls back broken cross-table referen
  const source=database(),w=await setup(source),snapshot=snapshotDatabase(source.sqlite);assert.throws(()=>restoreIntoEmptyDatabase(source.sqlite,snapshot),/empty/);
  const target=database();snapshot.tables.memberships[0].workspace_id='missing';assert.throws(()=>restoreIntoEmptyDatabase(target.sqlite,snapshot),/FOREIGN KEY/);
  for(const table of Object.keys(tables))assert.equal(target.sqlite.prepare('SELECT COUNT(*) AS n FROM '+table).get().n,0);assert.ok(w);source.sqlite.close();target.sqlite.close();
+});
+
+test('legacy full-store backups restore business records without inventing billing mappings',async()=>{
+ const source=database(),w=await setup(source),snapshot=snapshotDatabase(source.sqlite);snapshot.format='quenvira-logical-backup-v1';delete snapshot.tables.subscription_accounts;delete snapshot.tables.subscription_events;const target=database();restoreIntoEmptyDatabase(target.sqlite,snapshot);assert.equal((await request(target,'workspaces/'+w)).status,200);assert.equal(target.sqlite.prepare('SELECT COUNT(*) AS n FROM subscription_accounts').get().n,0);source.sqlite.close();target.sqlite.close();
 });

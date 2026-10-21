@@ -16,12 +16,12 @@ async function fits(page){const size=await page.evaluate(()=>({actual:document.d
 async function ready(page){await expect(page.locator('main#main')).toBeVisible();await expect(page.locator('#app')).not.toHaveAttribute('aria-busy','true')}
 async function state(context){const session=await (await context.request.get('/api/quenvira/session')).json();return (await context.request.get('/api/quenvira/workspaces/'+session.workspaces[0].id)).json()}
 async function addCustomer(page,name='QA Willow House'){
- await navigate(page,'customers');await page.getByRole('button',{name:'Add customer',exact:false}).click();
+ await navigate(page,'customers');await page.locator('.page-heading').getByRole('button',{name:'Add customer',exact:false}).click();
  await page.getByLabel('Name',{exact:true}).fill(name);await page.getByLabel('Service address').fill('10 Example Lane (fictional)');
  await page.getByLabel('Email',{exact:true}).fill('willow@example.com');await page.getByLabel('Service preferences').fill('Fictional instructions');
  await page.getByRole('button',{name:'Save customer',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible();
 }
-async function addStaff(page){await navigate(page,'team');await page.getByRole('button',{name:'Add team member',exact:false}).click();await page.getByLabel('Full name').fill('QA Maya Ellis');await page.getByRole('button',{name:'Add team member',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible()}
+async function addStaff(page){await navigate(page,'team');await page.locator('.page-heading').getByRole('button',{name:'Add team member',exact:false}).click();await page.getByLabel('Full name').fill('QA Maya Ellis');await page.locator('#modal').getByRole('button',{name:'Add team member',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible()}
 async function book(page,{repeat='One-off',count='1',date='2026-10-20',time='09:00'}={}){
  await navigate(page,'jobs');await page.getByRole('button',{name:'New job',exact:false}).click();
  await page.locator('#modal').getByLabel('Date',{exact:true}).fill(date);await page.getByLabel('Time',{exact:true}).fill(time);
@@ -57,7 +57,7 @@ test('recurring controls persist; overlap rejection leaves the existing bookings
 });
 
 test('offline retry and stale tabs do not silently duplicate or overwrite records',async({page,context})=>{
- await page.goto('/workspace.html');await navigate(page,'customers');await page.getByRole('button',{name:'Add customer',exact:false}).click();await page.getByLabel('Name',{exact:true}).fill('Offline QA');await page.getByLabel('Service address').fill('Fictional');
+ await page.goto('/workspace.html');await navigate(page,'customers');await page.locator('.page-heading').getByRole('button',{name:'Add customer',exact:false}).click();await page.getByLabel('Name',{exact:true}).fill('Offline QA');await page.getByLabel('Service address').fill('Fictional');
  await context.setOffline(true);await page.getByRole('button',{name:'Save customer',exact:true}).click();await expect(page.locator('#form-error')).toContainText('Connection lost');await context.setOffline(false);await page.getByRole('button',{name:'Save customer',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible();expect((await state(context)).state.customers).toHaveLength(1);
  const other=await context.newPage();await other.goto('/workspace.html#customers');await expect(other.getByRole('button',{name:'View & edit',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'View & edit',exact:true}).click();await page.getByLabel('Name',{exact:true}).fill('Newer edit');await page.getByRole('button',{name:'Save customer',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible();
@@ -81,11 +81,11 @@ test('export, recovery history, keyboard entry and all manager pages at this vie
  const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('/workspace.html');await ready(page);
  await page.keyboard.press('Tab');await expect(page.getByRole('link',{name:'Skip to content'})).toBeFocused();await page.keyboard.press('Enter');await expect(page.locator('main#main')).toBeFocused();
  await addCustomer(page);await page.getByRole('button',{name:'View & edit',exact:true}).click();await page.getByLabel('Name',{exact:true}).fill('Changed QA name');await page.getByRole('button',{name:'Save customer',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible();
- await navigate(page,'settings');const downloaded=page.waitForEvent('download');await page.getByRole('button',{name:'Download JSON snapshot',exact:true}).click();const download=await downloaded;
+ await navigate(page,'settings');const downloaded=page.waitForEvent('download');await page.getByRole('button',{name:'Download records JSON (no photos)',exact:true}).click();const download=await downloaded;
  const exported=JSON.parse(await fs.readFile(await download.path(),'utf8'));expect(exported.state.customers[0].name).toBe('Changed QA name');expect(exported.state.customers).toHaveLength(1);
  await page.getByRole('button',{name:'Review recovery history',exact:true}).click();await page.getByRole('button',{name:'Restore revision',exact:true}).first().click();await expect(page.locator('#modal')).not.toBeVisible();expect((await state(context)).state.customers[0].name).toBe('QA Willow House');
  for(const route of ['dashboard','schedule','jobs','customers','team','invoices','settings']){await navigate(page,route);await expect(page.locator('main h1')).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),'horizontal page overflow on '+route).toBeTruthy()}
- await page.getByRole('link',{name:'Test walkthrough',exact:true}).click();await expect(page.getByRole('heading',{name:'Try a complete working day.'})).toBeVisible();await page.getByRole('link',{name:'Legal & privacy',exact:true}).click();await expect(page.getByRole('heading',{name:'Clear terms before launch.'})).toBeVisible();expect(errors).toEqual([]);
+ await page.getByRole('link',{name:'Test walkthrough',exact:true}).click();await expect(page.getByRole('heading',{name:'Try a complete working day.'})).toBeVisible();await page.getByRole('link',{name:'Legal & privacy',exact:true}).click();await expect(page.getByRole('heading',{name:'Your data. Clear responsibilities.'})).toBeVisible();expect(errors).toEqual([]);
 });
 
 // Text-field padding used to expand these 18px controls and obscure their native tick.
@@ -156,7 +156,7 @@ test('completed visit offers optional email copy to saved address; composing nev
  await page.getByRole('button',{name:'Complete visit',exact:true}).click();await ready(page);await page.getByRole('button',{name:'Create invoice',exact:true}).click();
  const option=page.getByLabel('Prepare an email copy after creating this draft',{exact:true});await expect(option).not.toBeChecked();await option.check();await page.getByLabel('VAT for registered suppliers only').selectOption('20');await page.getByRole('button',{name:'Create draft',exact:true}).click();
  await expect(page.getByRole('heading',{name:'Review draft invoice email'})).toBeVisible();expect(await page.getByLabel('Email text',{exact:true}).evaluate(el=>el.clientWidth>=el.closest('label').parentElement.clientWidth*0.8)).toBe(true);await expect(page.getByLabel('Email text',{exact:true})).toHaveValue(/Total: £94\.79/);
- await expect(page.getByRole('link',{name:'Open email app',exact:true})).toHaveAttribute('target','_blank');await expect(page.getByRole('link',{name:'Open email app',exact:true})).toHaveAttribute('rel','noopener noreferrer');await page.getByRole('button',{name:'Copy message text',exact:true}).click();await expect(page.getByRole('status')).toContainText(/copied|selected/);const href=await page.getByRole('link',{name:'Open email app',exact:true}).getAttribute('href'),uri=new URL(href);expect(decodeURIComponent(uri.pathname)).toBe('willow@example.com');expect(uri.searchParams.get('body')).toContain('NOT A VALID TAX INVOICE');expect(uri.searchParams.get('subject')).toContain('QV-1001');
+ await expect(page.getByRole('link',{name:'Open email app',exact:true})).toHaveAttribute('target','_blank');await expect(page.getByRole('link',{name:'Open email app',exact:true})).toHaveAttribute('rel','noopener noreferrer');await page.getByRole('button',{name:'Copy message text',exact:true}).click();await expect(page.locator('#toast')).toContainText(/copied|selected/);const href=await page.getByRole('link',{name:'Open email app',exact:true}).getAttribute('href'),uri=new URL(href);expect(decodeURIComponent(uri.pathname)).toBe('willow@example.com');expect(uri.searchParams.get('body')).toContain('NOT A VALID TAX INVOICE');expect(uri.searchParams.get('subject')).toContain('QV-1001');
  expect(await page.locator('#modal').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
  const before=await state(context);expect(before.state.invoices).toHaveLength(1);await page.getByRole('button',{name:'Back to invoice',exact:true}).click();await page.getByRole('button',{name:'Prepare email copy',exact:true}).click();expect(await state(context)).toEqual(before);
  await close(page);await navigate(page,'customers');await page.getByRole('button',{name:'View & edit',exact:true}).click();await page.getByLabel('Email',{exact:true}).fill('');await page.getByRole('button',{name:'Save customer',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible();
@@ -173,7 +173,7 @@ test('phone preview can open the real app full screen and preserves invoice text
  await page.goto('/mobile.html');await page.getByRole('link',{name:'Open demo full screen',exact:true}).click();await expect(page).toHaveURL(/\/demo\/index.html$/);await expect(page.locator('iframe')).toHaveCount(0);
  await page.locator('nav a[href="#invoices"]').click();await page.locator('[data-action="invoice-detail"][data-id="i0"]').click();await page.getByRole('button',{name:'Prepare email copy',exact:true}).click();
  const originalURL=page.url();const link=page.getByRole('link',{name:'Open email app',exact:true});await expect(link).toHaveAttribute('target','_blank');await expect(link).toHaveAttribute('rel','noopener noreferrer');
- await page.getByRole('button',{name:'Copy message text',exact:true}).click();await expect(page.getByRole('status')).toContainText('Text selected');const area=page.getByLabel('Email text',{exact:true});
+ await page.getByRole('button',{name:'Copy message text',exact:true}).click();await expect(page.locator('#toast')).toContainText('Text selected');const area=page.getByLabel('Email text',{exact:true});
  expect(await area.evaluate(el=>el.selectionStart===0&&el.selectionEnd===el.value.length)).toBe(true);await expect(page.getByRole('heading',{name:'Review draft invoice email'})).toBeVisible();expect(await page.getByLabel('Email text',{exact:true}).evaluate(el=>el.clientWidth>=el.closest('label').parentElement.clientWidth*0.8)).toBe(true);await expect(page).toHaveURL(originalURL);
 });
 
@@ -194,7 +194,7 @@ test('supplier, locked issued invoice, printable document and exact full credit 
 
 test('guided setup takes an owner from staff to customer to booked visit and assignment, then staff see their own day',async({page,context})=>{
  await page.goto('/workspace.html');await expect(page.getByRole('heading',{name:'Let’s set up your working day.',exact:true})).toBeVisible();await expect(page.locator('.journey-panel')).toContainText('STEP 1 OF 4');
- await page.getByRole('button',{name:'Add your staff',exact:true}).click();await page.getByLabel('Full name',{exact:true}).fill('Guided Maya');await page.getByRole('button',{name:'Add team member',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible();await expect(page.locator('.journey-panel')).toContainText('STEP 2 OF 4');
+ await page.getByRole('button',{name:'Add your staff',exact:true}).click();await page.getByLabel('Full name',{exact:true}).fill('Guided Maya');await page.locator('#modal').getByRole('button',{name:'Add team member',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible();await expect(page.locator('.journey-panel')).toContainText('STEP 2 OF 4');
  await page.getByRole('button',{name:'Add your first customer',exact:true}).click();await page.getByLabel('Name',{exact:true}).fill('Guided client');await page.getByLabel('Service address',{exact:true}).fill('10 Guided Lane (fictional)');await expect(page.getByLabel('Email',{exact:true})).not.toBeVisible();await page.getByRole('button',{name:'Save customer',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible();await expect(page.locator('.journey-panel')).toContainText('STEP 3 OF 4');
  await page.getByRole('button',{name:'Book the first job',exact:true}).click();await expect(page.locator('#modal')).toContainText('Next step: assign a team member');await page.getByRole('button',{name:'Save visit',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible();await expect(page.locator('.journey-panel')).toContainText('STEP 4 OF 4');await page.reload();await ready(page);await expect(page.locator('.journey-panel')).toContainText('STEP 4 OF 4');
  await page.getByRole('button',{name:'Assign a team member',exact:true}).click();await page.getByLabel('Team member',{exact:true}).selectOption({label:'Guided Maya'});await page.getByRole('button',{name:'Save assignment',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible();await expect(page.getByRole('heading',{name:'What would you like to do next?',exact:true})).toBeVisible();await fits(page);
@@ -204,4 +204,18 @@ test('guided setup takes an owner from staff to customer to booked visit and ass
  await context.setExtraHTTPHeaders({'x-e2e-session':testSessions.get(context),'x-e2e-user':'worker'});const accepted=await context.request.post('/api/quenvira/invitations/accept',{headers:{Origin:'http://127.0.0.1:4173'},data:{token}});expect(accepted.status()).toBe(200);
  await page.goto('/workspace.html');await ready(page);await expect(page.getByRole('heading',{name:'Your jobs. Your day.',exact:true})).toBeVisible();await expect(page.locator('main')).toContainText('10 Guided Lane (fictional)');await expect(page.locator('main')).toContainText('Jobs today');await expect(page.locator('nav a[href="#dashboard"]')).toHaveCount(0);await expect(page.locator('nav a[href="#invoices"]')).toHaveCount(0);await fits(page);
  await page.getByRole('link',{name:'View my calendar',exact:false}).click();await expect(page.getByLabel('Calendar from',{exact:true})).toBeVisible();await page.getByLabel('Calendar from',{exact:true}).fill('2026-10-21');await expect(page.locator('main')).toContainText('2026-10-21 – 2026-10-27');await fits(page);
+});
+
+
+test('subscription controls preserve the disabled pilot and remain manager-only',async({page,context})=>{
+ await page.goto('/workspace.html');await ready(page);await navigate(page,'settings');
+ await page.getByRole('button',{name:'Subscription & billing',exact:true}).click();
+ await expect(page.locator('#modal')).toContainText('Paid subscriptions are not activated');
+ await expect(page.locator('#modal')).not.toContainText('Continue to secure checkout');await close(page);
+ const seeded=await context.request.post('/__test/seed',{data:{scenario:'seeded'}});expect(seeded.ok()).toBeTruthy();const {workspaceId}=await seeded.json();
+ await context.setExtraHTTPHeaders({'x-e2e-session':testSessions.get(context),'x-e2e-user':'worker'});
+ await page.goto('/workspace.html');await ready(page);await navigate(page,'settings');
+ await expect(page.getByRole('heading',{name:'My account',exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Subscription & billing',exact:true})).toHaveCount(0);
+ const billing=await context.request.get('/api/quenvira/workspaces/'+workspaceId+'/subscription');expect(billing.status()).toBe(403);await fits(page);
 });
