@@ -141,4 +141,5 @@ async function start(){try{const invitation=location.hash.match(/^#invite=([a-f0
 document.addEventListener('change',e=>{if(!['photoCamera','photoLibrary'].includes(e.target.name))return;const file=e.target.files?.[0];if(!file)return;const form=e.target.closest('form');form.querySelectorAll('input[type=file]').forEach(input=>{if(input!==e.target)input.value=''});if(photoPreviewURL)URL.revokeObjectURL(photoPreviewURL);photoPreviewURL=URL.createObjectURL(file);const preview=$('#staff-photo-preview');if(preview){preview.src=photoPreviewURL;preview.hidden=false}});
 document.addEventListener('error',e=>{if(e.target?.classList?.contains('staff-photo'))e.target.hidden=true},true);
 
+$('#modal').addEventListener?.('close',()=>{if($('#modal').open)return;$('#modal').innerHTML='';if(photoPreviewURL){URL.revokeObjectURL(photoPreviewURL);photoPreviewURL=null}});
 start();
