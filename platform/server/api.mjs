@@ -1,5 +1,9 @@
+import {billingConfig,stripeClient,startTrial,entitlement,checkout,portal,webhook,assertDeletable,SubscriptionProblem} from './subscriptions.mjs';
+import {createBusinessBackup,prepareBusinessRestore,BACKUP_LIMIT} from './business-backup.mjs';
+import {photoKey,decodePhoto,setStaffPhoto} from './staff-photos.mjs';
 import {saveSupplier,issueInvoice,creditInvoice,assertFinancialRestore} from './billing.mjs';
 import * as D from './domain.mjs';
+import {mayCreateWorkspace} from './enrollment.mjs';
 const headers={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store, private','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'};
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers});
 class Problem extends Error{constructor(status,message){super(message);this.status=status}}
@@ -16,11 +20,11 @@ function project(state,m){
  const customerIds=new Set(jobs.map(j=>j.customerId));
  return {version:1,jobs,customers:state.customers.filter(c=>customerIds.has(c.id)).map(({email,active,checklistTemplate,...c})=>c),staff:state.staff.filter(s=>s.id===m.staff_id),invoices:[],audit:[]};
 }
-async function readBody(request){
+async function readBody(request,maximum=16384){
  if(!request.headers.get('content-type')?.startsWith('application/json'))problem(415,'Use JSON requests.');
- if(Number(request.headers.get('content-length')||0)>16384)problem(413,'Request too large.');
+ if(Number(request.headers.get('content-length')||0)>maximum)problem(413,'Request too large.');
  const reader=request.body?.getReader();if(!reader)problem(400,'JSON body required.');let size=0,chunks=[];
- while(true){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>16384){await reader.cancel();problem(413,'Request too large.')}chunks.push(value)}
+ while(true){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>maximum){await reader.cancel();problem(413,'Request too large.')}chunks.push(value)}
  try{const bytes=new Uint8Array(size);let n=0;for(const c of chunks){bytes.set(c,n);n+=c.length}const value=JSON.parse(new TextDecoder().decode(bytes));if(!value||typeof value!=='object'||Array.isArray(value))problem(400,'JSON object required.');return value}catch(e){if(e instanceof Problem)throw e;problem(400,'Invalid JSON.');}
 }
 async function membership(db,workspace,user){
@@ -29,8 +33,12 @@ async function membership(db,workspace,user){
  if(!m||!['manager','staff'].includes(m.role))problem(404,'Workspace not found.');return m;
 }
 async function load(db,workspace){const row=await db.prepare('SELECT * FROM workspaces WHERE id = ?').bind(workspace).first();if(!row)problem(404,'Workspace not found.');let state;try{state=JSON.parse(row.document)}catch{problem(503,'Workspace data needs recovery.')}if(!D.validateState(state))problem(503,'Workspace data needs recovery.');return {row,state}}
-export async function handle(request,db,{now=()=>new Date()}={}){
+/** @param {Request} request @param {D1Database | undefined} db @param {{now?: () => Date, bucket?: R2Bucket, pilotEmails?: string, billingEnv?: Cloudflare.Env, billingClient?: any}} [options] */
+export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,billingEnv={},billingClient}={}){
  try{
+  const billingPath=new URL(request.url).pathname==='/api/quenvira/subscription-webhook';
+  // Webhooks authenticate their raw body independently of browser identity/CSRF.
+  if(billingPath){const config=billingConfig(billingEnv);return json(await webhook(request,db,config,config?(billingClient||await stripeClient(config)):null))}
   // Sites dispatch must overwrite identity headers and keep the Worker origin private.
   const user=request.headers.get('oai-authenticated-user-id');
   const email=request.headers.get('oai-authenticated-user-email');
@@ -38,13 +46,15 @@ export async function handle(request,db,{now=()=>new Date()}={}){
   if(!db)problem(503,'Persistent storage is not configured.');
   const url=new URL(request.url),path=url.pathname.replace(/^\/api\/quenvira\/?/,'').split('/').filter(Boolean);
   const timestamp=now().toISOString(),asOf=today(new Date(timestamp));
+  const config=billingConfig(billingEnv);let client=billingClient;
+  const getClient=async()=>client||(client=await stripeClient(config));
   if(!['GET','POST'].includes(request.method))problem(405,'Method not allowed.');
   if(request.method==='POST'){
    if(request.headers.get('origin')!==url.origin||request.headers.get('sec-fetch-site')==='cross-site')problem(403,'Same-origin request required.');
   }
   if(path.length===1&&path[0]==='session'&&request.method==='GET'){
    const result=await db.prepare('SELECT w.id, w.name, m.role FROM workspaces w JOIN memberships m ON m.workspace_id = w.id WHERE m.user_id = ? ORDER BY w.created_at').bind(user).all();
-   return json({user:{id:user,email},workspaces:result.results,today:asOf});
+   return json({user:{id:user,email},workspaces:result.results,today:asOf,canCreateWorkspace:mayCreateWorkspace(email,pilotEmails)||!!config?.selfServe});
   }
   if(path.join('/')==='invitations/accept'&&request.method==='POST'){
    const body=await readBody(request);if(typeof body.token!=='string'||!/^[a-f0-9-]{72}$/.test(body.token))problem(400,'Invalid invitation.');
@@ -62,21 +72,49 @@ export async function handle(request,db,{now=()=>new Date()}={}){
   }
   if(path.length===1&&path[0]==='workspaces'&&request.method==='POST'){
    const body=await readBody(request);if(typeof body.name!=='string'||!body.name.trim()||body.name.length>100)problem(400,'Business name must be 1–100 characters.');
+   if(!mayCreateWorkspace(email,pilotEmails)&&!config?.selfServe)problem(403,'New business workspaces are currently invitation-only. Explore the public demo or contact cbprojectdesk@gmail.com to request pilot access.');
    // Stable per-user creation ID makes retries create at most one initial workspace.
    const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(user));
    const workspace='w-'+Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
    await db.batch([
     db.prepare('INSERT OR IGNORE INTO workspaces (id,name,revision,document,created_at,updated_at) VALUES (?,?,0,?,?,?)').bind(workspace,body.name.trim(),JSON.stringify(empty()),timestamp,timestamp),
     db.prepare("INSERT OR IGNORE INTO memberships (workspace_id,user_id,role,staff_id) VALUES (?,?,'manager',NULL)").bind(workspace,user)
-   ]);return json({workspaceId:workspace},201);
+   ]);if(config)await startTrial(db,workspace,timestamp);return json({workspaceId:workspace},201);
   }
   if(path.length<2||path[0]!=='workspaces')problem(404,'Route not found.');
   const workspace=path[1],m=await membership(db,workspace,user);
   const {row,state}=await load(db,workspace);
+  if(path.length===3&&path[2]==='subscription'){
+   manager(m);
+   if(request.method==='GET')return json(config?{enabled:true,...await entitlement(db,workspace,config,await getClient(),Date.parse(timestamp))}:{enabled:false,status:'pilot',canWrite:true});
+   const body=await readBody(request);
+   if(!config)problem(503,'Subscriptions are not activated.');
+   if(body.action==='checkout')return json(await checkout(db,workspace,email,body,config,await getClient(),timestamp));
+   if(body.action==='portal')return json(await portal(db,workspace,config,await getClient()));
+   problem(400,'Unknown subscription action.');
+  }
+  // An expired subscription keeps read/export, revocation and deletion paths.
+  // Paid workflow mutations require a fresh authoritative provider check.
+  const needsEntitlement=request.method==='POST'&&(path[2]==='commands'||path[2]==='invitations');
+  if(config&&needsEntitlement){
+   const permittedMaintenance=path[2]==='invitations'&&(await readBody(request.clone())).revoke;
+   const recovery=path[2]==='commands'&&path[3]==='backup';
+   if(!permittedMaintenance&&!recovery&&!(await entitlement(db,workspace,config,await getClient(),Date.parse(timestamp))).canWrite)problem(402,'Your trial or subscription has ended. A manager can manage the subscription in Settings. Records and exports remain available.');
+  }
   if(path.length===2&&request.method==='GET')return json({workspaceId:workspace,name:row.name,revision:row.revision,actor:{role:m.role,staffId:m.staff_id},today:asOf,state:project(state,m)});
+  if(path.length===3&&path[2]==='backup-file'&&request.method==='GET'){manager(m);try{return json(await createBusinessBackup(state,row.name,workspace,bucket,timestamp))}catch(e){const safe=['Photo storage is unavailable. A complete backup could not be created.','A staff photo is unavailable. A complete backup could not be created.','Backup exceeds the 20 MB limit.'];problem(503,safe.includes(e.message)?e.message:'A complete business backup could not be created. Try again or contact support.')}}
+  if(path.length===5&&path[2]==='staff'&&path[4]==='photo'&&request.method==='GET'){
+   const staff=state.staff.find(s=>s.id===path[3]);if(!staff||m.role!=='manager'&&m.staff_id!==staff.id)problem(404,'Staff photo not found.');
+   if(!staff.photoId)problem(404,'Staff photo not found.');if(!bucket)problem(503,'Photo storage is unavailable.');
+   const photo=await bucket.get(photoKey(workspace,staff.id,staff.photoId));if(!photo)problem(404,'Staff photo not found.');
+   return new Response(photo.body,{headers:{'Content-Type':'image/jpeg','Cross-Origin-Resource-Policy':'same-origin','Cache-Control':'no-store, private','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'",'Referrer-Policy':'no-referrer'}});
+  }
   if(path.length===3&&path[2]==='delete'&&request.method==='POST'){
-   manager(m);const body=await readBody(request);if(body.confirmName!==row.name)problem(400,'Business name does not match.');
-   const removed=await db.batch([db.prepare("DELETE FROM workspaces WHERE id = ? AND EXISTS (SELECT 1 FROM memberships WHERE workspace_id = workspaces.id AND user_id = ? AND role = 'manager') RETURNING id").bind(workspace,user)]);if(!removed[0].results?.length)problem(403,'Manager access changed. Reload before editing.');return json({deleted:true});
+   manager(m);if(config)await assertDeletable(db,workspace,await getClient());const body=await readBody(request);if(body.confirmName!==row.name)problem(400,'Business name does not match.');
+   const removed=await db.batch([db.prepare("DELETE FROM workspaces WHERE id = ? AND EXISTS (SELECT 1 FROM memberships WHERE workspace_id = workspaces.id AND user_id = ? AND role = 'manager') RETURNING id").bind(workspace,user)]);if(!removed[0].results?.length)problem(403,'Manager access changed. Reload before editing.');
+   let photoCleanupPending=false;
+   if(bucket){try{let cursor;do{const page=await bucket.list({prefix:workspace+'/',limit:1000,...(cursor?{cursor}:{})});if(page.objects.length)await bucket.delete(page.objects.map(o=>o.key));cursor=page.truncated?page.cursor:undefined;}while(cursor)}catch{photoCleanupPending=true;console.error('Quenvira photo cleanup requires operator attention.');}}
+   return json({deleted:true,photoCleanupPending});
   }
   if(path.length===3&&path[2]==='invitations'){
    manager(m);
@@ -104,8 +142,12 @@ export async function handle(request,db,{now=()=>new Date()}={}){
   if(path.length===3&&path[2]==='backups'&&request.method==='GET'){
    manager(m);const result=await db.prepare('SELECT revision, created_at FROM history WHERE workspace_id = ? ORDER BY revision DESC LIMIT 20').bind(workspace).all();return json({backups:result.results});
   }
-  if(path.length!==3||path[2]!=='commands'||request.method!=='POST')problem(404,'Route not found.');
-  const body=await readBody(request);
+  const importCommand=path.length===4&&path[2]==='commands'&&path[3]==='backup';
+  const photoCommand=path.length===4&&path[2]==='commands'&&path[3]==='photo';
+  if(!(path.length===3&&path[2]==='commands'||photoCommand||importCommand)||request.method!=='POST')problem(404,'Route not found.');
+  if(importCommand)manager(m);
+  const body=await readBody(request,importCommand?BACKUP_LIMIT+1024:photoCommand?65536:16384);
+  if(photoCommand!==(body.action==='staff.photo')||importCommand!==(body.action==='backup.import'))problem(400,'Use the correct command endpoint.');
   if(!validId(body.requestId)||!Number.isSafeInteger(body.revision)||body.revision<0||typeof body.action!=='string'||!body.data||typeof body.data!=='object'||Array.isArray(body.data))problem(400,'Invalid command.');
   const requestHash=await hashToken(JSON.stringify({revision:body.revision,action:body.action,data:body.data}));
   const prior=await db.prepare('SELECT user_id, response FROM operations WHERE workspace_id = ? AND id = ?').bind(workspace,body.requestId).first();
@@ -117,7 +159,16 @@ export async function handle(request,db,{now=()=>new Date()}={}){
    switch(body.action){
     case 'customer.save':result=D.saveCustomer(state,actor,data,data.id);break;
     case 'customer.archive':D.archiveCustomer(state,actor,data.id);break;
+    case 'staff.photo':{
+     manager(m);if(!state.staff.some(s=>s.id===data.id))problem(404,'Staff member not found.');
+     if(data.jpegBase64===null){result=setStaffPhoto(state,actor,data.id,null);break}
+     if(!bucket)problem(503,'Photo storage is unavailable.');
+     const bytes=decodePhoto(data.jpegBase64),photoId=await hashToken(data.jpegBase64);
+     try{await bucket.put(photoKey(workspace,data.id,photoId),bytes,{httpMetadata:{contentType:'image/jpeg'}})}catch{problem(503,'Photo could not be saved. Try again.');}
+     result=setStaffPhoto(state,actor,data.id,photoId);break;
+    }
     case 'staff.add':result=D.addStaff(state,actor,data);break;
+    case 'staff.update':result=D.updateStaff(state,actor,data,asOf);break;
     case 'job.save':result=D.saveJob(state,actor,data,data.id);break;
     case 'job.series':result=D.updateSeries(state,actor,data,asOf);break;
     case 'job.update':{
@@ -130,6 +181,7 @@ export async function handle(request,db,{now=()=>new Date()}={}){
     case 'invoice.credit':result=creditInvoice(state,actor,data.id,data.reason,asOf);break;
     case 'invoice.create':result=D.createInvoice(state,actor,data.jobId,Number(data.vat||0),asOf);break;
     case 'invoice.paid':D.markPaid(state,actor,data.id,asOf);break;
+    case 'backup.import':{manager(m);const restored=await prepareBusinessRestore(state,actor,data.backup,workspace,bucket,hashToken);Object.assign(state,restored);result={restored:true,photos:data.backup.photos.length};break;}
     case 'backup.restore':{
      manager(m);if(!Number.isSafeInteger(data.revision)||data.revision<0)problem(400,'Choose a backup revision.');
      const backup=await db.prepare('SELECT document FROM history WHERE workspace_id = ? AND revision = ?').bind(workspace,data.revision).first();
@@ -140,7 +192,7 @@ export async function handle(request,db,{now=()=>new Date()}={}){
     }
     default:problem(400,'Unknown command.');
    }
-  }catch(e){if(e instanceof Problem)throw e;problem(/Manager|not assigned/.test(e.message)?403:400,e.message)}
+  }catch(e){if(e instanceof Problem)throw e;if(e.backupStorage)problem(503,e.message);problem(/Manager|not assigned/.test(e.message)?403:400,e.message)}
   if(!D.validateState(state))problem(400,'Operation would create invalid records.');
   const document=JSON.stringify(state);if(new TextEncoder().encode(document).byteLength>524288)problem(413,'Workspace storage limit reached. Export your records and contact support.');
   const reply={revision:row.revision+1,result};
@@ -154,5 +206,5 @@ export async function handle(request,db,{now=()=>new Date()}={}){
   const committed=await db.batch(statements);
   if(!committed[1].results?.length){const current=await membership(db,workspace,user);if(current.role!==m.role||current.staff_id!==m.staff_id)problem(403,'Your access changed. Reload before editing.');problem(409,'Workspace changed. Reload and try again.');}
   return json(reply);
- }catch(e){return json({error:e instanceof Problem?e.message:'Service temporarily unavailable.',code:e instanceof Problem?e.status:503},e instanceof Problem?e.status:503)}
+ }catch(e){return json({error:e instanceof Problem||e instanceof SubscriptionProblem?e.message:'Service temporarily unavailable.',code:e instanceof Problem||e instanceof SubscriptionProblem?e.status:503},e instanceof Problem||e instanceof SubscriptionProblem?e.status:503)}
 }

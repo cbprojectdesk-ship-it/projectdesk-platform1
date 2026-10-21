@@ -8,12 +8,16 @@ export const tables={
  history:['workspace_id','revision','document','created_at'],
  operations:['workspace_id','id','user_id','response','created_at'],
  events:['workspace_id','id','user_id','action','created_at'],
- invitations:['hash','workspace_id','email','staff_id','expires_at','accepted_by','created_at']
+ invitations:['hash','workspace_id','email','staff_id','expires_at','accepted_by','created_at'],
+ subscription_accounts:['workspace_id','trial_end','customer_id','checkout_id','checkout_generation','terms_version','terms_accepted_at'],
+ subscription_events:['id','workspace_id','type','received_at']
 };
 const maximum=20*1024*1024;
+const legacyTables=Object.fromEntries(Object.entries(tables).filter(([name])=>!name.startsWith('subscription_')));
+const snapshotTables=snapshot=>snapshot?.format==='quenvira-logical-backup-v1'?legacyTables:tables;
 function validate(snapshot){
- if(!snapshot||snapshot.format!=='quenvira-logical-backup-v1'||typeof snapshot.createdAt!=='string'||!Number.isFinite(Date.parse(snapshot.createdAt))||!snapshot.tables||Object.keys(snapshot.tables).sort().join()!==Object.keys(tables).sort().join())throw Error('Unsupported or incomplete backup.');
- for(const [table,columns]of Object.entries(tables)){
+ if(!snapshot||!['quenvira-logical-backup-v1','quenvira-logical-backup-v2'].includes(snapshot.format)||typeof snapshot.createdAt!=='string'||!Number.isFinite(Date.parse(snapshot.createdAt))||!snapshot.tables||Object.keys(snapshot.tables).sort().join()!==Object.keys(snapshotTables(snapshot)).sort().join())throw Error('Unsupported or incomplete backup.');
+ for(const [table,columns]of Object.entries(snapshotTables(snapshot))){
   const rows=snapshot.tables[table];if(!Array.isArray(rows)||rows.length>50000)throw Error('Invalid backup rows.');
   for(const row of rows){
    if(!row||Object.keys(row).sort().join()!==[...columns].sort().join()||!Object.values(row).every(v=>v===null||typeof v==='string'||Number.isSafeInteger(v)))throw Error('Invalid backup columns or values.');
@@ -23,7 +27,7 @@ function validate(snapshot){
  return snapshot;
 }
 export function snapshotDatabase(sqlite){
- return validate({format:'quenvira-logical-backup-v1',createdAt:new Date().toISOString(),tables:Object.fromEntries(Object.entries(tables).map(([table,columns])=>[table,sqlite.prepare(`SELECT ${columns.join(',')} FROM ${table}`).all().map(row=>({...row}))]))});
+ return validate({format:'quenvira-logical-backup-v2',createdAt:new Date().toISOString(),tables:Object.fromEntries(Object.entries(tables).map(([table,columns])=>[table,sqlite.prepare(`SELECT ${columns.join(',')} FROM ${table}`).all().map(row=>({...row}))]))});
 }
 function requireKey(key){if(!Buffer.isBuffer(key)||key.length!==32)throw Error('A separately protected 32-byte key is required.')}
 export function encryptBackup(snapshot,key){
@@ -44,11 +48,11 @@ export function restoreIntoEmptyDatabase(sqlite,snapshot){
  validate(snapshot);for(const table of Object.keys(tables))if(sqlite.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n!==0)throw Error('Restore requires an empty isolated database.');
  sqlite.exec('PRAGMA foreign_keys = ON');sqlite.exec('BEGIN');
  try{
-  for(const [table,columns]of Object.entries(tables)){
+  for(const [table,columns]of Object.entries(snapshotTables(snapshot))){
    const insert=sqlite.prepare(`INSERT INTO ${table} (${columns.join(',')}) VALUES (${columns.map(()=>'?').join(',')})`);
    for(const row of snapshot.tables[table])insert.run(...columns.map(c=>row[c]));
   }
   if(sqlite.prepare('PRAGMA foreign_key_check').all().length||sqlite.prepare('PRAGMA quick_check').get().quick_check!=='ok')throw Error('Restored database failed integrity checks.');
-  sqlite.exec('COMMIT');return Object.fromEntries(Object.keys(tables).map(t=>[t,snapshot.tables[t].length]));
+  sqlite.exec('COMMIT');return Object.fromEntries(Object.keys(snapshot.tables).map(t=>[t,snapshot.tables[t].length]));
  }catch(error){sqlite.exec('ROLLBACK');throw error}
 }

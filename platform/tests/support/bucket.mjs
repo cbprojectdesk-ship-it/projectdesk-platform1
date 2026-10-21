@@ -1,0 +1,3 @@
+export function memoryBucket(){
+ const files=new Map();return {files,failPut:false,async put(key,bytes,options){if(this.failPut)throw Error('Injected object store failure');files.set(key,{bytes:new Uint8Array(bytes),options})},async get(key){const value=files.get(key);return value?{body:new Uint8Array(value.bytes)}:null},async delete(key){for(const k of Array.isArray(key)?key:[key])files.delete(k)},async list({prefix='',cursor,limit=1000}={}){const keys=[...files.keys()].filter(k=>k.startsWith(prefix)).sort(),offset=Number(cursor||0);return {objects:keys.slice(offset,offset+limit).map(key=>({key})),truncated:offset+limit<keys.length,cursor:String(offset+limit)}}};
+}
