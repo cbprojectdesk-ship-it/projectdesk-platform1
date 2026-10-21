@@ -1,3 +1,4 @@
+import {JPEG} from '../platform/tests/support/photo-fixture.mjs';
 import {test,expect} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import fs from 'node:fs/promises';
@@ -204,4 +205,16 @@ test('guided setup takes an owner from staff to customer to booked visit and ass
  await context.setExtraHTTPHeaders({'x-e2e-session':testSessions.get(context),'x-e2e-user':'worker'});const accepted=await context.request.post('/api/quenvira/invitations/accept',{headers:{Origin:'http://127.0.0.1:4173'},data:{token}});expect(accepted.status()).toBe(200);
  await page.goto('/workspace.html');await ready(page);await expect(page.getByRole('heading',{name:'Your jobs. Your day.',exact:true})).toBeVisible();await expect(page.locator('main')).toContainText('10 Guided Lane (fictional)');await expect(page.locator('main')).toContainText('Jobs today');await expect(page.locator('nav a[href="#dashboard"]')).toHaveCount(0);await expect(page.locator('nav a[href="#invoices"]')).toHaveCount(0);await fits(page);
  await page.getByRole('link',{name:'View my calendar',exact:false}).click();await expect(page.getByLabel('Calendar from',{exact:true})).toBeVisible();await page.getByLabel('Calendar from',{exact:true}).fill('2026-10-21');await expect(page.locator('main')).toContainText('2026-10-21 – 2026-10-27');await fits(page);
+});
+
+
+test('staff photo can be chosen during creation, persists on jobs and reports, and can be removed',async({page,context})=>{
+ await page.goto('/workspace.html');await navigate(page,'team');await page.getByRole('button',{name:'Add team member',exact:false}).click();await page.getByLabel('Full name',{exact:true}).fill('QA Maya Ellis');
+ await expect(page.getByLabel('Take staff photo',{exact:true})).toHaveAttribute('capture','user');await page.getByLabel('Choose staff photo',{exact:true}).setInputFiles({name:'profile.jpg',mimeType:'image/jpeg',buffer:Buffer.from(JPEG,'base64')});await expect(page.getByAltText('Selected staff photo preview')).toBeVisible();
+ await page.getByRole('button',{name:'Add team member',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible();await ready(page);const photo=page.locator('.staff-photo').first();await expect(photo).toBeVisible();await expect(photo).toHaveJSProperty('naturalWidth',224);await fits(page);
+ const saved=await state(context);expect(saved.state.staff).toHaveLength(1);expect(saved.state.staff[0].photoId).toMatch(/^[a-f0-9]{64}$/);expect(JSON.stringify(saved)).not.toContain(JPEG);
+ const imageURL=await photo.getAttribute('src');const response=await context.request.get(imageURL);expect(response.status()).toBe(200);expect(response.headers()['content-type']).toBe('image/jpeg');
+ await addCustomer(page);await book(page);await navigate(page,'dashboard');await expect(page.locator('main .staff-photo')).toHaveCount(1);await navigate(page,'schedule');await expect(page.locator('main .staff-photo')).toHaveCount(1);await page.reload();await ready(page);await expect(page.locator('main .staff-photo')).toHaveCount(1);
+ await navigate(page,'team');await page.getByRole('button',{name:'Change photo',exact:true}).click();await page.getByRole('button',{name:'Remove photo',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible();await expect(page.locator('.staff-photo')).toHaveCount(0);expect((await state(context)).state.staff).toHaveLength(1);expect((await context.request.get(imageURL)).status()).toBe(404);
+ await page.getByRole('button',{name:'Add team member',exact:false}).click();await page.getByLabel('Full name',{exact:true}).fill('Worker with invalid photo');await page.getByLabel('Choose staff photo',{exact:true}).setInputFiles({name:'broken.jpg',mimeType:'image/jpeg',buffer:Buffer.from('not an image')});await page.getByRole('button',{name:'Add team member',exact:true}).click();await expect(page.locator('#form-error')).toContainText('Staff member saved. Photo was not confirmed');await expect(page.getByRole('heading',{name:'Photo for Worker with invalid photo',exact:true})).toBeVisible();expect((await state(context)).state.staff).toHaveLength(2);
 });
