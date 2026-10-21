@@ -1,3 +1,4 @@
+import {saveSupplier,issueInvoice,creditInvoice,assertFinancialRestore} from './billing.mjs';
 import * as D from './domain.mjs';
 const headers={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store, private','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'};
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers});
@@ -124,13 +125,17 @@ export async function handle(request,db,{now=()=>new Date()}={}){
      if(data.action==='start'&&job.date>asOf)problem(400,'Future visits cannot be started.');
      D.updateJob(state,actor,data.id,data.action,data.value);break;
     }
+    case 'supplier.save':result=saveSupplier(state,actor,data);break;
+    case 'invoice.issue':result=issueInvoice(state,actor,data.id,asOf);break;
+    case 'invoice.credit':result=creditInvoice(state,actor,data.id,data.reason,asOf);break;
     case 'invoice.create':result=D.createInvoice(state,actor,data.jobId,Number(data.vat||0),asOf);break;
     case 'invoice.paid':D.markPaid(state,actor,data.id,asOf);break;
     case 'backup.restore':{
      manager(m);if(!Number.isSafeInteger(data.revision)||data.revision<0)problem(400,'Choose a backup revision.');
      const backup=await db.prepare('SELECT document FROM history WHERE workspace_id = ? AND revision = ?').bind(workspace,data.revision).first();
      if(!backup)problem(404,'Backup not found.');const restored=JSON.parse(backup.document);
-     if(!D.validateState(restored))problem(400,'Backup is invalid.');Object.assign(state,restored);
+     if(!D.validateState(restored))problem(400,'Backup is invalid.');assertFinancialRestore(state,restored);
+     if(restored.supplier===undefined)delete state.supplier;Object.assign(state,restored);
      state.audit.unshift({at:timestamp,actor:'Manager',message:'Restored revision '+data.revision});state.audit=state.audit.slice(0,200);break;
     }
     default:problem(400,'Unknown command.');

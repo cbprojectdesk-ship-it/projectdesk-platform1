@@ -7,14 +7,16 @@ export function prepareInvoiceEmail(invoice,email,businessName='Quenvira'){
  const to=typeof email==='string'?email.trim():'';
  const local=to.split('@')[0];
  const valid=to.length<=150&&mailbox.test(to)&&!local.startsWith('.')&&!local.endsWith('.')&&!local.includes('..');
- const subject=`${business} — draft invoice ${invoice.number}`;
+ const issued=Boolean(invoice.issue);
+ const supplier=invoice.issue?.supplier;
+ const subject=`${supplier?.tradingName||supplier?.legalName||business} — ${issued?'invoice':'draft invoice'} ${invoice.number}`;
  const body=[
-  'DRAFT — NOT A VALID TAX INVOICE',business,'',
+  issued?'PRIVATE TEST DOCUMENT — NOT FOR CUSTOMER USE':'DRAFT — NOT A VALID TAX INVOICE',supplier?.legalName||business,...(supplier?[supplier.tradingName,supplier.address,supplier.contact,supplier.companyNumber?'Company number: '+supplier.companyNumber:'',supplier.vatRegistered?'VAT registration: '+supplier.vatNumber:'Not VAT registered'].filter(Boolean):[]),'',
   `Reference: ${invoice.number}`,`Customer: ${invoice.customerName}`,`Service address: ${invoice.address}`,
-  `Issued: ${invoice.issued}`,`Due: ${invoice.due}`,`Service: ${invoice.description}`,'',
+  ...(issued?[`Supply date: ${invoice.issue.supplyDate}`,`Quantity: 1 visit; unit price: ${gbp(invoice.net)}`]:[]),`Issued: ${invoice.issued}`,`Due: ${invoice.due}`,`Service: ${invoice.description}`,'',
   `Net: ${gbp(invoice.net)}`,`VAT (${invoice.vat}%): ${gbp(invoice.tax)}`,`Total: ${gbp(invoice.total)}`,
-  `Status: ${invoice.status}`,...(invoice.paidOn?[`Manual payment recorded: ${invoice.paidOn}`]:[]),'',
-  'This is a development-release draft for review, not a valid tax invoice or a request for payment.',
+  `Status: ${invoice.status}`,...(invoice.credit?[`Full credit: ${invoice.credit.number} (${invoice.credit.date})`,`Credit reason: ${invoice.credit.reason}`,'Balance due: £0.00']:[]),...(invoice.paidOn?[`Manual payment recorded: ${invoice.paidOn}`]:[]),'',
+  issued?'Private testing only. Do not use this document to request customer payment.':'This is a development-release draft for review, not a valid tax invoice or a request for payment.',
   'No payment is collected through this message.'
  ].join('\n').replace(/\r\n?|\n/g,'\r\n');
  return {to,subject,body,href:valid?`mailto:${encodeURIComponent(local)}@${to.split('@')[1]}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`:null,
