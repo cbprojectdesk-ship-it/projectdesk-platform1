@@ -21,7 +21,7 @@ async function addCustomer(page,name='QA Willow House'){
  await page.getByLabel('Email',{exact:true}).fill('willow@example.com');await page.getByLabel('Service preferences').fill('Fictional instructions');
  await page.getByRole('button',{name:'Save customer',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible();
 }
-async function addStaff(page){await navigate(page,'team');await page.locator('.page-heading').getByRole('button',{name:'Add team member',exact:false}).click();await page.getByLabel('Full name').fill('QA Maya Ellis');await page.locator('#modal').getByRole('button',{name:'Add team member',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible()}
+async function addStaff(page){await navigate(page,'team');await page.locator('.page-heading').getByRole('button',{name:'Add team member',exact:false}).click();await page.getByLabel('Full name').fill('QA Maya Ellis');await expect(page.locator('#modal').getByRole('button',{name:'Add team member',exact:true})).toBeEnabled();await page.locator('#modal').getByRole('button',{name:'Add team member',exact:true}).click({timeout:15000});await expect(page.locator('#modal')).not.toBeVisible()}
 async function book(page,{repeat='One-off',count='1',date='2026-10-20',time='09:00'}={}){
  await navigate(page,'jobs');await page.getByRole('button',{name:'New job',exact:false}).click();
  await page.locator('#modal').getByLabel('Date',{exact:true}).fill(date);await page.getByLabel('Time',{exact:true}).fill(time);
