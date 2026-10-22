@@ -1,9 +1,32 @@
 import handler from "vinext/server/fetch-handler";
+import {verifyAccessIdentity} from "../server/cloudflare-access.mjs";
+import {guardStandaloneRequest} from "../server/standalone-identity.mjs";
 import { runWithConnectorBinding } from "../lib/connector-context";
 import type { ConnectorBinding } from "../lib/connector-contract.mjs";
 
 export default {
-  fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
+  async fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
+    // Standalone hosting is opt-in; the existing managed Sites path stays unchanged.
+    if (env.QUENVIRA_HOSTING_MODE === "standalone") {
+      const pathname = new URL(request.url).pathname;
+      // The webhook is intentionally anonymous at the edge; its raw-body Stripe
+      // signature is verified by the existing subscription webhook handler.
+      const webhook = pathname === "/api/quenvira/subscription-webhook";
+      let principal = null;
+      if (!webhook) {
+        try {
+          principal = await verifyAccessIdentity(request, {
+            teamDomain: env.QUENVIRA_ACCESS_TEAM_DOMAIN,
+            audience: env.QUENVIRA_ACCESS_AUDIENCE,
+          });
+        } catch {
+          return new Response("Authentication temporarily unavailable", {status: 503});
+        }
+      }
+      const guarded = guardStandaloneRequest(request, {verifiedPrincipal: principal});
+      if (guarded.response) return guarded.response;
+      request = guarded.request;
+    }
     let binding = ctx.props?.CONNECTORS;
     // Local preview emulates the same request-scoped capability. This branch and
     // the auxiliary service binding are absent from production builds.
