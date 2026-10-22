@@ -18,7 +18,7 @@ test('standalone identity strips forged headers and injects verified principal',
  assert.equal(result.request.headers.get('oai-authenticated-user-id'),'verified');
  assert.equal(result.request.headers.get('oai-authenticated-user-email'),'verified@example.test');
 });
-test('Stripe webhook bypasses browser identity but never bypasses signature handler',()=>{
+test('Stripe webhook bypasses browser identity but never bypasses signature handler',async()=>{
  const request=new Request(origin+'/api/quenvira/subscription-webhook',{method:'POST',headers:{
   'oai-authenticated-user-id':'attacker','stripe-signature':'bad'
  },body:'{}'});
