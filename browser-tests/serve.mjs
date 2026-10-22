@@ -10,6 +10,7 @@ import {database,setup,fixtures,command,job,fixed} from '../platform/tests/suppo
 if(process.env.GITHUB_ACTIONS!=='true'||process.env.QUENVIRA_E2E!=='1')throw Error('Browser fixture server is GitHub Actions only.');
 const origin='http://127.0.0.1:4173';
 const root=fileURLToPath(new URL('../platform/public/',import.meta.url));
+const demoRoot=path.resolve(fileURLToPath(new URL('../dist/',import.meta.url)));
 const sessions=new Map();
 const server=http.createServer(async(req,res)=>{
  try{
@@ -34,6 +35,14 @@ const server=http.createServer(async(req,res)=>{
     await command(db,workspaceId,'job.save',{...job({customerId:c.body.result.id,staffId:s.body.result.id}),time:'13:00'},'alice');
    }
    sessions.set(key,{db,workspaceId,otherWorkspaceId});return send(200,JSON.stringify({workspaceId,otherWorkspaceId,assignedJobId}));
+  }
+  // CI-only static public-demo fixture, separate from simulated business accounts.
+  if(url.pathname.startsWith('/public-demo/')&&req.method==='GET'){
+   const relative=decodeURIComponent(url.pathname.slice('/public-demo/'.length));
+   const filename=path.resolve(demoRoot,relative||'index.html');
+   if(!filename.startsWith(demoRoot+path.sep)||!fs.existsSync(filename)||!fs.statSync(filename).isFile())return send(404,'{}');
+   const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml'};
+   return send(200,fs.readFileSync(filename),types[path.extname(filename)]||'application/octet-stream');
   }
   const session=sessions.get(key);if(!session)return send(404,'{}');
   if(url.pathname.startsWith('/api/quenvira/')){

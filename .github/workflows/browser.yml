@@ -2,9 +2,9 @@ name: Free browser acceptance
 on:
   push:
     branches: [main]
-    paths: ['browser-tests/**', 'platform/public/**', 'platform/server/**', 'platform/drizzle/**', 'platform/tests/support/**', '.github/workflows/browser.yml']
+    paths: ['dist/**', 'browser-tests/**', 'platform/public/**', 'platform/server/**', 'platform/drizzle/**', 'platform/tests/support/**', '.github/workflows/browser.yml']
   pull_request:
-    paths: ['browser-tests/**', 'platform/public/**', 'platform/server/**', 'platform/drizzle/**', 'platform/tests/support/**', '.github/workflows/browser.yml']
+    paths: ['dist/**', 'browser-tests/**', 'platform/public/**', 'platform/server/**', 'platform/drizzle/**', 'platform/tests/support/**', '.github/workflows/browser.yml']
   workflow_dispatch:
 permissions:
   contents: read
