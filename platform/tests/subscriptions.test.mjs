@@ -37,6 +37,34 @@ test('checkout uses fixed price, tenant-owned customer, anchored trial and ident
  // Simulate provider success followed by lost DB response.
  f.db.sqlite.prepare('UPDATE subscription_accounts SET checkout_id=NULL').run();await checkout(f.db,f.workspace,'alice@example.com',terms,config,f.client,timestamp);assert.equal(f.client.sessions.size,1);f.db.sqlite.close();
 });
+test('corrected checkout parameters use a new stable namespace after a rejected legacy request',async()=>{
+ const f=await fixture(),create=f.client.checkout.sessions.create;
+ f.client.checkout.sessions.create=async(params,options)=>{
+  assert.notEqual(options.idempotencyKey,'quenvira-checkout-'+f.workspace+'-0');
+  assert.equal(options.idempotencyKey,'quenvira-checkout-v2-'+f.workspace+'-0');
+  return create(params,options);
+ };
+ await checkout(f.db,f.workspace,'alice@example.com',terms,config,f.client,timestamp);
+ // A lost database response must still recover the same new session.
+ f.db.sqlite.prepare('UPDATE subscription_accounts SET checkout_id=NULL').run();
+ await checkout(f.db,f.workspace,'alice@example.com',terms,config,f.client,timestamp);
+ assert.equal(f.client.sessions.size,1);f.db.sqlite.close();
+});
+test('checkout works when the Stripe account defaults to Managed Payments without changing the merchant model',async()=>{
+ const f=await fixture(),create=f.client.checkout.sessions.create;
+ f.client.checkout.sessions.create=async(params,options)=>{
+  if(params.managed_payments?.enabled!==false&&params.adaptive_pricing?.enabled===false)throw Error('Managed Payments requires adaptive pricing');
+  return create(params,options);
+ };
+ try{
+  const result=await checkout(f.db,f.workspace,'alice@example.com',terms,config,f.client,timestamp);
+  assert.equal(result.url,'https://checkout.stripe.com/c/pay/test');
+  const params=f.client.calls.find(c=>c[0]==='checkout')[1];
+  assert.equal(params.consent_collection.terms_of_service,'required');
+  assert.equal(params.automatic_tax.enabled,false);
+  assert.equal(params.adaptive_pricing.enabled,false);
+ }finally{f.db.sqlite.close()}
+});
 test('expired checkout allocates one new generation, wrong price/mode and ongoing subscriptions are rejected',async()=>{
  const f=await fixture();await checkout(f.db,f.workspace,'alice@example.com',terms,config,f.client,timestamp);f.client.sessions.get('cs_0').status='expired';await checkout(f.db,f.workspace,'alice@example.com',terms,config,f.client,timestamp);assert.equal(f.client.sessions.size,2);assert.equal(f.db.sqlite.prepare('SELECT checkout_generation AS n FROM subscription_accounts').get().n,1);
  f.client.setSubs([paid()]);await assert.rejects(checkout(f.db,f.workspace,'alice@example.com',terms,config,f.client,timestamp),/already exists/);f.client.setSubs([]);f.client.prices.retrieve=async()=>({active:true,livemode:false,currency:'gbp',unit_amount:1});await assert.rejects(checkout(f.db,f.workspace,'alice@example.com',terms,config,f.client,timestamp),/approved/);f.db.sqlite.close();

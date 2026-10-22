@@ -206,5 +206,12 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
   const committed=await db.batch(statements);
   if(!committed[1].results?.length){const current=await membership(db,workspace,user);if(current.role!==m.role||current.staff_id!==m.staff_id)problem(403,'Your access changed. Reload before editing.');problem(409,'Workspace changed. Reload and try again.');}
   return json(reply);
- }catch(e){return json({error:e instanceof Problem||e instanceof SubscriptionProblem?e.message:'Service temporarily unavailable.',code:e instanceof Problem||e instanceof SubscriptionProblem?e.status:503},e instanceof Problem||e instanceof SubscriptionProblem?e.status:503)}
+ }catch(e){
+  // Record bounded provider diagnostics, never the request, headers or key.
+  if(typeof e.type==='string'&&/^Stripe[A-Za-z]+Error$/.test(e.type)){
+   const clean=value=>typeof value==='string'?value.replace(/(?:sk|rk|pk)_(?:test|live)_[A-Za-z0-9_]+/g,'[redacted]').replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g,'[redacted]').slice(0,1200):undefined;
+   console.error('Quenvira Stripe request failed',JSON.stringify({type:clean(e.type),code:clean(e.code),param:clean(e.param),requestId:clean(e.requestId),status:e.statusCode,message:clean(e.message)}));
+  }
+  return json({error:e instanceof Problem||e instanceof SubscriptionProblem?e.message:'Service temporarily unavailable.',code:e instanceof Problem||e instanceof SubscriptionProblem?e.status:503},e instanceof Problem||e instanceof SubscriptionProblem?e.status:503)
+ }
 }
