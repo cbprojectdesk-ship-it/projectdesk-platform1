@@ -1,0 +1,21 @@
+
+{
+  "name": "quenvira-staging",
+  "main": "./build/sites-worker.ts",
+  "compatibility_date": "2026-10-22",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "vars": {
+    "QUENVIRA_HOSTING_MODE": "standalone",
+    "QUENVIRA_BILLING_MODE": "sandbox",
+    "QUENVIRA_PAID_LAUNCH_APPROVED": "false"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "quenvira-staging",
+      "database_id": "a91be5bb-6565-473e-98c2-40e83bc0e2d5"
+    }
+  ]
+}
+  
