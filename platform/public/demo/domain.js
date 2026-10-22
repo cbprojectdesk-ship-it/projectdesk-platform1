@@ -10,7 +10,7 @@ export function dayAdd(day,n){
 }
 export const dateLabel=day=>new Date(day+'T12:00:00Z').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',timeZone:'Europe/London'});
 export const minutes=t=>Number(t.slice(0,2))*60+Number(t.slice(3));
-const uid=prefix=>prefix+'-'+crypto.randomUUID();
+const uid=prefix=>prefix+'-'+(typeof crypto.randomUUID==='function'?crypto.randomUUID():Array.from(crypto.getRandomValues(new Uint8Array(16)),byte=>byte.toString(16).padStart(2,'0')).join(''));
 const fail=m=>{throw Error(m)};
 const text=(v,max=500)=>{if(typeof v!=='string'||v.length>max)fail('Text is too long or invalid.');return v.trim()};
 export const DEFAULT_CHECKLIST=Object.freeze(['Surfaces & high-touch points','Kitchen & bathroom','Floors vacuumed & mopped','Final quality check']);
