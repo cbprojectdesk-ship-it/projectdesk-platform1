@@ -28,3 +28,11 @@ test('Stripe webhook bypasses browser identity but never bypasses signature hand
  assert.equal(result.request.headers.get('stripe-signature'),'bad');
  assert.equal(await result.request.text(),'{}');
 });
+
+test('non-POST requests to webhook endpoint require verified identity',()=>{
+ for(const method of ['GET','HEAD','OPTIONS']){
+  const request=new Request(origin+'/api/quenvira/subscription-webhook',{method,headers:{'oai-authenticated-user-id':'forged'}});
+  const result=guardStandaloneRequest(request);
+  assert.equal(result.response?.status,401);
+ }
+});
