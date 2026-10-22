@@ -1,0 +1,68 @@
+
+name: Quenvira staging deployment
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quenvira-staging
+  cancel-in-progress: false
+
+jobs:
+  staging:
+    name: Validate staging release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Verify release branch
+        env:
+          RELEASE_REF: ${{ github.ref }}
+        run: |
+          test "$RELEASE_REF" = \
+            "refs/heads/feat/quenvira-cloudflare-access-verifier"
+
+      - name: Check out selected branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - name: Install dependencies
+        working-directory: platform
+        run: pnpm install --frozen-lockfile
+
+      - name: Run application checks
+        working-directory: platform
+        run: |
+          pnpm check
+          pnpm test
+          pnpm lint
+
+      - name: Build Quenvira
+        working-directory: platform
+        run: pnpm build
+
+      - name: Verify staging configuration
+        working-directory: platform
+        run: |
+          test -f wrangler.staging.jsonc
+          grep -q '"workers_dev": false' \
+            wrangler.staging.jsonc
+          grep -q '"QUENVIRA_BILLING_MODE": "sandbox"' \
+            wrangler.staging.jsonc
+
+      - name: Deployment safety gate
+        run: |
+          echo "Build validated."
+          echo "Deployment remains disabled."
+          echo "Cloudflare credentials and Access"
+          echo "must be verified before deployment."

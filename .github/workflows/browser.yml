@@ -13,8 +13,8 @@ jobs:
     # Standard hosted runners are free for public repositories. Fail closed if
     # repository visibility changes; no paid/larger runner or artifact uploads.
     if: github.event.repository.private == false
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
     env:
       QUENVIRA_E2E: '1'
     defaults:
