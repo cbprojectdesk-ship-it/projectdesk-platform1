@@ -10,8 +10,8 @@ function harness(saved){
  const elements=new Map();
  const make=()=>({innerHTML:'',textContent:'',open:false,value:'',dataset:{},classList:{add(){},remove(){}},addEventListener(){},querySelector(){return null},querySelectorAll(){return []},showModal(){this.open=true},close(){this.open=false},focus(){},setSelectionRange(){},click(){}});
  for(const id of ['#app','#modal','#toast','#persona','#form-error'])elements.set(id,make());
- const storage=new Map(saved?[['quenvira-demo-v1',saved]]:[]);
- const context={showConflictWarning:()=>false,...domain,prepareInvoiceEmail,copyInvoiceText,Intl,Date,JSON,Number,String,Error,Array,Set,Math,crypto,structuredClone,Blob,URL,setTimeout:()=>0,clearTimeout(){},confirm:()=>true,location:{hash:'#dashboard'},localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},document:{querySelector:s=>elements.get(s)||null,addEventListener(){},createElement:make},window:{addEventListener(){}}};
+ const storage=new Map(saved?[['quenvira-demo-session-v1',saved]]:[]);
+ const context={showConflictWarning:()=>false,...domain,prepareInvoiceEmail,copyInvoiceText,Intl,Date,JSON,Number,String,Error,Array,Set,Math,crypto,structuredClone,Blob,URL,setTimeout:()=>0,clearTimeout(){},confirm:()=>true,location:{hash:'#dashboard'},sessionStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},document:{querySelector:s=>elements.get(s)||null,addEventListener(){},createElement:make},window:{addEventListener(){}}};
  vm.createContext(context);vm.runInContext(src+`\nglobalThis.testing={route,render,act,bindModal,jobDetail,customerForm,jobForm,invoiceForm,invoiceDetail,state:()=>state,actor:()=>actor,setActor:a=>actor=a,setView:v=>view=v,html:()=>document.querySelector('#app').innerHTML,modal:()=>document.querySelector('#modal').innerHTML};`,context);return {ui:context.testing,context,elements,storage};
 }
 test('all seven routes render meaningful content without runtime failures',()=>{const {ui,context}=harness();for(const route of ['dashboard','schedule','jobs','customers','team','invoices','settings']){context.location.hash='#'+route;ui.route();assert.match(ui.html(),/<main id="main"/);assert.match(ui.html(),/<h1>[^<]+<\/h1>/);assert.ok(!ui.html().includes('undefined'))}});
@@ -21,9 +21,9 @@ test('staff cannot render financial or customer pages via direct hash',()=>{cons
 test('all staff job detail dialogs reject another member’s job',()=>{const {ui}=harness();ui.setActor({role:'staff',staffId:'s1'});assert.throws(()=>ui.jobDetail('j0-1'),/not found/);ui.jobDetail('j0-4');assert.match(ui.modal(),/Seabreeze Apartments/)});
 test('stored user text is escaped on customer, job, invoice and team screens',()=>{const state=domain.seed(),payload='<img src=x onerror="alert(1)">';state.customers[0].name=payload;state.customers[0].notes=payload;state.staff[0].name=payload;state.invoices[0].customerName=payload;const {ui,context}=harness(JSON.stringify(state));for(const route of ['dashboard','customers','schedule','team','invoices']){context.location.hash='#'+route;ui.route();assert.ok(!ui.html().includes(payload));assert.ok(ui.html().includes('&lt;img'))}ui.jobDetail('j0-0');assert.ok(!ui.modal().includes(payload));ui.invoiceDetail('i0');assert.ok(!ui.modal().includes(payload));});
 test('job, customer, staff and invoice dialogs render their forms and labels',()=>{const {ui}=harness();ui.jobForm();assert.match(ui.modal(),/id="job-form"/);assert.match(ui.modal(),/name="duration"/);assert.match(ui.modal(),/name="staffId"/);ui.customerForm();assert.match(ui.modal(),/id="customer-form"/);ui.invoiceForm();assert.match(ui.modal(),/id="invoice-form"/);ui.act('new-staff',{dataset:{}});assert.match(ui.modal(),/id="staff-form"/)});
-test('real action handler performs start, guarded completion, note, checklist and payment workflows',()=>{const {ui,elements,storage}=harness(),id='j0-4';ui.act('start-job',{dataset:{id}});assert.equal(ui.state().jobs.find(j=>j.id===id).status,'In progress');assert.throws(()=>ui.act('complete-job',{dataset:{id}}),/checklist/);elements.set('#visit-note',{value:'Fictional visit finished'});ui.act('save-note',{dataset:{id}});const state=ui.state();for(let i=0;i<4;i++)domain.updateJob(state,{role:'manager'},id,'check',i);elements.get('#visit-note').value='Final note entered before completion';ui.act('complete-job',{dataset:{id}});assert.equal(ui.state().jobs.find(j=>j.id===id).status,'Completed');assert.equal(ui.state().jobs.find(j=>j.id===id).notes,'Final note entered before completion');const invoice=domain.createInvoice(ui.state(),{role:'manager'},id,20);ui.act('pay-invoice',{dataset:{id:invoice.id}});assert.equal(invoice.status,'Paid');assert.equal(JSON.parse(storage.get('quenvira-demo-v1')).invoices.at(-1).status,'Paid')});
+test('real action handler performs start, guarded completion, note, checklist and payment workflows',()=>{const {ui,elements,storage}=harness(),id='j0-4';ui.act('start-job',{dataset:{id}});assert.equal(ui.state().jobs.find(j=>j.id===id).status,'In progress');assert.throws(()=>ui.act('complete-job',{dataset:{id}}),/checklist/);elements.set('#visit-note',{value:'Fictional visit finished'});ui.act('save-note',{dataset:{id}});const state=ui.state();for(let i=0;i<4;i++)domain.updateJob(state,{role:'manager'},id,'check',i);elements.get('#visit-note').value='Final note entered before completion';ui.act('complete-job',{dataset:{id}});assert.equal(ui.state().jobs.find(j=>j.id===id).status,'Completed');assert.equal(ui.state().jobs.find(j=>j.id===id).notes,'Final note entered before completion');const invoice=domain.createInvoice(ui.state(),{role:'manager'},id,20);ui.act('pay-invoice',{dataset:{id:invoice.id}});assert.equal(invoice.status,'Paid');assert.equal(JSON.parse(storage.get('quenvira-demo-session-v1')).invoices.at(-1).status,'Paid')});
 test('invalid saved storage recovers with visible warning',()=>{for(const saved of ['{broken','{"version":99}']){const {ui}=harness(saved);assert.match(ui.html(),/Saved data could not be loaded/);assert.equal(ui.state().customers.length,6)}});
-test('storage failure leaves in-memory progress and displays an export warning',()=>{const {ui,context}=harness();context.localStorage.setItem=()=>{throw Error('quota')};ui.act('start-job',{dataset:{id:'j0-4'}});assert.match(ui.html(),/storage is unavailable or full/);assert.equal(ui.state().jobs.find(j=>j.id==='j0-4').status,'In progress')});
+test('storage failure leaves in-memory progress and displays an export warning',()=>{const {ui,context}=harness();context.sessionStorage.setItem=()=>{throw Error('quota')};ui.act('start-job',{dataset:{id:'j0-4'}});assert.match(ui.html(),/storage is unavailable or full/);assert.equal(ui.state().jobs.find(j=>j.id==='j0-4').status,'In progress')});
 test('failed action rolls back state and records no partial change',()=>{const {ui}=harness();const before=JSON.stringify(ui.state());assert.throws(()=>ui.act('complete-job',{dataset:{id:'j0-4'}}));assert.equal(JSON.stringify(ui.state()),before)});
 test('invoice rendering identifies fictional draft, exact totals and manual payment',()=>{const {ui}=harness();const i=domain.createInvoice(ui.state(),{role:'manager'},'j0-0',20);ui.invoiceDetail(i.id);assert.match(ui.modal(),/DEMONSTRATION DRAFT/);assert.match(ui.modal(),/£78.00/);assert.match(ui.modal(),/Record demo payment/)});
 test('all declared action names have a handler',()=>{const declared=[...src.matchAll(/(?:data-action="|button\([^\n]*?,\s*['"])([a-z]+(?:-[a-z]+)*)/g)].map(m=>m[1]);const handlers=new Set([...src.matchAll(/case\s*'([^']+)'/g)].map(m=>m[1]));for(const action of declared)assert.ok(handlers.has(action),'Missing handler for '+action)});
@@ -34,12 +34,12 @@ test('skip to content preserves the current page and moves focus',()=>{
  let focused=false;elements.set('#main',{focus(){focused=true}});
  context.location.hash='#main';ui.route();assert.ok(focused);assert.match(ui.html(),/active customers/);
 });
-test('another tab cannot silently overwrite newer persisted edits or reset them',()=>{
+test('stale session state cannot silently overwrite newer edits or reset them',()=>{
  for(const action of ['start-job','reset']){
   const {ui,storage}=harness();const newer=domain.seed();newer.customers[0].name='Other tab';
-  const serialized=JSON.stringify(newer);storage.set('quenvira-demo-v1',serialized);
-  assert.throws(()=>ui.act(action,{dataset:{id:'j0-4'}}),/another tab/);
-  assert.equal(storage.get('quenvira-demo-v1'),serialized);
+  const serialized=JSON.stringify(newer);storage.set('quenvira-demo-session-v1',serialized);
+  assert.throws(()=>ui.act(action,{dataset:{id:'j0-4'}}),/session changed/);
+  assert.equal(storage.get('quenvira-demo-session-v1'),serialized);
   assert.equal(ui.state().jobs.find(j=>j.id==='j0-4').status,'Scheduled');
  }
 });
@@ -73,7 +73,7 @@ test('actual form submit handler creates customers, staff, recurring jobs and in
  submit('invoice-form',{jobId:id,vat:'20'});
  const invoice=ui.state().invoices.at(-1);assert.equal(invoice.total,9479);
  ui.act('pay-invoice',{dataset:{id:invoice.id}});
- assert.ok(domain.validateState(JSON.parse(storage.get('quenvira-demo-v1'))));
+ assert.ok(domain.validateState(JSON.parse(storage.get('quenvira-demo-session-v1'))));
 });
 test('failed form submission shows an error and preserves existing state',()=>{
  const {ui,context,elements}=harness();context.FormData=class{constructor(form){return new Map(Object.entries(form.values))}};
@@ -84,3 +84,10 @@ test('failed form submission shows an error and preserves existing state',()=>{
 });
 
 test('demo email preview uses saved address and workers cannot open it',()=>{const {ui}=harness();ui.act('email-invoice',{dataset:{id:'i0'}});assert.match(ui.modal(),/mailto:willow@example.com/);assert.match(ui.modal(),/does not send it or track delivery/);ui.setActor({role:'staff',staffId:'s1'});assert.throws(()=>ui.act('email-invoice',{dataset:{id:'i0'}}),/Manager/)});
+
+test('separate demo sessions keep visitor edits isolated',()=>{
+ const first=harness(),second=harness();first.ui.act('start-job',{dataset:{id:'j0-4'}});
+ assert.equal(first.ui.state().jobs.find(j=>j.id==='j0-4').status,'In progress');
+ assert.equal(second.ui.state().jobs.find(j=>j.id==='j0-4').status,'Scheduled');
+ assert.equal(second.storage.size,0);assert.ok(!src.includes('localStorage'));
+});
