@@ -11,7 +11,7 @@ export default {
       const pathname = new URL(request.url).pathname;
       // The webhook is intentionally anonymous at the edge; its raw-body Stripe
       // signature is verified by the existing subscription webhook handler.
-      const webhook = pathname === "/api/quenvira/subscription-webhook";
+      const webhook = pathname === "/api/quenvira/subscription-webhook" && request.method === "POST";
       let principal = null;
       if (!webhook) {
         try {
