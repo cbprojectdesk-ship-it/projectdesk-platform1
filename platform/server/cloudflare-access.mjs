@@ -3,6 +3,7 @@
 const decoder=new TextDecoder();
 const decode=(part)=>{if(!/^[A-Za-z0-9_-]+$/.test(part))throw Error('Invalid token encoding');const padded=part.replace(/-/g,'+').replace(/_/g,'/').padEnd(Math.ceil(part.length/4)*4,'=');return Uint8Array.from(atob(padded),c=>c.charCodeAt(0))};
 const parse=(part)=>JSON.parse(decoder.decode(decode(part)));
+/** @param {Request} request @param {{teamDomain?: string, audience?: string, fetcher?: typeof fetch, now?: ()=>number}} [options] */
 export async function verifyAccessIdentity(request,{teamDomain,audience,fetcher=fetch,now=()=>Date.now()}={}){
  if(typeof teamDomain!=='string'||!/^[a-z0-9-]+\.cloudflareaccess\.com$/.test(teamDomain)||typeof audience!=='string'||!audience)throw Error('Access verifier configuration missing');
  const token=request.headers.get('cf-access-jwt-assertion');
