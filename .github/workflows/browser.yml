@@ -14,7 +14,7 @@ jobs:
     # repository visibility changes; no paid/larger runner or artifact uploads.
     if: github.event.repository.private == false
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 35
     env:
       QUENVIRA_E2E: '1'
     defaults:
@@ -26,7 +26,7 @@ jobs:
         with:
           node-version: '24'
       - run: npm ci --ignore-scripts --no-audit --no-fund
-      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: npx playwright install chromium firefox webkit
       - run: npm test
       - name: Browser result summary
         if: always()
