@@ -1,0 +1,25 @@
+name: Quenvira hosted webhook smoke test
+on:
+  workflow_dispatch:
+    inputs:
+      origin:
+        description: 'Verified deployed HTTPS origin (no trailing slash)'
+        required: true
+        type: string
+jobs:
+  hosted-webhook:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: platform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify webhook routing and signature rejection
+        env:
+          QUENVIRA_ORIGIN: ${{ inputs.origin }}
+        run: node scripts/verify-hosted-webhook.mjs "$QUENVIRA_ORIGIN"
