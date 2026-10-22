@@ -73,3 +73,9 @@
   section.panel:has(button[data-action="new-invoice"]) .table-wrap td:nth-child(6)::before { content: 'Action'; }
   section.panel:has(button[data-action="new-invoice"]) .table-wrap td button { min-height: 40px; }
 }
+
+/* Keep website navigation reachable at every demo breakpoint. */
+.ccs-return{color:#36584a;font-size:12px;font-weight:700;white-space:nowrap;text-decoration:underline;text-underline-offset:3px}
+.top-actions{flex-wrap:wrap}
+footer a{color:#36584a;text-underline-offset:3px}
+@media(max-width:570px){.topbar{align-items:flex-start}.top-actions{gap:8px}.ccs-return{min-height:36px;display:inline-flex;align-items:center}}

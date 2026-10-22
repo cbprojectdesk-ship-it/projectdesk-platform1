@@ -57,7 +57,7 @@ jobs:
           test -f wrangler.staging.jsonc
           grep -q '"workers_dev": false' \
             wrangler.staging.jsonc
-          grep -q '"QUENVIRA_BILLING_MODE": "sandbox"' \
+          grep -q '"QUENVIRA_BILLING_MODE": "test"' \
             wrangler.staging.jsonc
 
       - name: Deployment safety gate

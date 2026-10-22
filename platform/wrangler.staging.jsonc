@@ -7,7 +7,7 @@
   "workers_dev": false,
   "vars": {
     "QUENVIRA_HOSTING_MODE": "standalone",
-    "QUENVIRA_BILLING_MODE": "sandbox",
+    "QUENVIRA_BILLING_MODE": "test",
     "QUENVIRA_PAID_LAUNCH_APPROVED": "false"
   },
   "d1_databases": [
