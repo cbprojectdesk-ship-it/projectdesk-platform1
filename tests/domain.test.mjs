@@ -36,3 +36,9 @@ test('metrics reconcile jobs and invoices',()=>{const s=fresh(),m=D.metrics(s);a
 test('CSV escapes quotes, commas, newlines and spreadsheet formula injection',()=>{const output=D.csv([['a,b','say "hello"','line\nnew','=SUM(A1:A2)','+123','@cmd','-123']]);assert.equal(output,'"a,b","say ""hello""","line\nnew","\'=SUM(A1:A2)","\'+123","\'@cmd","\'-123"')});
 test('state rejects malformed version and invalid jobs',()=>{assert.ok(!D.validateState(null));assert.ok(!D.validateState({version:2}));const s=fresh();s.jobs[0].date='not a date';assert.ok(!D.validateState(s))});
 test('audit is bounded and records mutating actions',()=>{const s=fresh();for(let i=0;i<210;i++)D.updateJob(s,worker,'j0-4','note','note '+i);assert.equal(s.audit.length,200);assert.equal(s.audit[0].actor,'s1')});
+
+test('record creation works when randomUUID is unavailable but secure random bytes are supported',()=>{
+ const original=crypto.randomUUID;
+ try{crypto.randomUUID=undefined;const s=fresh();const a=D.saveCustomer(s,manager,{name:'Preview A',type:'Domestic',address:'Fictional Road',email:'a@example.com',notes:''});const b=D.saveCustomer(s,manager,{name:'Preview B',type:'Domestic',address:'Fictional Road',email:'b@example.com',notes:''});assert.notEqual(a.id,b.id);assert.match(a.id,/^[a-z]+-[a-f0-9]{32}$/);assert.ok(D.validateState(s));}
+ finally{crypto.randomUUID=original;}
+});
