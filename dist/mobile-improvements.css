@@ -1,0 +1,69 @@
+/* Quenvira demo mobile accessibility: stacked weekly agenda and readable invoice rows. */
+@media (max-width: 570px) {
+  .week-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    overflow-x: visible;
+    padding-bottom: 12px;
+  }
+  .week-grid .day-column {
+    min-width: 0;
+    min-height: 0;
+    padding: 12px;
+  }
+  .week-grid .day-column > header {
+    padding: 5px 4px 12px;
+    font-size: 14px;
+  }
+  .week-grid .visit-card {
+    min-height: 0;
+    padding: 14px;
+    margin-bottom: 9px;
+  }
+  .week-grid .visit-card strong { font-size: 14px; }
+  .week-grid .visit-card small,
+  .week-grid .visit-card .visit-person { font-size: 12px; }
+  .week-grid .free-day { margin: 16px 0; }
+  /* Invoice tables remain semantic tables on desktop and become readable cards on phones. */
+  section.panel:has(button[data-action="new-invoice"]) .table-wrap { overflow: visible; }
+  section.panel:has(button[data-action="new-invoice"]) .table-wrap table,
+  section.panel:has(button[data-action="new-invoice"]) .table-wrap tbody {
+    display: block;
+    width: 100%;
+    white-space: normal;
+  }
+  section.panel:has(button[data-action="new-invoice"]) .table-wrap thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+  }
+  section.panel:has(button[data-action="new-invoice"]) .table-wrap tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2,minmax(0,1fr));
+    gap: 12px;
+    padding: 17px;
+    border-bottom: 1px solid #e7ebe4;
+  }
+  section.panel:has(button[data-action="new-invoice"]) .table-wrap tbody tr:last-child { border-bottom: 0; }
+  section.panel:has(button[data-action="new-invoice"]) .table-wrap td {
+    display: block;
+    min-width: 0;
+    padding: 0 !important;
+    border: 0;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+  section.panel:has(button[data-action="new-invoice"]) .table-wrap td:first-child { grid-column: 1 / -1; }
+  section.panel:has(button[data-action="new-invoice"]) .table-wrap td::before {
+    content: 'Invoice detail';
+    display: block;
+    margin-bottom: 5px;
+    color: #617160;
+    font-size: 10px;
+  }
+  section.panel:has(button[data-action="new-invoice"]) .table-wrap td button { min-height: 40px; }
+}
