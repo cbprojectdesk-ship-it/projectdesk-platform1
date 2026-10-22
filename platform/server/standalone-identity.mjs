@@ -7,7 +7,7 @@ export function guardStandaloneRequest(request,{verifiedPrincipal}={}){
  const url=new URL(request.url);
  const headers=new Headers(request.headers);
  for(const name of [...headers.keys()])if(forbidden.test(name))headers.delete(name);
- if(url.pathname==='/api/quenvira/subscription-webhook'){
+ if(url.pathname==='/api/quenvira/subscription-webhook' && request.method==='POST'){
   // Stripe signs the raw request body. The webhook handler verifies its signature.
   return {request:new Request(request,{headers}),principal:null};
  }
