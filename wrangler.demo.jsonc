@@ -1,0 +1,9 @@
+{
+  // Public fictional-data demo only. No server API, D1, customer accounts, or Stripe.
+  "name": "quenvira",
+  "compatibility_date": "2026-10-22",
+  "workers_dev": true,
+  "assets": {
+    "directory": "./dist"
+  }
+}
