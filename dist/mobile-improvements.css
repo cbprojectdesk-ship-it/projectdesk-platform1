@@ -59,11 +59,17 @@
   }
   section.panel:has(button[data-action="new-invoice"]) .table-wrap td:first-child { grid-column: 1 / -1; }
   section.panel:has(button[data-action="new-invoice"]) .table-wrap td::before {
-    content: 'Invoice detail';
+    content: 'Detail';
     display: block;
     margin-bottom: 5px;
     color: #617160;
     font-size: 10px;
   }
+  section.panel:has(button[data-action="new-invoice"]) .table-wrap td:nth-child(1)::before { content: 'Invoice'; }
+  section.panel:has(button[data-action="new-invoice"]) .table-wrap td:nth-child(2)::before { content: 'Customer'; }
+  section.panel:has(button[data-action="new-invoice"]) .table-wrap td:nth-child(3)::before { content: 'Due date'; }
+  section.panel:has(button[data-action="new-invoice"]) .table-wrap td:nth-child(4)::before { content: 'Status'; }
+  section.panel:has(button[data-action="new-invoice"]) .table-wrap td:nth-child(5)::before { content: 'Amount'; }
+  section.panel:has(button[data-action="new-invoice"]) .table-wrap td:nth-child(6)::before { content: 'Action'; }
   section.panel:has(button[data-action="new-invoice"]) .table-wrap td button { min-height: 40px; }
 }
