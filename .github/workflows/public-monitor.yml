@@ -1,0 +1,23 @@
+name: Public service monitor
+on:
+  push:
+    branches: [main]
+    paths: ['scripts/check-public-services.mjs', '.github/workflows/public-monitor.yml']
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: public-service-monitor
+  cancel-in-progress: false
+jobs:
+  public-services:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-public-services.mjs

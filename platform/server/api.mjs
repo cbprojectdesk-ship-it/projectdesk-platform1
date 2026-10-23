@@ -1,3 +1,4 @@
+import {health} from './health.mjs';
 import {billingConfig,stripeClient,startTrial,entitlement,checkout,portal,webhook,assertDeletable,SubscriptionProblem} from './subscriptions.mjs';
 import {createBusinessBackup,prepareBusinessRestore,BACKUP_LIMIT} from './business-backup.mjs';
 import {photoKey,decodePhoto,setStaffPhoto} from './staff-photos.mjs';
@@ -36,6 +37,7 @@ async function load(db,workspace){const row=await db.prepare('SELECT * FROM work
 /** @param {Request} request @param {D1Database | undefined} db @param {{now?: () => Date, bucket?: R2Bucket, pilotEmails?: string, billingEnv?: Cloudflare.Env, billingClient?: any}} [options] */
 export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,billingEnv={},billingClient}={}){
  try{
+  if(new URL(request.url).pathname==='/api/quenvira/health')return health(request,db,{bucket,billingEnv});
   const billingPath=new URL(request.url).pathname==='/api/quenvira/subscription-webhook';
   // Webhooks authenticate their raw body independently of browser identity/CSRF.
   if(billingPath){const config=billingConfig(billingEnv);return json(await webhook(request,db,config,config?(billingClient||await stripeClient(config)):null))}
@@ -86,7 +88,7 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
   const {row,state}=await load(db,workspace);
   if(path.length===3&&path[2]==='subscription'){
    manager(m);
-   if(request.method==='GET')return json(config?{enabled:true,...await entitlement(db,workspace,config,await getClient(),Date.parse(timestamp))}:{enabled:false,status:'pilot',canWrite:true});
+   if(request.method==='GET')return json(config?{enabled:true,mode:config.mode,...await entitlement(db,workspace,config,await getClient(),Date.parse(timestamp))}:{enabled:false,status:'pilot',canWrite:true});
    const body=await readBody(request);
    if(!config)problem(503,'Subscriptions are not activated.');
    if(body.action==='checkout')return json(await checkout(db,workspace,email,body,config,await getClient(),timestamp));

@@ -99,3 +99,27 @@ test('anonymous Stripe webhook is authenticated independently, never by forged b
  r=await handle(new Request(ORIGIN+'/api/quenvira/subscription-webhook',{method:'POST',body:'{}'}),f.db,{billingEnv:env,billingClient:f.client});assert.equal(r.status,400);r=await handle(await signed(event),f.db);assert.equal(r.status,503);f.db.sqlite.close();
 });
 test('self-service enrollment requires complete enabled configuration and creates trial once',async()=>{const db=database(),f={db,client:provider()};const a=await call(f,'workspaces',{name:'Fictional self-service'});assert.equal(a.status,201);assert.equal((await call(f,'workspaces/'+a.body.workspaceId+'/subscription')).body.status,'trial');const retry=await call(f,'workspaces',{name:'Retry'});assert.equal(retry.body.workspaceId,a.body.workspaceId);assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM subscription_accounts').get().n,1);db.sqlite.close()});
+
+
+test('provider trial and custom cancellation date are visible without restarting checkout or extending app trial',async()=>{
+ const f=await fixture();await checkout(f.db,f.workspace,'alice@example.com',terms,config,f.client,timestamp);
+ const s=paid('trialing');s.cancel_at_period_end=false;s.cancel_at=Math.floor(Date.parse('2026-11-05T12:00:00Z')/1000);f.client.setSubs([s]);
+ try{
+  let result=await entitlement(f.db,f.workspace,config,f.client,now);
+  assert.equal(result.status,'trialing');assert.equal(result.canCheckout,false);assert.equal(result.canWrite,true);assert.equal(result.cancellationScheduled,true);assert.equal(result.cancelAt,s.cancel_at);
+  f.db.sqlite.prepare('UPDATE subscription_accounts SET trial_end=?').run('2026-10-01T12:00:00Z');
+  assert.equal((await entitlement(f.db,f.workspace,config,f.client,now)).canWrite,false);
+  for(const status of ['active','past_due','unpaid','paused','incomplete']){s.status=status;result=await entitlement(f.db,f.workspace,config,f.client,now);assert.equal(result.canCheckout,false);assert.equal(result.status,status);await assert.rejects(checkout(f.db,f.workspace,'alice@example.com',terms,config,f.client,timestamp),/already exists/)}
+ }finally{f.db.sqlite.close()}
+});
+test('completed checkout can be replaced only after its exact subscription is authoritatively terminal',async()=>{
+ const f=await fixture();await checkout(f.db,f.workspace,'alice@example.com',terms,config,f.client,timestamp);
+ const session=f.client.sessions.get('cs_0');session.status='complete';session.subscription='sub_test';
+ try{
+  await assert.rejects(checkout(f.db,f.workspace,'alice@example.com',terms,config,f.client,timestamp),/Checkout has completed/);
+  f.client.setSubs([{...paid('canceled'),id:'sub_other'}]);await assert.rejects(checkout(f.db,f.workspace,'alice@example.com',terms,config,f.client,timestamp),/Checkout has completed/);
+  f.client.setSubs([paid('canceled')]);assert.equal((await entitlement(f.db,f.workspace,config,f.client,now)).canCheckout,true);
+  await checkout(f.db,f.workspace,'alice@example.com',terms,config,f.client,timestamp);assert.equal(f.client.sessions.size,2);
+  await checkout(f.db,f.workspace,'alice@example.com',terms,config,f.client,timestamp);assert.equal(f.client.sessions.size,2);
+ }finally{f.db.sqlite.close()}
+});
