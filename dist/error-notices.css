@@ -1,0 +1,25 @@
+/* Prominent errors shared by the secure workspace and fictional demo. */
+.form-error:empty, [role="alert"]:empty { display: none; }
+.form-error:not(:empty), .error-text:not(:empty), [role="alert"]:not(:empty), #toast[data-error="true"] {
+  color: #9b1c1c;
+  background: #fff1f1;
+  border: 2px solid #bb2828;
+  border-left-width: 6px;
+  border-radius: 10px;
+  padding: 16px 18px;
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.form-error:not(:empty), [role="alert"]:not(:empty) { margin-block: 18px; }
+.form-error:focus { outline: 3px solid #1d59c1; outline-offset: 3px; }
+#toast[data-error="true"] { width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; box-shadow: 0 8px 32px #57151533; }
+#toast[data-error="true"] .error-message { display: block; }
+#toast .dismiss-error { display: block; margin-top: 12px; min-height: 44px; padding: 9px 16px; border: 2px solid #9b1c1c; border-radius: 7px; background: white; color: #9b1c1c; font-size: 1rem; font-weight: 700; }
+#toast .dismiss-error:hover { background: #ffe2e2; }
+#toast .dismiss-error:focus-visible { outline: 3px solid #1d59c1; outline-offset: 3px; }
+.save-status[data-error="true"] { color: #9b1c1c; background: #fff1f1; padding: 8px 10px; border: 2px solid #bb2828; border-radius: 8px; font-size: 1rem; font-weight: 700; white-space: normal; }
+.save-status[data-error="true"]::before { content: '!'; color: inherit; font-weight: 800; }
+@media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
