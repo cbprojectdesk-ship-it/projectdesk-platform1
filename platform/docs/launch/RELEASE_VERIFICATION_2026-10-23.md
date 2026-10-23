@@ -22,10 +22,10 @@ The repository now preserves the already-hosted subscription status/cancellation
 ## Remaining evidence requiring supported owner access
 
 - Real provider timed renewal, failure retry and recovery require advancing the Stripe sandbox simulation; this connector does not expose that operation. Hosted business entitlement across those transitions remains unverified.
-- Fresh signed-in manager/staff and second-business browser acceptance remains unverified. Preview supervision failed because another Vinext server is already running; no alternative browser automation or identity bypass was introduced.
-- Independent encrypted owner backup and isolated hosted restore remain open. Native D1 inspection truncates workspace/history documents, so those responses cannot be used as a complete backup. No live workspace was deleted or overwritten for a drill.
-- Successful receipt of an enquiry beyond FormSubmit's CAPTCHA remains unverified.
-- VAT treatment, provider/data-processing particulars and final commercial terms need factual owner confirmation before collecting real subscriptions. Automatic tax and live billing remain off; no paid service or legal agreement was activated.
+- Owner confirmed the signed-in account checks completed on 23 October, following the earlier screenshots/mobile stacking checks. See OWNER_ACCEPTANCE_2026-10-23.md. The replacement extended browser run passed all 114 tests; the earlier installation-only run was cancelled.
+- Hosted synthetic business-data restore passed using an independent encrypted file and actual isolated D1/R2 storage; see HOSTED_RECOVERY_2026-10-23.md. The owner real backup is explicitly deferred to laptop access with an evening reminder. No live workspace was deleted or overwritten.
+- Enquiry receipt is evidenced by actual FormSubmit emails in the business Gmail Trash dated 21 October. The activated hashed form endpoint is unchanged since that date. This is historical preview-origin receipt evidence, not a fresh post from today’s published origin.
+- Owner confirmed CCS is not UK VAT registered. Published draft terms and commercial preparation reflect £19 total monthly with no VAT added. See COMMERCIAL_PREPARATION_2026-10-23.md for remaining per-customer processing/order particulars. Automatic tax and live billing remain off; no paid service or legal agreement was activated.
 
 ## Validation
 
