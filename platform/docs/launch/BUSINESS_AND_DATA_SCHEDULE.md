@@ -6,7 +6,7 @@ Date: 21 October 2026. This schedule does not itself form a customer contract an
 
 Charles Buckton trading as CCS Creative Technologies, sole trader.
 78 Seaton Way, Southport, PR9 9GP, United Kingdom.
-cbprojectdesk@gmail.com — business, privacy, security and contract notices.
+ccscreativetech@gmail.com — business, privacy, security and contract notices.
 Owner/controller contact: Charles Buckton. No shares, ownership rights or spending authority have been allocated to anyone else. No limited-company incorporation or company number is asserted. The owner confirmed on 23 October 2026 that CCS is not UK VAT registered; do not add VAT to the proposed £19 total monthly subscription price.
 
 Business address currently uses the home address at the owner's request. No paid virtual office, registered-office or mail-forwarding service is ordered. Revisit after reliable income. A later change needs updating on legal notices, orders, invoices, banking and supplier records as applicable.
@@ -37,7 +37,7 @@ Quenvira and source-code rights are retained by the operator subject to applicab
 | Live retention | While the workspace exists. Twenty prior DB revisions, up to 200 in-record activity entries, workspace-lifetime command/event metadata; no clock-based pruning is currently promised. Archiving is not individual erasure. |
 | Backup retention | Downloaded business backups are manual and under the keeper's control. Record location, key custodian and deletion routine in the customer schedule. Provider infrastructure retention is not a number verified by this work. |
 | Exit | Offer a usable records export and protected photo-inclusive backup; agree deletion/return date and any legal exception; revoke users and remove active workspace/R2 objects. Assist with provider deletion requests. |
-| Rights | Customer directs rights responses for its records; CCS assists. Account/privacy contact is cbprojectdesk@gmail.com. |
+| Rights | Customer directs rights responses for its records; CCS assists. Account/privacy contact is ccscreativetech@gmail.com. |
 | Security | Hosted sign-in, server-side tenancy/roles, same-origin mutation checks, revisions/idempotency, validated input/photos, private object routes, encrypted manual backup, patched build and incident/recovery runbooks. |
 
 ## DPA clauses prepared for incorporation into an agreed order

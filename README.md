@@ -50,3 +50,9 @@ idempotent writes, staff invitation/revocation and revision recovery. It include
 81 automated checks, preserving the original demo under `platform/public/demo/`.
 See `platform/README.md` and `platform/docs/RELEASE_STATUS.md` for setup, security
 boundaries and remaining production gates. This does not certify a paid launch.
+
+## CCS business contact
+
+Support, business enquiries and privacy notices: [ccscreativetech@gmail.com](mailto:ccscreativetech@gmail.com).
+
+GitHub username and repository names, historical commits and customer identities are unchanged.

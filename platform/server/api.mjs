@@ -74,7 +74,7 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
   }
   if(path.length===1&&path[0]==='workspaces'&&request.method==='POST'){
    const body=await readBody(request);if(typeof body.name!=='string'||!body.name.trim()||body.name.length>100)problem(400,'Business name must be 1–100 characters.');
-   if(!mayCreateWorkspace(email,pilotEmails)&&!config?.selfServe)problem(403,'New business workspaces are currently invitation-only. Explore the public demo or contact cbprojectdesk@gmail.com to request pilot access.');
+   if(!mayCreateWorkspace(email,pilotEmails)&&!config?.selfServe)problem(403,'New business workspaces are currently invitation-only. Explore the public demo or contact ccscreativetech@gmail.com to request pilot access.');
    // Stable per-user creation ID makes retries create at most one initial workspace.
    const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(user));
    const workspace='w-'+Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
