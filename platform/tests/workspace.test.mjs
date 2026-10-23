@@ -157,3 +157,23 @@ test('existing subscriptions show cancellation dates and management without offe
   h.control.billingResponse={enabled:true,status:'canceled',canWrite:false,canManage:true,canCheckout:true};await h.ui.act('subscription');assert.match(h.elements.get('#modal').innerHTML,/Continue to secure checkout/);
  }finally{db.sqlite.close()}
 });
+
+
+test('signed-out workspace explains authentication instead of reporting a crash',async()=>{
+ const h=await browserAdapter(database(),null),html=h.elements.get('#app').innerHTML;
+ assert.match(html,/Sign in to your workspace/);
+ assert.match(html,/session has expired/);
+ assert.match(html,/signin-with-chatgpt\?return_to=%2Fworkspace.html/);
+ assert.match(html,/target="_top"/);
+ assert.match(html,/id="main"/);
+ assert.doesNotMatch(html,/Workspace unavailable/);
+ assert.equal(h.ui.data(),undefined);
+});
+test('storage failure offers a workspace retry without incorrectly requiring sign-in',async()=>{
+ const h=await browserAdapter(undefined),html=h.elements.get('#app').innerHTML;
+ assert.match(html,/Workspace could not be opened/);
+ assert.match(html,/Persistent storage is not configured/);
+ assert.match(html,/href="\/workspace.html"/);
+ assert.doesNotMatch(html,/signin-with-chatgpt/);
+ assert.equal(h.ui.data(),undefined);
+});
