@@ -8,7 +8,7 @@ import {prepareInvoiceEmail,copyInvoiceText} from '../public/invoice-email.js';
 const src=fs.readFileSync(new URL('../public/demo/app.js',import.meta.url),'utf8').replace(/^import .*?;\n/gm,'');
 function harness(saved){
  const elements=new Map();
- const make=()=>({innerHTML:'',textContent:'',open:false,value:'',dataset:{},classList:{add(){},remove(){}},addEventListener(){},querySelector(){return null},querySelectorAll(){return []},showModal(){this.open=true},close(){this.open=false},focus(){},setSelectionRange(){},click(){}});
+ const make=()=>({innerHTML:'',textContent:'',open:false,value:'',dataset:{},setAttribute(){},classList:{add(){},remove(){}},addEventListener(){},querySelector(){return null},querySelectorAll(){return []},showModal(){this.open=true},close(){this.open=false},focus(){},setSelectionRange(){},click(){}});
  for(const id of ['#app','#modal','#toast','#persona','#form-error'])elements.set(id,make());
  const storage=new Map(saved?[['quenvira-demo-session-v1',saved]]:[]);
  const context={showConflictWarning:()=>false,...domain,prepareInvoiceEmail,copyInvoiceText,Intl,Date,JSON,Number,String,Error,Array,Set,Math,crypto,structuredClone,Blob,URL,setTimeout:()=>0,clearTimeout(){},confirm:()=>true,location:{hash:'#dashboard'},sessionStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},document:{querySelector:s=>elements.get(s)||null,addEventListener(){},createElement:make},window:{addEventListener(){}}};
