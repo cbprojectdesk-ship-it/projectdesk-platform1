@@ -141,6 +141,19 @@ test('manager subscription panel preserves pilot status; staff cannot open billi
  db.sqlite.prepare("INSERT INTO memberships VALUES (?,?,'staff',?)").run(w,'worker',f.staffId);const staff=await browserAdapter(db,'worker');staff.navigate('#settings');assert.doesNotMatch(staff.elements.get('#app').innerHTML,/data-action="subscription"/);await assert.rejects(staff.ui.act('subscription'),/Manager/);db.sqlite.close();
 });
 test('billing form captures explicit terms acceptance and validates Stripe redirect origin',async()=>{
- const db=database();await setup(db);const h=await browserAdapter(db);h.control.billingResponse={enabled:true,status:'trial',trialEnd:'2026-11-05T12:00:00Z',canWrite:true,canManage:true};await h.ui.act('subscription');assert.match(h.elements.get('#modal').innerHTML,/£19 total per month/);assert.match(h.elements.get('#modal').innerHTML,/required/);await h.submit('subscription',{acceptTerms:'yes'});assert.equal(h.control.billingBody.acceptTerms,true);assert.equal(h.control.billingBody.termsVersion,'2026-10-22');assert.equal(h.control.redirectedURL,'https://checkout.stripe.com/c/pay/test');
+ const db=database();await setup(db);const h=await browserAdapter(db);h.control.billingResponse={enabled:true,status:'trial',trialEnd:'2026-11-05T12:00:00Z',canWrite:true,canManage:true,canCheckout:true};await h.ui.act('subscription');assert.match(h.elements.get('#modal').innerHTML,/£19 total per month/);assert.match(h.elements.get('#modal').innerHTML,/required/);await h.submit('subscription',{acceptTerms:'yes'});assert.equal(h.control.billingBody.acceptTerms,true);assert.equal(h.control.billingBody.termsVersion,'2026-10-22');assert.equal(h.control.redirectedURL,'https://checkout.stripe.com/c/pay/test');
  h.control.paymentURL='https://evil.test/phish';await assert.rejects(h.ui.act('subscription-portal'),/Invalid payment provider/);db.sqlite.close();
+});
+
+
+test('existing subscriptions show cancellation dates and management without offering duplicate checkout',async()=>{
+ const db=database();await setup(db);const h=await browserAdapter(db);
+ try{
+  for(const status of ['trialing','active','past_due','unpaid','paused','incomplete']){
+   h.control.billingResponse={enabled:true,mode:'test',status,canWrite:status==='trialing'||status==='active',canManage:true,canCheckout:false,cancellationScheduled:true,cancelAt:1793880000,trialEnd:'2026-11-05T12:00:00Z'};
+   await h.ui.act('subscription');const html=h.elements.get('#modal').innerHTML;
+   assert.match(html,/Cancellation is scheduled for/);assert.match(html,/05\/11\/2026/);assert.match(html,/Manage subscription \/ cancel/);assert.match(html,/Refresh subscription status/);assert.match(html,/Sandbox testing only/);assert.doesNotMatch(html,/data-form="subscription"/);assert.doesNotMatch(html,/Continue to secure checkout/);
+  }
+  h.control.billingResponse={enabled:true,status:'canceled',canWrite:false,canManage:true,canCheckout:true};await h.ui.act('subscription');assert.match(h.elements.get('#modal').innerHTML,/Continue to secure checkout/);
+ }finally{db.sqlite.close()}
 });

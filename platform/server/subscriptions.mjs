@@ -37,17 +37,28 @@ function paid(subscription,now){
  const item=subscription.items.data[0];
  return subscription.status==='active'&&Number.isSafeInteger(item.current_period_end)&&item.current_period_end>Math.floor(now/1000)&&(!subscription.cancel_at||subscription.cancel_at>Math.floor(now/1000));
 }
+const terminal=subscription=>['canceled','incomplete_expired'].includes(subscription.status);
 export async function entitlement(db,workspace,config,client,now=Date.now()){
  const account=await row(db,workspace);
- if(!account)return {status:'not_enrolled',canWrite:false,trialEnd:null,canManage:false};
- let current=[];
- if(account.customer_id)current=await subscriptions(client,account.customer_id);
- const active=current.filter(s=>matches(s,config)&&paid(s,now));
- // Past-due, unpaid, paused and incomplete subscriptions never grant paid access.
- if(active.length)return {status:'active',canWrite:true,trialEnd:account.trial_end,canManage:true,cancelAtPeriodEnd:!!active[0].cancel_at_period_end,periodEnd:active[0].items.data[0].current_period_end};
+ if(!account)return {status:'not_enrolled',canWrite:false,trialEnd:null,canManage:false,canCheckout:false};
+ const current=account.customer_id?await subscriptions(client,account.customer_id):[];
+ const ongoing=current.filter(s=>!terminal(s));
+ const matching=ongoing.filter(s=>matches(s,config));
+ const active=matching.find(s=>paid(s,now));
+ const subscription=active||matching.find(s=>s.status==='trialing')||matching[0];
  const trial=Date.parse(account.trial_end)>now;
- return {status:trial?'trial':current.some(s=>s.status==='past_due')?'past_due':current.some(s=>s.status==='canceled')?'canceled':'expired',canWrite:trial,trialEnd:account.trial_end,canManage:!!account.customer_id};
+ const periodEnd=subscription?.items?.data?.[0]?.current_period_end;
+ const cancelAt=Number.isSafeInteger(subscription?.cancel_at)&&subscription.cancel_at>0?subscription.cancel_at:null;
+ const cancellationScheduled=!!subscription?.cancel_at_period_end||cancelAt!==null;
+ return {
+  status:active?'active':subscription?.status||(trial?'trial':current.some(s=>s.status==='canceled')?'canceled':'expired'),
+  canWrite:!!active||trial,trialEnd:account.trial_end,canManage:!!account.customer_id,
+  canCheckout:ongoing.length===0,subscriptionStatus:subscription?.status||null,
+  cancelAtPeriodEnd:!!subscription?.cancel_at_period_end,cancellationScheduled,cancelAt,
+  periodEnd:Number.isSafeInteger(periodEnd)?periodEnd:null
+ };
 }
+
 async function customer(db,workspace,email,config,client,timestamp){
  let account=await startTrial(db,workspace,timestamp);
  if(!account.customer_id){
@@ -68,13 +79,13 @@ export async function checkout(db,workspace,email,body,config,client,timestamp){
  await verifyPrice(client,config);
  let account=await customer(db,workspace,email,config,client,timestamp);
  const existing=await subscriptions(client,account.customer_id);
- if(existing.some(s=>!['canceled','incomplete_expired'].includes(s.status)))fail(409,'A subscription already exists. Use Manage subscription.');
+ if(existing.some(s=>!terminal(s)))fail(409,'A subscription already exists. Use Manage subscription.');
  if(account.checkout_id){
   const session=await client.checkout.sessions.retrieve(account.checkout_id);
   if(objectId(session.customer)!==account.customer_id||session.livemode!==(config.mode==='live'))fail(503,'Checkout account mismatch.');
   if(session.status==='open')return {url:safeURL(session.url,'checkout.stripe.com')};
-  if(session.status==='complete')fail(409,'Checkout has completed. Refresh subscription status or use Manage subscription.');
-  if(session.status!=='expired')fail(503,'Checkout status is unavailable.');
+  if(session.status==='complete'&&!existing.some(s=>s.id===objectId(session.subscription)&&terminal(s)))fail(409,'Checkout has completed. Refresh subscription status or use Manage subscription.');
+  if(!['expired','complete'].includes(session.status))fail(503,'Checkout status is unavailable.');
   await db.prepare('UPDATE subscription_accounts SET checkout_id = NULL, checkout_generation = checkout_generation + 1 WHERE workspace_id = ? AND checkout_generation = ?').bind(workspace,account.checkout_generation).run();
   account=await row(db,workspace);
  }

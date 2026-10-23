@@ -48,3 +48,32 @@ checks. Listing all sessions for this customer confirmed no original app
 checkout was created; only the unshared diagnostic session exists.
 A regression covers legacy-key conflict avoidance and lost-DB-response recovery.
 Hosted checkout must still be retried and completed with test payment details.
+
+
+## Subscription status follow-up — 23 October 2026
+
+Read-only inspection of the connected CCS Stripe sandbox confirms the £19 plan
+has an existing `trialing` subscription with cancellation scheduled at its trial
+end, 5 November 2026. Stripe represents this with a non-null `cancel_at` while
+`cancel_at_period_end` is false. This directly explains the previous missing
+cancellation notice; no provider subscription was modified by this follow-up.
+
+The API now reports provider trial/payment state, explicit checkout eligibility,
+custom cancellation date and current period end. The billing panel shows a UK
+time/date, sandbox notice, management and refresh controls. Existing trialing,
+active, overdue, unpaid, paused and incomplete subscriptions cannot be offered a
+second checkout. The independent server checkout guard remains enforced.
+
+A completed Checkout Session can be superseded only after the exact linked
+subscription appears in Stripe's authoritative list as canceled or
+incomplete_expired. Missing or unrelated subscriptions keep checkout blocked;
+retries preserve one new session generation. No trial end is extended and no
+new paid-access entitlement is introduced by the status fix.
+
+Verification: 183 application tests pass, including new API/status and client
+regressions, plus syntax, TypeScript and production build checks. Preview
+supervision reports running, but the browser receives connection refused;
+therefore fresh browser and hosted acceptance of this change remain unverified.
+No live billing or self-serve enrollment has been enabled. Renewal/failure
+acceptance, two-account identity acceptance, an independently saved owner backup,
+hosted recovery/monitoring and final business/data-provider sign-off remain open.
