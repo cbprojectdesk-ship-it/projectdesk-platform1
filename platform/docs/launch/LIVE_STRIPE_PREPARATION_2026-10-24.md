@@ -107,3 +107,7 @@ These are configuration data only, not an executable migration. Read current acc
 ## Separate outstanding items
 
 Manual sandbox receipt delivery still requires sandbox access and a signed-in Dashboard. Exact provider record/backup location and retention, HMRC registration position and ICO assessment outcome remain unresolved. Per-customer legal/processing particulars require actual customer facts. Owner-held encrypted backup remains last. Do not repeat the completed synthetic hosted restore or timed recovery payments.
+
+## Authorization retry — 24 October 2026
+
+After the owner confirmed reconnection, account discovery still returned the correct live CCS account. Product, portal configuration and webhook endpoint lists were rechecked and remained empty. App runtime stayed at revision 8 with test mode and self-service disabled. The exact prepared PostProducts call was retried once and again returned UNAUTHORIZED / reauthentication required / missing mcp scope. No product/default price, portal, webhook, key, checkout or payment was created. Repeating the same account-selection link has not resolved write access. A Dashboard fallback requires the owner's approval under the browser connection-fallback rule; no browser sign-in or settings mutation was attempted in this retry.
