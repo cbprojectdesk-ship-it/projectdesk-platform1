@@ -35,3 +35,18 @@ Remaining particulars cannot be truthfully filled from existing evidence:
 The synthetic hosted D1/R2 restore passed on 23 October; see HOSTED_RECOVERY_2026-10-23.md. The owner-held backup remains distinct and deferred until laptop access. Save a photo-inclusive encrypted .qvb business backup and verify its local file before relying on it. Keep API keys and passwords in a separately protected vault; they are excluded from .qvb and must not be collected into an ordinary document. No production restore or deletion is authorised by this preparation.
 
 The 24 October published-form test CCS-QA-20261024 reached FormSubmit CAPTCHA and has not completed delivery. Gmail forwarding reached Google's identity challenge; forwarding is not enabled. The new CCS mailbox has no signed-in browser session for saving its prepared signature. These are verification/access blockers, not completed steps.
+
+## Verified continuation — 24 October 2026 evening
+
+This section supersedes earlier pending forwarding, enquiry and account-email labels.
+
+- Independent Gmail forwarding passed: message CCS-FWD-20261024-B was addressed only to cbprojectdesk@gmail.com and arrived in the CCS Inbox. Headers show X-Forwarded-To ccscreativetech@gmail.com and X-Forwarded-For cbprojectdesk@gmail.com ccscreativetech@gmail.com. No new test email was sent in this continuation.
+- CCS primary FormSubmit delivery passed: CCS-PRIMARY-20261024 arrived in the CCS Inbox addressed directly to ccscreativetech@gmail.com. Published website version 10 currently posts to https://formsubmit.co/ccscreativetech@gmail.com and contains no _cc input. The earlier old-primary routing is superseded.
+- GitHub primary/default notification destination and Gmail browser signature were verified in the migration report. Native Android mobile signature remains separate.
+- Stripe notification-recipient verification email reached the CCS Inbox. This does not prove a payment receipt or payout alert.
+- Current Stripe connector still exposes only sandbox acct_1USzoBJMLR8T7SSt after the owner retried reconnection. Live-account authorization remains outstanding.
+- Existing sandbox subscription webhook is enabled and subscribes to checkout, subscription and invoice paid/failed events. This is configuration verification, not a new webhook-delivery test.
+- Quenvira environment revision 8 remains QUENVIRA_BILLING_MODE=test and QUENVIRA_SELF_SERVE=no; no paid-launch approval flag is present.
+- Stripe documentation confirms sandbox receipt emails are not sent automatically by default; manual receipt verification is still outstanding. Browser Dashboard currently requires sign-in. Existing successful timed/recovery payment checks were not repeated.
+- Exact provider-record/backup locations and retention, actual HMRC position and ICO assessment outcome remain unresolved; customer order particulars remain per-customer facts.
+- Owner-held encrypted laptop backup remains last and has not been downloaded. Live billing, charges, representative/login email and credentials were not changed.
