@@ -86,6 +86,19 @@ test('API enforces trial expiry for manager/staff writes, preserves read/backup,
 });
 test('provider outage fails closed for workflow writes without leaking details or blocking exports',async()=>{const f=await fixture();await expire(f);f.client.fail=true;const r=await call(f,'workspaces/'+f.workspace+'/commands',{action:'customer.save',data:customer,revision:0,requestId:crypto.randomUUID()});assert.equal(r.status,503);assert.equal(JSON.stringify(r.body).includes('secret provider'),false);assert.equal((await call(f,'workspaces/'+f.workspace+'/backup-file')).status,200);f.db.sqlite.close()});
 async function signed(event,secret=config.secret){const body=JSON.stringify(event),sdk=new Stripe('rk_test_fixture_only');const signature=sdk.webhooks.generateTestHeaderString({payload:body,secret});return new Request(ORIGIN+'/api/quenvira/subscription-webhook',{method:'POST',headers:{'stripe-signature':signature},body})}
+test('Stripe failure logs retain support identifiers without provider text, customer input or credentials',async()=>{
+ const f=await fixture();await expire(f);
+ const original=console.error,logs=[];
+ console.error=(...args)=>logs.push(args.join(' '));
+ f.client.subscriptions.list=async()=>{throw Object.assign(new Error('whsec_private rk_live_private sk_live_private client_secret_private alice@example.com'),{type:'StripeInvalidRequestError',requestId:'req_Safe123',statusCode:400,code:'whsec_private',param:'alice@example.com'})};
+ try{
+  const result=await call(f,'workspaces/'+f.workspace+'/subscription');
+  assert.equal(result.status,503);assert.equal(result.body.error,'Service temporarily unavailable.');
+  assert.equal(logs.length,1);assert.ok(logs[0].includes('req_Safe123'));
+  assert.ok(logs[0].includes('StripeInvalidRequestError'));
+  for(const secret of ['whsec_private','rk_live_private','sk_live_private','client_secret_private','alice@example.com'])assert.equal(logs[0].includes(secret),false);
+ }finally{console.error=original;f.db.sqlite.close()}
+});
 test('real SDK raw-body signature verification rejects tamper, stale signatures, wrong mode; duplicates and old snapshots never change entitlements',async()=>{
  const f=await fixture();await expire(f);const event={id:'evt_test',type:'customer.subscription.updated',livemode:false,data:{object:paid()}};
  assert.deepEqual(await webhook(await signed(event),f.db,config,f.client),{received:true});assert.deepEqual(await webhook(await signed(event),f.db,config,f.client),{received:true,replayed:true});
