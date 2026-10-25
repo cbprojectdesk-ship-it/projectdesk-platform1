@@ -29,6 +29,20 @@ test('secure client forms exercise customer, worker, booking, checklist, invoici
  await h.ui.act('pay',invoice.id);const reloaded=await browserAdapter(db);assert.equal(reloaded.ui.data().state.invoices[0].status,'Paid');assert.equal(reloaded.ui.data().state.jobs[0].notes,'Work complete');assert.equal(reloaded.ui.data().workspaceId,w);
 });
 test('client retries a lost response using the same request ID without creating duplicate records',async()=>{const db=database();await setup(db);const h=await browserAdapter(db),values={name:'Retry customer',type:'Domestic',address:'Invented',email:'',notes:''};h.control.dropNextResponse=true;await assert.rejects(()=>h.ui.command('customer.save',values),/Connection lost/);await h.ui.command('customer.save',values);assert.equal(h.ui.data().state.customers.length,1)});
+test('supplier form persists automatic-draft opt-in and completion opens its single saved draft',async()=>{
+ const db=database(),w=await setup(db),f=await fixtures(db,w),h=await browserAdapter(db);
+ try{
+  const values={legalName:'Fictional Cleaner',tradingName:'',entity:'sole-trader',address:'Fictional Road',contact:'billing@example.com',companyNumber:'',vatRegistered:'false',vatNumber:'',autoDraftInvoices:'on',autoDraftVat:'0'};
+  await h.submit('supplier',values);assert.equal(h.ui.data().state.supplier.autoDraftInvoices,true);
+  const booked=await command(db,w,'job.save',job(f)),id=booked.body.result[0].id;await h.ui.reload();
+  await h.ui.act('start-job',id);for(let value=0;value<4;value++)await h.ui.command('job.update',{id,action:'check',value});
+  await h.ui.act('complete-job',id);assert.equal(h.ui.data().state.invoices.length,1);
+  assert.match(h.elements.get('#modal').innerHTML,/View invoice/);
+  const reloaded=await browserAdapter(db);assert.equal(reloaded.ui.data().state.invoices.length,1);
+  await reloaded.ui.act('supplier');assert.match(reloaded.elements.get('#modal').innerHTML,/name="autoDraftInvoices" checked/);
+  delete values.autoDraftInvoices;await reloaded.submit('supplier',values);assert.equal(reloaded.ui.data().state.supplier.autoDraftInvoices,false);
+ }finally{db.sqlite.close()}
+});
 test('client refreshes stale state on a conflict and does not overwrite another session',async()=>{const db=database(),w=await setup(db),h=await browserAdapter(db);await command(db,w,'customer.save',{name:'Other session',type:'Domestic',address:'Invented',email:'',notes:''});await assert.rejects(()=>h.ui.command('staff.add',{name:'New worker',role:'Cleaner',capacity:480}),/Latest records/);assert.equal(h.ui.data().state.customers.length,1);assert.equal(h.ui.data().state.staff.length,0)});
 test('assigned worker UI renders no manager navigation or invoices',async()=>{const db=database(),w=await setup(db),f=await fixtures(db,w);await command(db,w,'job.save',job(f));db.sqlite.prepare("INSERT INTO memberships VALUES (?,?,'staff',?)").run(w,'worker',f.staffId);const h=await browserAdapter(db,'worker'),html=h.elements.get('#app').innerHTML;assert.ok(html.includes('Your jobs. Your day.'));assert.ok(!html.includes('href="#invoices"'));assert.ok(!html.includes('href="#customers"'));assert.equal(h.ui.data().state.jobs[0].price,undefined)});
 test('secure client does not write personal data or tokens to browser storage, and forms have dedicated handlers',()=>{assert.ok(!/localStorage|sessionStorage/.test(source.replace(/^\/\/.*$/gm,'')));for(const form of ['setup','customer','staff','job','note','invoice','invite'])assert.match(source,new RegExp("case '"+form+"'"));const html=fs.readFileSync(new URL('../public/workspace.html',import.meta.url),'utf8');assert.match(html,/connect-src 'self'/);assert.ok(!html.includes('unsafe-inline'))});

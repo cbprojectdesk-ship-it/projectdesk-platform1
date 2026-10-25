@@ -176,7 +176,14 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
     case 'job.update':{
      const job=D.getJob(state,actor,data.id);
      if(data.action==='start'&&job.date>asOf)problem(400,'Future visits cannot be started.');
-     D.updateJob(state,actor,data.id,data.action,data.value);break;
+     D.updateJob(state,actor,data.id,data.action,data.value);
+     if(data.action==='complete'&&state.supplier?.autoDraftInvoices&&!job.invoiceId){
+      // Manager opt-in authorises this server-owned draft operation, including
+      // visits completed by assigned staff. Commit it atomically with the visit;
+      // never return invoice details to staff, issue it or send an email here.
+      D.createInvoice(state,{role:'manager'},job.id,state.supplier.autoDraftVat,asOf);
+     }
+     break;
     }
     case 'supplier.save':result=saveSupplier(state,actor,data);break;
     case 'invoice.issue':result=issueInvoice(state,actor,data.id,asOf);break;

@@ -10,6 +10,11 @@ function profile(data){
  if(p.entity==='limited-company'&&!/^(?:\d{8}|[A-Z]{2}\d{6})$/.test(p.companyNumber))fail('Enter an eight-character UK company number.');
  if(p.vatRegistered&&!/^(?:GB)?\d{9}(?:\d{3})?$/.test(p.vatNumber))fail('Enter a UK VAT registration number (9 or 12 digits, optional GB prefix).');
  if(!p.vatRegistered&&p.vatNumber)fail('Clear the VAT number when not VAT registered.');
+ if(data.autoDraftInvoices!==undefined||data.autoDraftVat!==undefined){
+  if(typeof data.autoDraftInvoices!=='boolean'||![0,20].includes(data.autoDraftVat))fail('Choose valid automatic invoice settings.');
+  if(data.autoDraftVat&&!p.vatRegistered)fail('Automatic invoice VAT requires VAT registration.');
+  p.autoDraftInvoices=data.autoDraftInvoices;p.autoDraftVat=data.autoDraftVat;
+ }
  return p;
 }
 const audit=(state,message)=>{state.audit.unshift({at:new Date().toISOString(),actor:'Manager',message});state.audit=state.audit.slice(0,200)};
