@@ -22,6 +22,14 @@ export async function stripeClient(config) {
  const {default:Stripe}=await import('stripe');
  return new Stripe(config.key,{apiVersion:'2026-08-26.dahlia',httpClient:Stripe.createFetchHttpClient(),maxNetworkRetries:2,timeout:10000});
 }
+// Isolated, non-charging live signature acceptance. These staged credentials
+// are never consumed by checkout, enrollment or paid entitlement decisions.
+export function liveVerificationConfig(env={}) {
+ if(env.QUENVIRA_LIVE_WEBHOOK_VERIFY!=='yes')return null;
+ const key=env.STRIPE_LIVE_RESTRICTED_KEY,secret=env.STRIPE_LIVE_WEBHOOK_SECRET;
+ if(typeof key!=='string'||!key.startsWith('rk_live_')||typeof secret!=='string'||!secret.startsWith('whsec_'))fail(503,'Live webhook verification is not configured.');
+ return {mode:'live',key,secret,verificationOnly:true};
+}
 async function row(db,workspace){return db.prepare('SELECT * FROM subscription_accounts WHERE workspace_id = ?').bind(workspace).first()}
 export async function startTrial(db,workspace,timestamp){
  const end=new Date(Date.parse(timestamp)+14*86400000).toISOString();
@@ -113,7 +121,7 @@ export async function assertDeletable(db,workspace,client){
  if(account.checkout_id){const session=await client.checkout.sessions.retrieve(account.checkout_id);if(session.status==='open')await client.checkout.sessions.expire(session.id)}
 }
 export async function webhook(request,db,config,client){
- if(!config||!db)fail(503,'Subscription webhook is not configured.');
+ if(!config||!db&&!config.verificationOnly)fail(503,'Subscription webhook is not configured.');
  if(request.method!=='POST')fail(405,'Method not allowed.');
  if(Number(request.headers.get('content-length')||0)>262144)fail(413,'Webhook too large.');
  const reader=request.body?.getReader();let bytes=0,chunks=[];if(!reader)fail(400,'Webhook body required.');
@@ -121,6 +129,9 @@ export async function webhook(request,db,config,client){
  const raw=new Uint8Array(bytes);let n=0;for(const c of chunks){raw.set(c,n);n+=c.length}
  let event;try{event=await client.webhooks.constructEventAsync(new TextDecoder().decode(raw),request.headers.get('stripe-signature')||'',config.secret,300)}catch{fail(400,'Invalid webhook signature.')}
  if(event.livemode!==(config.mode==='live'))fail(400,'Webhook mode mismatch.');
+ // A staged verification delivery proves the signature only. It must not touch
+ // sandbox customer mappings, store live billing records or grant paid access.
+ if(config.verificationOnly)return {received:true,verificationOnly:true};
  if(!handledEvents.has(event.type))return {received:true,ignored:true};
  const source=event.data?.object,customerId=objectId(source?.customer);
  if(!/^cus_\w+$/.test(customerId||''))fail(400,'Webhook customer is missing.');

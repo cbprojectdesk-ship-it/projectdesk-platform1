@@ -1,0 +1,11 @@
+# Live webhook signature verification with billing off
+
+The additional endpoint `/api/quenvira/subscription-webhook/live` is a **signature-only acceptance route**. It is disabled unless `QUENVIRA_LIVE_WEBHOOK_VERIFY=yes` and both separate secrets `STRIPE_LIVE_RESTRICTED_KEY` and `STRIPE_LIVE_WEBHOOK_SECRET` are configured. The runtime key must be restricted/live (`rk_live_`). Keep these separate from the existing sandbox `STRIPE_RESTRICTED_KEY` and `STRIPE_WEBHOOK_SECRET`.
+
+When enabled, a genuine live-mode signature returns `{received:true,verificationOnly:true}`. No Stripe network requests, D1 reads/writes, customer mappings, paid entitlements, checkout or subscription creation occur on this route. It is not a production event-processing endpoint and must not be described as such. Replay has no business side effects because this route performs no business operation. Invalid signatures, test-mode events, stale signatures, oversized bodies and wrong methods are rejected.
+
+The original `/api/quenvira/subscription-webhook` retains its existing processing behavior and billing gates. The actual live endpoint remains disabled and unchanged by this source release. Do not enable it or change its URL until secure staged secrets exist and the owner is ready for a controlled non-charging verification. At paid launch, the endpoint must point to the original processing route and use the approved live configuration; leaving Stripe pointed at the verification-only route would acknowledge events without processing them. Reconcile any ignored test deliveries before cutover. Live checkout still requires explicit owner activation.
+
+This supports the outstanding need to test live signature delivery without activating customer billing. Four new regression tests use the real Stripe SDK's signing/verification implementation and assert no database or provider operations. These are synthetic tests, not proof of genuine Stripe delivery.
+
+The previously prepared live runtime key now exists in the Dashboard and its five saved permissions were verified. Its secret is not configured in Sites; the key menu provides no reveal action. Do not rotate, duplicate or expire it merely because its original one-time value is unavailable. Ask the owner where it was securely saved and enter it only into protected hosting secret settings, never chat, files or GitHub.

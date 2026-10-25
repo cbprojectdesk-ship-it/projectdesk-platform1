@@ -1,5 +1,5 @@
 import {health} from './health.mjs';
-import {billingConfig,stripeClient,startTrial,entitlement,checkout,portal,webhook,assertDeletable,SubscriptionProblem} from './subscriptions.mjs';
+import {billingConfig,liveVerificationConfig,stripeClient,startTrial,entitlement,checkout,portal,webhook,assertDeletable,SubscriptionProblem} from './subscriptions.mjs';
 import {createBusinessBackup,prepareBusinessRestore,BACKUP_LIMIT} from './business-backup.mjs';
 import {photoKey,decodePhoto,setStaffPhoto} from './staff-photos.mjs';
 import {saveSupplier,issueInvoice,creditInvoice,assertFinancialRestore} from './billing.mjs';
@@ -38,7 +38,12 @@ async function load(db,workspace){const row=await db.prepare('SELECT * FROM work
 export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,billingEnv={},billingClient}={}){
  try{
   if(new URL(request.url).pathname==='/api/quenvira/health')return health(request,db,{bucket,billingEnv});
-  const billingPath=new URL(request.url).pathname==='/api/quenvira/subscription-webhook';
+  const requestPath=new URL(request.url).pathname;
+  const billingPath=requestPath==='/api/quenvira/subscription-webhook';
+  if(requestPath==='/api/quenvira/subscription-webhook/live'){
+   const config=liveVerificationConfig(billingEnv);
+   return json(await webhook(request,undefined,config,config?(billingClient||await stripeClient(config)):null));
+  }
   // Webhooks authenticate their raw body independently of browser identity/CSRF.
   if(billingPath){const config=billingConfig(billingEnv);return json(await webhook(request,db,config,config?(billingClient||await stripeClient(config)):null))}
   // Sites dispatch must overwrite identity headers and keep the Worker origin private.
