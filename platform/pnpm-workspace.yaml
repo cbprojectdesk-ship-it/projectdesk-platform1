@@ -1,5 +1,9 @@
 # Copied Sites are standalone projects and cannot inherit the monorepo policy.
 minimumReleaseAge: 10080
+# Exact-version exception for the verified fast-uri security patch. Preserve
+# the default seven-day release-age guard for every other dependency.
+minimumReleaseAgeExclude:
+  - fast-uri@3.1.9
 minimumReleaseAgeIgnoreMissingTime: false
 trustLockfile: false
 strictDepBuilds: true
@@ -29,6 +33,6 @@ overrides:
   fflate@0.7: 0.7.5
   baseline-browser-mapping: 2.11.0
   image-size: 2.0.3
-  fast-uri: 3.1.8
+  fast-uri: 3.1.9
   source-map-js: 1.2.2
   esbuild: 0.28.1
