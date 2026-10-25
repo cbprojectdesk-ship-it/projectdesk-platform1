@@ -1,0 +1,35 @@
+name: Quenvira platform release checks
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'platform/**'
+      - '.github/workflows/platform-release-checks.yml'
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  platform:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: platform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Enable pnpm
+        run: corepack enable && corepack prepare pnpm@11.25.0 --activate
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Syntax validation
+        run: npm run check
+      - name: Automated tests
+        run: npm test
+      - name: TypeScript validation
+        run: node node_modules/typescript/bin/tsc --noEmit
+      - name: Production build
+        run: npm run build
