@@ -31,11 +31,12 @@ export async function deliveryHistory(db,workspace){
  const rows=await db.prepare('SELECT invoice_id,status,attempts,provider_id,last_error,created_at,updated_at FROM invoice_outbox WHERE workspace_id = ? ORDER BY created_at DESC LIMIT 200').bind(workspace).all();
  return rows.results;
 }
-export async function dispatchEmails(db,config,{now=()=>new Date(),fetcher=fetch,workspace}={}){
+export async function dispatchEmails(db,config,{now=()=>new Date(),fetcher=fetch,workspace,limit=5}={}){
  if(!config)fail(503,'Automatic email is not configured. No emails were sent.');
  const timestamp=now().toISOString(),scope=workspace?' AND workspace_id = ?':'';
  // One small batch bounds costs and Worker duration. A durable lease survives crashes.
- const pending=await db.prepare(`SELECT * FROM invoice_outbox WHERE mode = ? AND ((status IN ('queued','retry') AND next_attempt_at <= ?) OR (status = 'sending' AND lease_until <= ?))${scope} ORDER BY created_at LIMIT 5`).bind(config.mode,timestamp,timestamp,...(workspace?[workspace]:[])).all();
+ const batchSize=Number.isInteger(limit)?Math.max(1,Math.min(5,limit)):5;
+ const pending=await db.prepare(`SELECT * FROM invoice_outbox WHERE mode = ? AND ((status IN ('queued','retry') AND next_attempt_at <= ?) OR (status = 'sending' AND lease_until <= ?))${scope} ORDER BY created_at LIMIT ${batchSize}`).bind(config.mode,timestamp,timestamp,...(workspace?[workspace]:[])).all();
  let processed=0;
  for(const row of pending.results){
   const recent=await db.prepare("SELECT COUNT(*) AS n FROM invoice_email_events WHERE status='attempt' AND created_at>=?").bind(new Date(Date.parse(timestamp)-86400000).toISOString()).first();if(recent.n>=90)break;
