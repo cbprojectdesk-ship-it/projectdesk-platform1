@@ -3,6 +3,7 @@ import {verifyAccessIdentity} from "../server/cloudflare-access.mjs";
 import {guardStandaloneRequest} from "../server/standalone-identity.mjs";
 import { runWithConnectorBinding } from "../lib/connector-context";
 import type { ConnectorBinding } from "../lib/connector-contract.mjs";
+import { dispatchAfterCommand } from "../server/email-background.mjs";
 
 export default {
   async fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
@@ -46,6 +47,10 @@ export default {
         },
       };
     }
-    return runWithConnectorBinding(binding, () => handler.fetch(request, env, ctx));
+    return runWithConnectorBinding(binding, async () => {
+      const response = await handler.fetch(request, env, ctx);
+      dispatchAfterCommand(request, response, env, ctx);
+      return response;
+    });
   },
 };
