@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, primaryKey, index } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, primaryKey, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
 export const workspaces = sqliteTable('workspaces', {
  id:text('id').primaryKey(), name:text('name').notNull(), revision:integer('revision').notNull().default(0),
  document:text('document').notNull(), lastOperation:text('last_operation'), createdAt:text('created_at').notNull(), updatedAt:text('updated_at').notNull()
@@ -34,4 +34,16 @@ export const subscriptionAccounts=sqliteTable('subscription_accounts',{
 export const subscriptionEvents=sqliteTable('subscription_events',{
  id:text('id').primaryKey(),workspaceId:text('workspace_id').notNull(),
  type:text('type').notNull(),receivedAt:text('received_at').notNull()
+});
+
+// Immutable provider payload is private server state; never include it in staff views.
+export const invoiceOutbox=sqliteTable('invoice_outbox',{
+ id:text('id').primaryKey(),workspaceId:text('workspace_id').notNull().references(()=>workspaces.id,{onDelete:'cascade'}),
+ invoiceId:text('invoice_id').notNull(),mode:text('mode').notNull(),payload:text('payload').notNull(),status:text('status').notNull(),
+ attempts:integer('attempts').notNull().default(0),providerId:text('provider_id').unique(),firstAttemptAt:text('first_attempt_at'),nextAttemptAt:text('next_attempt_at').notNull(),
+ leaseToken:text('lease_token'),leaseUntil:text('lease_until'),lastError:text('last_error'),createdAt:text('created_at').notNull(),updatedAt:text('updated_at').notNull()
+},t=>[uniqueIndex('invoice_outbox_invoice').on(t.workspaceId,t.invoiceId),index('invoice_outbox_pending').on(t.mode,t.status,t.nextAttemptAt)]);
+export const invoiceEmailEvents=sqliteTable('invoice_email_events',{
+ id:text('id').primaryKey(),workspaceId:text('workspace_id').notNull().references(()=>workspaces.id,{onDelete:'cascade'}),
+ outboxId:text('outbox_id').notNull().references(()=>invoiceOutbox.id,{onDelete:'cascade'}),status:text('status').notNull(),createdAt:text('created_at').notNull()
 });

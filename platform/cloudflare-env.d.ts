@@ -1,5 +1,12 @@
 declare namespace Cloudflare {
   interface Env {
+    QUENVIRA_EMAIL_DISPATCH_TOKEN?: string;
+    QUENVIRA_EMAIL_MODE?: string;
+    QUENVIRA_EMAIL_FROM?: string;
+    QUENVIRA_EMAIL_TEST_RECIPIENTS?: string;
+    QUENVIRA_CUSTOMER_INVOICES_APPROVED?: string;
+    RESEND_API_KEY?: string;
+    RESEND_WEBHOOK_SECRET?: string;
     DB?: D1Database;
     BUCKET?: R2Bucket;
     QUENVIRA_PILOT_EMAILS?: string;

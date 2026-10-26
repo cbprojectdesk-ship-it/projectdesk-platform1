@@ -15,6 +15,7 @@ function profile(data){
   if(data.autoDraftVat&&!p.vatRegistered)fail('Automatic invoice VAT requires VAT registration.');
   p.autoDraftInvoices=data.autoDraftInvoices;p.autoDraftVat=data.autoDraftVat;
  }
+ if(data.autoEmailInvoices!==undefined){if(typeof data.autoEmailInvoices!=='boolean'||data.autoEmailInvoices&&!p.autoDraftInvoices)fail('Automatic email requires automatic invoice drafts.');p.autoEmailInvoices=data.autoEmailInvoices}
  return p;
 }
 const audit=(state,message)=>{state.audit.unshift({at:new Date().toISOString(),actor:'Manager',message});state.audit=state.audit.slice(0,200)};

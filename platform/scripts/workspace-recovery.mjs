@@ -10,13 +10,16 @@ export const tables={
  events:['workspace_id','id','user_id','action','created_at'],
  invitations:['hash','workspace_id','email','staff_id','expires_at','accepted_by','created_at'],
  subscription_accounts:['workspace_id','trial_end','customer_id','checkout_id','checkout_generation','terms_version','terms_accepted_at'],
- subscription_events:['id','workspace_id','type','received_at']
+ subscription_events:['id','workspace_id','type','received_at'],
+ invoice_outbox:['id','workspace_id','invoice_id','mode','payload','status','attempts','provider_id','first_attempt_at','next_attempt_at','lease_token','lease_until','last_error','created_at','updated_at'],
+ invoice_email_events:['id','workspace_id','outbox_id','status','created_at']
 };
 const maximum=20*1024*1024;
-const legacyTables=Object.fromEntries(Object.entries(tables).filter(([name])=>!name.startsWith('subscription_')));
-const snapshotTables=snapshot=>snapshot?.format==='quenvira-logical-backup-v1'?legacyTables:tables;
+const legacyTables=Object.fromEntries(Object.entries(tables).filter(([name])=>!name.startsWith('subscription_')&&!name.startsWith('invoice_')));
+const v2Tables=Object.fromEntries(Object.entries(tables).filter(([name])=>!name.startsWith('invoice_')));
+const snapshotTables=snapshot=>snapshot?.format==='quenvira-logical-backup-v1'?legacyTables:snapshot?.format==='quenvira-logical-backup-v2'?v2Tables:tables;
 function validate(snapshot){
- if(!snapshot||!['quenvira-logical-backup-v1','quenvira-logical-backup-v2'].includes(snapshot.format)||typeof snapshot.createdAt!=='string'||!Number.isFinite(Date.parse(snapshot.createdAt))||!snapshot.tables||Object.keys(snapshot.tables).sort().join()!==Object.keys(snapshotTables(snapshot)).sort().join())throw Error('Unsupported or incomplete backup.');
+ if(!snapshot||!['quenvira-logical-backup-v1','quenvira-logical-backup-v2','quenvira-logical-backup-v3'].includes(snapshot.format)||typeof snapshot.createdAt!=='string'||!Number.isFinite(Date.parse(snapshot.createdAt))||!snapshot.tables||Object.keys(snapshot.tables).sort().join()!==Object.keys(snapshotTables(snapshot)).sort().join())throw Error('Unsupported or incomplete backup.');
  for(const [table,columns]of Object.entries(snapshotTables(snapshot))){
   const rows=snapshot.tables[table];if(!Array.isArray(rows)||rows.length>50000)throw Error('Invalid backup rows.');
   for(const row of rows){
@@ -27,7 +30,7 @@ function validate(snapshot){
  return snapshot;
 }
 export function snapshotDatabase(sqlite){
- return validate({format:'quenvira-logical-backup-v2',createdAt:new Date().toISOString(),tables:Object.fromEntries(Object.entries(tables).map(([table,columns])=>[table,sqlite.prepare(`SELECT ${columns.join(',')} FROM ${table}`).all().map(row=>({...row}))]))});
+ return validate({format:'quenvira-logical-backup-v3',createdAt:new Date().toISOString(),tables:Object.fromEntries(Object.entries(tables).map(([table,columns])=>[table,sqlite.prepare(`SELECT ${columns.join(',')} FROM ${table}`).all().map(row=>({...row}))]))});
 }
 function requireKey(key){if(!Buffer.isBuffer(key)||key.length!==32)throw Error('A separately protected 32-byte key is required.')}
 export function encryptBackup(snapshot,key){
@@ -52,6 +55,7 @@ export function restoreIntoEmptyDatabase(sqlite,snapshot){
    const insert=sqlite.prepare(`INSERT INTO ${table} (${columns.join(',')}) VALUES (${columns.map(()=>'?').join(',')})`);
    for(const row of snapshot.tables[table])insert.run(...columns.map(c=>row[c]));
   }
+  sqlite.prepare("UPDATE invoice_outbox SET status='review',lease_token=NULL,lease_until=NULL,last_error='Restored email requires provider reconciliation.' WHERE status IN ('queued','retry','sending')").run();
   if(sqlite.prepare('PRAGMA foreign_key_check').all().length||sqlite.prepare('PRAGMA quick_check').get().quick_check!=='ok')throw Error('Restored database failed integrity checks.');
   sqlite.exec('COMMIT');return Object.fromEntries(Object.keys(snapshot.tables).map(t=>[t,snapshot.tables[t].length]));
  }catch(error){sqlite.exec('ROLLBACK');throw error}
