@@ -61,3 +61,8 @@ Current provider documentation reviewed (configuration remains absent):
 Existing Stripe sandbox receipt 2238-3797 was authenticated in the CCS Inbox through old-address forwarding. Its historical reply-to remains the old address; a fresh native account read confirms current sandbox business support_email is ccscreativetech@gmail.com. This verifies existing receipt delivery and current configuration, not a new receipt rendered with the new reply-to. The account's login/representative identity was not changed.
 
 Fresh hosted browser access reached the expected signed-out workspace explanation without a crash. Signed-in manager/staff, physical Samsung camera and hosted payment acceptance remain deferred until the owner is available. Live billing and invoice sending remain disabled. Final owner-held backup remains last.
+
+
+## Callback integrity follow-up
+
+Signed callback identifiers are now validated before database binding. Reusing a callback event ID for a different invoice or outcome is rejected; the atomic update also binds the audit event to its invoice and outcome. Duplicate identical callbacks return a replay acknowledgement. Unknown inherited object property names are ignored as unsupported event types. Tests reproduce the previous cross-invoice replay edge case, then verify the correction, malformed identifiers, body limits and method restrictions. Provider delivery and owner sign-in remain separate launch gates; sending and billing stay disabled.

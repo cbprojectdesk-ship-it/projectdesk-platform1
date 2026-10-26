@@ -82,15 +82,18 @@ export async function emailWebhook(request,db,env,{now=()=>new Date()}={}){
  let event;const eventId=request.headers.get('svix-id');
  try{const {Webhook}=await import('svix');if(!/^[\w-]{1,200}$/.test(eventId||''))throw Error();new Webhook(env.RESEND_WEBHOOK_SECRET).verify(new TextDecoder().decode(bytes),{'svix-id':eventId,'svix-timestamp':request.headers.get('svix-timestamp'),'svix-signature':request.headers.get('svix-signature')});event=JSON.parse(new TextDecoder().decode(bytes));if(!event||typeof event!=='object'||Array.isArray(event)||typeof event.type!=='string')throw Error();}catch{fail(400,'Invalid email webhook signature.')}
  const states={'email.sent':'accepted','email.delivered':'delivered','email.bounced':'bounced','email.complained':'complained','email.failed':'failed','email.delivery_delayed':'delayed'};
- const status=states[event.type];if(!status)return {received:true,ignored:true};
- const row=await db.prepare('SELECT * FROM invoice_outbox WHERE provider_id=?').bind(event.data?.email_id||'').first();
+ const status=Object.hasOwn(states,event.type)?states[event.type]:null;if(!status)return {received:true,ignored:true};
+ if(typeof event.data?.email_id!=='string'||!/^[a-zA-Z0-9_-]{1,100}$/.test(event.data.email_id))fail(400,'Invalid email event identifier.');
+ const row=await db.prepare('SELECT * FROM invoice_outbox WHERE provider_id=?').bind(event.data.email_id).first();
  // A provider webhook can race the acceptance commit; request retry rather than lose it.
  if(!row)fail(503,'Email acceptance is not recorded yet. Retry delivery status.');
+ const prior=await db.prepare('SELECT outbox_id,status FROM invoice_email_events WHERE id=?').bind(eventId).first();
+ if(prior){if(prior.outbox_id!==row.id||prior.status!==status)fail(400,'Email event ID conflict.');return {received:true,replayed:true}}
  const timestamp=now().toISOString();
  await db.batch([
   db.prepare('INSERT OR IGNORE INTO invoice_email_events (id,workspace_id,outbox_id,status,created_at) VALUES (?,?,?,?,?)').bind(eventId,row.workspace_id,row.id,status,timestamp),
   // Monotonic priority: late sent/delayed events cannot downgrade delivery/bounce.
-  db.prepare(`UPDATE invoice_outbox SET status=?,updated_at=?,last_error=NULL WHERE id=? AND status NOT IN ('bounced','complained','cancelled') AND (? IN ('bounced','complained') OR (status!='delivered' AND (?='delivered' OR status!='failed'))) AND EXISTS (SELECT 1 FROM invoice_email_events WHERE id=?)`).bind(status,timestamp,row.id,status,status,eventId)
+  db.prepare(`UPDATE invoice_outbox SET status=?,updated_at=?,last_error=NULL WHERE id=? AND status NOT IN ('bounced','complained','cancelled') AND (? IN ('bounced','complained') OR (status!='delivered' AND (?='delivered' OR status!='failed'))) AND EXISTS (SELECT 1 FROM invoice_email_events WHERE id=? AND outbox_id=invoice_outbox.id AND status=?)`).bind(status,timestamp,row.id,status,status,eventId,status)
  ]);
  return {received:true};
 }
