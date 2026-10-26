@@ -1,5 +1,4 @@
 // Durable transactional outbox. Provider acceptance is never called delivery.
-import {Webhook} from 'svix';
 import {prepareInvoiceEmail} from '../public/invoice-email.js';
 export class EmailProblem extends Error {constructor(status,message){super(message);this.status=status}}
 const fail=(status,message)=>{throw new EmailProblem(status,message)};
@@ -78,7 +77,7 @@ export async function emailWebhook(request,db,env,{now=()=>new Date()}={}){
  while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>65536){await reader.cancel();fail(413,'Email webhook too large.')}chunks.push(value)}
  const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length}
  let event;const eventId=request.headers.get('svix-id');
- try{if(!/^[\w-]{1,200}$/.test(eventId||''))throw Error();new Webhook(env.RESEND_WEBHOOK_SECRET).verify(new TextDecoder().decode(bytes),{'svix-id':eventId,'svix-timestamp':request.headers.get('svix-timestamp'),'svix-signature':request.headers.get('svix-signature')});event=JSON.parse(new TextDecoder().decode(bytes));if(!event||typeof event!=='object'||Array.isArray(event)||typeof event.type!=='string')throw Error();}catch{fail(400,'Invalid email webhook signature.')}
+ try{const {Webhook}=await import('svix');if(!/^[\w-]{1,200}$/.test(eventId||''))throw Error();new Webhook(env.RESEND_WEBHOOK_SECRET).verify(new TextDecoder().decode(bytes),{'svix-id':eventId,'svix-timestamp':request.headers.get('svix-timestamp'),'svix-signature':request.headers.get('svix-signature')});event=JSON.parse(new TextDecoder().decode(bytes));if(!event||typeof event!=='object'||Array.isArray(event)||typeof event.type!=='string')throw Error();}catch{fail(400,'Invalid email webhook signature.')}
  const states={'email.sent':'accepted','email.delivered':'delivered','email.bounced':'bounced','email.complained':'complained','email.failed':'failed','email.delivery_delayed':'delayed'};
  const status=states[event.type];if(!status)return {received:true,ignored:true};
  const row=await db.prepare('SELECT * FROM invoice_outbox WHERE provider_id=?').bind(event.data?.email_id||'').first();
