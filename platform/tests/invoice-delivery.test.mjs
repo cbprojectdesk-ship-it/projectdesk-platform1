@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {Webhook} from 'svix';
 import {emailConfig,prepareDelivery,dispatchEmails,emailWebhook} from '../server/invoice-delivery.mjs';
 import {handle} from '../server/api.mjs';
+import {dispatchAfterCommand} from '../server/email-background.mjs';
 import {database,setup,fixtures,command,job,request,ORIGIN,fixed} from './support/database.mjs';
 const secret='whsec_'+Buffer.from('synthetic-signing-key-not-a-real-secret').toString('base64');
 const env={QUENVIRA_EMAIL_MODE:'test',QUENVIRA_EMAIL_FROM:'invoices@example.com',RESEND_API_KEY:'synthetic-key',RESEND_WEBHOOK_SECRET:secret,QUENVIRA_EMAIL_TEST_RECIPIENTS:'home@example.com'};
@@ -17,6 +18,32 @@ async function fixture(){
 }
 const rows=db=>db.sqlite.prepare('SELECT * FROM invoice_outbox').all();
 const ok=async()=>new Response(JSON.stringify({id:'provider_synthetic_123'}),{status:200});
+test('successful command wakes only its workspace queue after commit, without duplicate sends',async()=>{
+ const f=await fixture(),originalFetch=globalThis.fetch,tasks=[];
+ try{
+  await call(f.db,f.w,'invoice.email.queue',{id:f.invoiceId});
+  let sends=0;globalThis.fetch=async()=>{sends++;return ok()};
+  const wake=(workspace=f.w,status=200,method='POST',path='commands',settings=env)=>dispatchAfterCommand(new Request(`${ORIGIN}/api/quenvira/workspaces/${workspace}/${path}`,{method}),new Response(null,{status}),{...settings,DB:f.db},{waitUntil:p=>tasks.push(p)});
+  for(const status of [400,401,403,409,500])wake(f.w,status);
+  wake(f.w,200,'GET');wake(f.w,200,'POST','email-history');wake(f.w,200,'POST','commands',{});
+  assert.equal(tasks.length,0);assert.equal(sends,0);
+  const otherWorkspace=await setup(f.db,'bob');
+  wake(otherWorkspace);await Promise.all(tasks.splice(0));assert.equal(sends,0);
+  wake();await Promise.all(tasks.splice(0));assert.equal(rows(f.db)[0].status,'accepted');assert.equal(sends,1);
+  wake();await Promise.all(tasks.splice(0));assert.equal(sends,1);
+ }finally{globalThis.fetch=originalFetch;f.db.sqlite.close()}
+});
+test('background provider failure retains durable retry and never changes the saved command response',async()=>{
+ const f=await fixture(),originalFetch=globalThis.fetch,tasks=[];
+ try{
+  await call(f.db,f.w,'invoice.email.queue',{id:f.invoiceId});
+  globalThis.fetch=async()=>{throw Error('Synthetic network failure')};
+  const response=new Response('{"revision":42}',{status:200});
+  dispatchAfterCommand(new Request(`${ORIGIN}/api/quenvira/workspaces/${f.w}/commands`,{method:'POST'}),response,{...env,DB:f.db},{waitUntil:p=>tasks.push(p)});
+  assert.equal(await response.text(),'{"revision":42}');await Promise.all(tasks);
+  assert.equal(rows(f.db)[0].status,'retry');assert.equal(rows(f.db)[0].attempts,1);
+ }finally{globalThis.fetch=originalFetch;f.db.sqlite.close()}
+});
 test('email remains disabled without configuration and live mode requires separate approval',()=>{
  assert.equal(emailConfig({}),null);assert.equal(emailConfig({...env,QUENVIRA_EMAIL_MODE:'live'}),null);assert.equal(emailConfig({...env,RESEND_WEBHOOK_SECRET:''}),null);assert.equal(emailConfig(env).mode,'test');
 });
