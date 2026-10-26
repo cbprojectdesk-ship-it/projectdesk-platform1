@@ -149,3 +149,15 @@ test('rolling daily attempt limit stops provider calls without losing the queued
   let calls=0;await dispatchEmails(f.db,emailConfig(env),{now:fixed,fetcher:async()=>{calls++;return ok()}});assert.equal(calls,0);assert.equal(rows(f.db)[0].status,'queued');
  }finally{f.db.sqlite.close()}
 });
+
+test('an interrupted sixth attempt is held for reconciliation without a seventh provider call',async()=>{
+ const f=await fixture();try{
+  await call(f.db,f.w,'invoice.email.queue',{id:f.invoiceId});
+  f.db.sqlite.prepare("UPDATE invoice_outbox SET status='sending',attempts=6,first_attempt_at=?,lease_until=?,lease_token='interrupted-sixth'").run(fixed().toISOString(),fixed().toISOString());
+  let calls=0;
+  await dispatchEmails(f.db,emailConfig(env),{now:fixed,fetcher:async()=>{calls++;return ok()}});
+  assert.equal(calls,0);assert.equal(rows(f.db)[0].status,'review');
+  assert.match(rows(f.db)[0].last_error,/attempt limit/);
+  assert.equal(f.db.sqlite.prepare("SELECT COUNT(*) AS n FROM invoice_email_events WHERE status='attempt'").get().n,0);
+ }finally{f.db.sqlite.close()}
+});

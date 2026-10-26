@@ -48,3 +48,16 @@ A production scheduler is NOT provisioned or claimed working. After provider acc
 - https://resend.com/docs/webhooks/verify-webhooks-requests
 - https://resend.com/docs/dashboard/domains/introduction
 - Svix 2.8.0 installed source verifies signatures and returns undefined; JSON is parsed only after successful verification.
+
+## Afternoon follow-up — 26 October 2026
+
+An interrupted sixth dispatch attempt is now reclaimed for operator reconciliation without making a seventh provider request. A regression test reproduces the expired-lease case and verifies that no provider call or attempt event occurs. The provider idempotency key and 23-hour cutoff remain unchanged.
+
+Current provider documentation reviewed (configuration remains absent):
+- https://resend.com/pricing lists 3,000 emails/month and 100/day on Free. The application's 90-attempt rolling daily cap is conservative but other sending from the same provider account also consumes its allowance.
+- https://resend.com/security and https://resend.com/security/gdpr state that stored data is in the United States, including when an EU sending region is selected; email/log retention is 30 days, account-termination deletion up to 90 days, and backups persist for seven days. These are published provider terms, not verified settings or an accepted customer processing agreement.
+- https://resend.com/docs/dashboard/domains/introduction requires an owned, verified domain for customer sending. https://resend.com/docs/knowledge-base/403-error-resend-dev-domain limits the default test domain to the provider account's own email address. No account, key, DNS access or verified sender is available in this session; no purchase or signup was attempted.
+
+Existing Stripe sandbox receipt 2238-3797 was authenticated in the CCS Inbox through old-address forwarding. Its historical reply-to remains the old address; a fresh native account read confirms current sandbox business support_email is ccscreativetech@gmail.com. This verifies existing receipt delivery and current configuration, not a new receipt rendered with the new reply-to. The account's login/representative identity was not changed.
+
+Fresh hosted browser access reached the expected signed-out workspace explanation without a crash. Signed-in manager/staff, physical Samsung camera and hosted payment acceptance remain deferred until the owner is available. Live billing and invoice sending remain disabled. Final owner-held backup remains last.

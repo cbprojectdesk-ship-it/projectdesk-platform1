@@ -49,6 +49,9 @@ export async function dispatchEmails(db,config,{now=()=>new Date(),fetcher=fetch
   ]);
   // Never repeat an ambiguous send outside the provider's 24-hour key retention.
   if(Date.parse(timestamp)-Date.parse(current.first_attempt_at)>=23*3600000){await update();continue}
+  // A crash can leave the sixth claim in 'sending'; reclaim for review only.
+  // The response path's retry limit alone does not cover interrupted requests.
+  if(current.attempts>6){error='Email attempt limit reached. Reconcile provider status before sending again.';await update();continue}
   const payload=JSON.parse(row.payload);
   try{await assertRecipientAvailable(db,row.workspace_id,{payload:row.payload})}catch{status='failed';error='Recipient suppressed after a bounce or complaint.';await update();continue}
   // Re-check test allowlist and sender at dispatch, including after configuration changes.

@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /workspace
+Disallow: /demo/
+Disallow: /subscription-terms.html
+
+Sitemap: https://quenvira-business-demo.sprogg1973.chatgpt.site/sitemap.xml
