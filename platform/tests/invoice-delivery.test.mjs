@@ -161,3 +161,29 @@ test('an interrupted sixth attempt is held for reconciliation without a seventh 
   assert.equal(f.db.sqlite.prepare("SELECT COUNT(*) AS n FROM invoice_email_events WHERE status='attempt'").get().n,0);
  }finally{f.db.sqlite.close()}
 });
+
+test('a signed callback ID cannot be reused for another invoice or another outcome',async()=>{
+ const f=await fixture();try{
+  await call(f.db,f.w,'invoice.email.queue',{id:f.invoiceId});await dispatchEmails(f.db,emailConfig(env),{now:fixed,fetcher:ok});
+  const other=await setup(f.db,'bob');
+  f.db.sqlite.prepare("INSERT INTO invoice_outbox (id,workspace_id,invoice_id,mode,payload,status,provider_id,next_attempt_at,created_at,updated_at) VALUES ('another-outbox',?,'another-invoice','test','{}','accepted','provider_other',?,?,?)").run(other,fixed().toISOString(),fixed().toISOString(),fixed().toISOString());
+  await emailWebhook(signed('email.delivered','msg_unique'),f.db,env);
+  await assert.rejects(emailWebhook(signed('email.delivered','msg_unique','provider_other'),f.db,env),/event ID conflict/);
+  assert.equal(f.db.sqlite.prepare("SELECT status FROM invoice_outbox WHERE id='another-outbox'").get().status,'accepted');
+  await assert.rejects(emailWebhook(signed('email.bounced','msg_unique'),f.db,env),/event ID conflict/);
+  assert.equal(rows(f.db)[0].status,'delivered');
+ }finally{f.db.sqlite.close()}
+});
+
+test('signed malformed identifiers, unsupported methods and oversized callbacks are rejected',async()=>{
+ const db=database();try{
+  assert.deepEqual(await emailWebhook(signed('constructor'),db,env),{received:true,ignored:true});
+  for(const emailId of [null,{},['provider'],123,'x'.repeat(101)]){
+   const body=JSON.stringify({type:'email.delivered',data:{email_id:emailId}}),id='msg_bad_id',date=new Date();
+   const req=new Request(ORIGIN+'/api/quenvira/email-webhook',{method:'POST',headers:{'svix-id':id,'svix-timestamp':String(Math.floor(date.getTime()/1000)),'svix-signature':new Webhook(secret).sign(id,date,body)},body});
+   await assert.rejects(emailWebhook(req,db,env),/Invalid email event identifier/);
+  }
+  await assert.rejects(emailWebhook(new Request(ORIGIN+'/api/quenvira/email-webhook'),db,env),/Method not allowed/);
+  await assert.rejects(emailWebhook(new Request(ORIGIN+'/api/quenvira/email-webhook',{method:'POST',body:'x'.repeat(65537)}),db,env),/too large/);
+ }finally{db.sqlite.close()}
+});
