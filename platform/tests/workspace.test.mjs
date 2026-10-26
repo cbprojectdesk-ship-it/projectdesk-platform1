@@ -191,3 +191,12 @@ test('storage failure offers a workspace retry without incorrectly requiring sig
  assert.doesNotMatch(html,/signin-with-chatgpt/);
  assert.equal(h.ui.data(),undefined);
 });
+
+test('manager sees honest email configuration status; staff cannot open email tools',async()=>{
+ const db=database(),w=await setup(db),f=await fixtures(db,w);try{
+  const h=await browserAdapter(db);h.navigate('#invoices');assert.match(h.elements.get('#app').innerHTML,/Email delivery history/);
+  await h.ui.act('email-history');assert.match(h.elements.get('#modal').innerHTML,/Automatic email is not configured/);assert.ok(!h.elements.get('#modal').innerHTML.includes('Process due email'));
+  db.sqlite.prepare("INSERT INTO memberships VALUES (?,?,'staff',?)").run(w,'worker',f.staffId);const worker=await browserAdapter(db,'worker');
+  await assert.rejects(()=>worker.ui.act('email-history'),/Manager access required/);await assert.rejects(()=>worker.ui.act('dispatch-invoices'),/Manager access required/);
+ }finally{db.sqlite.close()}
+});

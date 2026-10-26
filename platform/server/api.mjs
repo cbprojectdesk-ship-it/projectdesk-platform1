@@ -1,3 +1,4 @@
+import {EmailProblem,assertRecipientAvailable,authoriseDispatcher,emailConfig,prepareDelivery,enqueueStatement,deliveryHistory,dispatchEmails,emailWebhook} from './invoice-delivery.mjs';
 import {health} from './health.mjs';
 import {billingConfig,liveVerificationConfig,stripeClient,startTrial,entitlement,checkout,portal,webhook,assertDeletable,SubscriptionProblem} from './subscriptions.mjs';
 import {createBusinessBackup,prepareBusinessRestore,BACKUP_LIMIT} from './business-backup.mjs';
@@ -45,6 +46,8 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
    return json(await webhook(request,undefined,config,config?(billingClient||await stripeClient(config)):null));
   }
   // Webhooks authenticate their raw body independently of browser identity/CSRF.
+  if(requestPath==='/api/quenvira/email-dispatch'){await authoriseDispatcher(request,billingEnv);return json(await dispatchEmails(db,emailConfig(billingEnv),{now}))}
+  if(requestPath==='/api/quenvira/email-webhook')return json(await emailWebhook(request,db,billingEnv,{now}));
   if(billingPath){const config=billingConfig(billingEnv);return json(await webhook(request,db,config,config?(billingClient||await stripeClient(config)):null))}
   // Sites dispatch must overwrite identity headers and keep the Worker origin private.
   const user=request.headers.get('oai-authenticated-user-id');
@@ -102,12 +105,14 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
   }
   // An expired subscription keeps read/export, revocation and deletion paths.
   // Paid workflow mutations require a fresh authoritative provider check.
-  const needsEntitlement=request.method==='POST'&&(path[2]==='commands'||path[2]==='invitations');
+  const needsEntitlement=request.method==='POST'&&(path[2]==='commands'||path[2]==='invitations'||path[2]==='email-dispatch');
   if(config&&needsEntitlement){
    const permittedMaintenance=path[2]==='invitations'&&(await readBody(request.clone())).revoke;
    const recovery=path[2]==='commands'&&path[3]==='backup';
    if(!permittedMaintenance&&!recovery&&!(await entitlement(db,workspace,config,await getClient(),Date.parse(timestamp))).canWrite)problem(402,'Your trial or subscription has ended. A manager can manage the subscription in Settings. Records and exports remain available.');
   }
+  if(path.length===3&&path[2]==='email-history'&&request.method==='GET'){manager(m);return json({configured:!!emailConfig(billingEnv),deliveries:await deliveryHistory(db,workspace)})}
+  if(path.length===3&&path[2]==='email-dispatch'&&request.method==='POST'){manager(m);return json(await dispatchEmails(db,emailConfig(billingEnv),{now,workspace}))}
   if(path.length===2&&request.method==='GET')return json({workspaceId:workspace,name:row.name,revision:row.revision,actor:{role:m.role,staffId:m.staff_id},today:asOf,state:project(state,m)});
   if(path.length===3&&path[2]==='backup-file'&&request.method==='GET'){manager(m);try{return json(await createBusinessBackup(state,row.name,workspace,bucket,timestamp))}catch(e){const safe=['Photo storage is unavailable. A complete backup could not be created.','A staff photo is unavailable. A complete backup could not be created.','Backup exceeds the 20 MB limit.'];problem(503,safe.includes(e.message)?e.message:'A complete business backup could not be created. Try again or contact support.')}}
   if(path.length===5&&path[2]==='staff'&&path[4]==='photo'&&request.method==='GET'){
@@ -161,7 +166,7 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
   if(prior){if(prior.user_id!==user)problem(409,'Request ID already used.');const {_requestHash,...replay}=JSON.parse(prior.response);if(_requestHash&&_requestHash!==requestHash)problem(409,'Request ID was already used for a different command.');return json({...replay,result:m.role==='manager'?replay.result:null,replayed:true})}
   const recent=await db.prepare('SELECT COUNT(*) AS n FROM operations WHERE workspace_id = ? AND user_id = ? AND created_at >= ?').bind(workspace,user,new Date(new Date(timestamp).getTime()-60000).toISOString()).first();if(recent.n>=120)problem(429,'Too many updates. Wait a minute and try again.');
   if(body.revision!==row.revision)problem(409,'Workspace changed. Reload and try again.');
-  const data=body.data,actor={role:m.role,staffId:m.staff_id};let result=null;
+  const data=body.data,actor={role:m.role,staffId:m.staff_id};let result=null,emailDelivery=null,emailInvoiceId=null;
   try{
    switch(body.action){
     case 'customer.save':result=D.saveCustomer(state,actor,data,data.id);break;
@@ -185,12 +190,19 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
      if(data.action==='complete'&&state.supplier?.autoDraftInvoices&&!job.invoiceId){
       // Manager opt-in authorises this server-owned draft operation, including
       // visits completed by assigned staff. Commit it atomically with the visit;
-      // never return invoice details to staff, issue it or send an email here.
-      D.createInvoice(state,{role:'manager'},job.id,state.supplier.autoDraftVat,asOf);
+      // never return financial details to staff. A separate manager email
+      // policy may issue and queue; provider dispatch is always separate.
+      const invoice=D.createInvoice(state,{role:'manager'},job.id,state.supplier.autoDraftVat,asOf);
+      if(state.supplier.autoEmailInvoices){
+       const beforeIssue=structuredClone(invoice),beforeAudit=structuredClone(state.audit);
+       try{issueInvoice(state,{role:'manager'},invoice.id,asOf);emailDelivery=prepareDelivery(state,invoice.id,emailConfig(billingEnv));await assertRecipientAvailable(db,workspace,emailDelivery);emailInvoiceId=invoice.id}
+       catch{emailDelivery=null;emailInvoiceId=null;for(const key of Object.keys(invoice))delete invoice[key];Object.assign(invoice,beforeIssue);state.audit=beforeAudit;state.audit.unshift({at:timestamp,actor:'System',message:'Automatic invoice email needs manager attention. Check recipient and email configuration.'});state.audit=state.audit.slice(0,200)}
+      }
      }
      break;
     }
     case 'supplier.save':result=saveSupplier(state,actor,data);break;
+    case 'invoice.email.queue':manager(m);emailDelivery=prepareDelivery(state,data.id,emailConfig(billingEnv));await assertRecipientAvailable(db,workspace,emailDelivery);emailInvoiceId=data.id;state.audit.unshift({at:timestamp,actor:'Manager',message:'Queued invoice email for '+state.invoices.find(i=>i.id===data.id).number});state.audit=state.audit.slice(0,200);break;
     case 'invoice.issue':result=issueInvoice(state,actor,data.id,asOf);break;
     case 'invoice.credit':result=creditInvoice(state,actor,data.id,data.reason,asOf);break;
     case 'invoice.create':result=D.createInvoice(state,actor,data.jobId,Number(data.vat||0),asOf);break;
@@ -206,7 +218,7 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
     }
     default:problem(400,'Unknown command.');
    }
-  }catch(e){if(e instanceof Problem)throw e;if(e.backupStorage)problem(503,e.message);problem(/Manager|not assigned/.test(e.message)?403:400,e.message)}
+  }catch(e){if(e instanceof Problem||e instanceof EmailProblem)throw e;if(e.backupStorage)problem(503,e.message);problem(/Manager|not assigned/.test(e.message)?403:400,e.message)}
   if(!D.validateState(state))problem(400,'Operation would create invalid records.');
   const document=JSON.stringify(state);if(new TextEncoder().encode(document).byteLength>524288)problem(413,'Workspace storage limit reached. Export your records and contact support.');
   const reply={revision:row.revision+1,result};
@@ -217,6 +229,7 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
    db.prepare('INSERT INTO events (workspace_id,id,user_id,action,created_at) SELECT id,?,?,?,? FROM workspaces WHERE id = ? AND last_operation = ?').bind(body.requestId,user,body.action,timestamp,workspace,body.requestId),
    db.prepare('DELETE FROM history WHERE workspace_id = ? AND revision < ?').bind(workspace,Math.max(0,row.revision-19))
   ];
+  if(emailDelivery)statements.push(enqueueStatement(db,workspace,body.requestId,emailInvoiceId,emailDelivery,timestamp));
   const committed=await db.batch(statements);
   if(!committed[1].results?.length){const current=await membership(db,workspace,user);if(current.role!==m.role||current.staff_id!==m.staff_id)problem(403,'Your access changed. Reload before editing.');problem(409,'Workspace changed. Reload and try again.');}
   return json(reply);
@@ -229,6 +242,6 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
    const status=Number.isInteger(e.statusCode)&&e.statusCode>=400&&e.statusCode<=599?e.statusCode:undefined;
    console.error('Quenvira Stripe request failed',JSON.stringify({type:e.type.slice(0,80),requestId,status}));
   }
-  return json({error:e instanceof Problem||e instanceof SubscriptionProblem?e.message:'Service temporarily unavailable.',code:e instanceof Problem||e instanceof SubscriptionProblem?e.status:503},e instanceof Problem||e instanceof SubscriptionProblem?e.status:503)
+  return json({error:e instanceof Problem||e instanceof SubscriptionProblem||e instanceof EmailProblem?e.message:'Service temporarily unavailable.',code:e instanceof Problem||e instanceof SubscriptionProblem||e instanceof EmailProblem?e.status:503},e instanceof Problem||e instanceof SubscriptionProblem||e instanceof EmailProblem?e.status:503)
  }
 }
