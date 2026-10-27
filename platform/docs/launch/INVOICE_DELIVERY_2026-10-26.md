@@ -1,6 +1,18 @@
 # Automated invoice delivery — 26 October 2026
 
-## Actual release state
+## Evening hosted acceptance — current status
+
+Owner authentication succeeded as the existing manager. In the private development workspace, a clearly labelled fictional zero-value visit was completed with both automatic-invoice preferences enabled. This atomically produced issued test invoice QV-1003 and queued its email. The manager dispatch control sent it once; the signed provider callback updated history to `delivered`, attempts `1`. Gmail independently confirmed receipt in ccscreativetech@gmail.com at 20:35:27 Europe/London on 26 October 2026. Header checks passed SPF, DKIM and DMARC. Reply-To is ccscreativetech@gmail.com; From remains onboarding@resend.dev.
+
+Resend API and webhook secrets are stored as secret production runtime entries. QUENVIRA_EMAIL_MODE remains test, the recipient allowlist is owner-only, billing remains test and self-service remains disabled. No customer-invoice approval or dispatch token was added. The supplier profile uses explicitly fictional QA details, including the official CCS contact email, and must be replaced before customer use.
+
+A background Worker dispatch now wakes after successful authenticated workspace command responses, scoped to that workspace and limited to one due message. Provider latency cannot fail a saved business command. Durable leases, suppression, provider idempotency and retry safety remain in force. This supports the first attempt without a manager click and opportunistic retries on later commands. It is not a periodic scheduler; guaranteed retries while all clients are closed remain unprovisioned. Independent owner-only receipt for the changed automatic wake is a separate deployment acceptance check.
+
+Remaining launch blockers: owned sender-domain verification for customer delivery; unattended periodic retry scheduler and missed-run acceptance; applicable commercial/provider review; physical device/staff acceptance; final owner-held encrypted laptop backup LAST; separate live billing and customer-email activation approval. No purchase or domain registration is authorised. Never set the From address to the Gmail address to bypass domain verification.
+
+The historical notes below describe the earlier build and must not be read as current provider status.
+
+## Earlier implementation state (superseded by evening acceptance)
 Implemented server-side and tested with fictional records/mocked provider HTTP. Sending remains OFF. No provider account, paid service, domain, API credential or real customer email was created. Existing Stripe test mode and self-service=no are preserved. Provider delivery and signed-in hosted UI acceptance are launch blockers.
 
 This supersedes the disconnected prototype in PR 37. One implementation lives in server/invoice-delivery.mjs and the normal command transaction in server/api.mjs. The public browser-local demo does not invoke it.
