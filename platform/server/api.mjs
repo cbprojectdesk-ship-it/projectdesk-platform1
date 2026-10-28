@@ -64,7 +64,7 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
   }
   if(path.length===1&&path[0]==='session'&&request.method==='GET'){
    const result=await db.prepare('SELECT w.id, w.name, m.role FROM workspaces w JOIN memberships m ON m.workspace_id = w.id WHERE m.user_id = ? ORDER BY w.created_at').bind(user).all();
-   return json({user:{id:user,email},workspaces:result.results,today:asOf,canCreateWorkspace:mayCreateWorkspace(email,pilotEmails)||!!config?.selfServe});
+   return json({user:{id:user,email},workspaces:result.results,today:asOf,documentMode:config?.mode==='live'?'live':'test',canCreateWorkspace:mayCreateWorkspace(email,pilotEmails)||!!config?.selfServe});
   }
   if(path.join('/')==='invitations/accept'&&request.method==='POST'){
    const body=await readBody(request);if(typeof body.token!=='string'||!/^[a-f0-9-]{72}$/.test(body.token))problem(400,'Invalid invitation.');
@@ -113,7 +113,7 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
   }
   if(path.length===3&&path[2]==='email-history'&&request.method==='GET'){manager(m);return json({configured:!!emailConfig(billingEnv),deliveries:await deliveryHistory(db,workspace)})}
   if(path.length===3&&path[2]==='email-dispatch'&&request.method==='POST'){manager(m);return json(await dispatchEmails(db,emailConfig(billingEnv),{now,workspace,limit:emailDispatchLimit}))}
-  if(path.length===2&&request.method==='GET')return json({workspaceId:workspace,name:row.name,revision:row.revision,actor:{role:m.role,staffId:m.staff_id},today:asOf,state:project(state,m)});
+  if(path.length===2&&request.method==='GET')return json({workspaceId:workspace,name:row.name,revision:row.revision,actor:{role:m.role,staffId:m.staff_id},today:asOf,documentMode:config?.mode==='live'?'live':'test',state:project(state,m)});
   if(path.length===3&&path[2]==='backup-file'&&request.method==='GET'){manager(m);try{return json(await createBusinessBackup(state,row.name,workspace,bucket,timestamp))}catch(e){const safe=['Photo storage is unavailable. A complete backup could not be created.','A staff photo is unavailable. A complete backup could not be created.','Backup exceeds the 20 MB limit.'];problem(503,safe.includes(e.message)?e.message:'A complete business backup could not be created. Try again or contact support.')}}
   if(path.length===5&&path[2]==='staff'&&path[4]==='photo'&&request.method==='GET'){
    const staff=state.staff.find(s=>s.id===path[3]);if(!staff||m.role!=='manager'&&m.staff_id!==staff.id)problem(404,'Staff photo not found.');
@@ -195,7 +195,7 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
       const invoice=D.createInvoice(state,{role:'manager'},job.id,state.supplier.autoDraftVat,asOf);
       if(state.supplier.autoEmailInvoices){
        const beforeIssue=structuredClone(invoice),beforeAudit=structuredClone(state.audit);
-       try{issueInvoice(state,{role:'manager'},invoice.id,asOf);emailDelivery=prepareDelivery(state,invoice.id,emailConfig(billingEnv));await assertRecipientAvailable(db,workspace,emailDelivery);emailInvoiceId=invoice.id}
+       try{issueInvoice(state,{role:'manager'},invoice.id,asOf,config?.mode==='live'?'live':'test');emailDelivery=prepareDelivery(state,invoice.id,emailConfig(billingEnv));await assertRecipientAvailable(db,workspace,emailDelivery);emailInvoiceId=invoice.id}
        catch{emailDelivery=null;emailInvoiceId=null;for(const key of Object.keys(invoice))delete invoice[key];Object.assign(invoice,beforeIssue);state.audit=beforeAudit;state.audit.unshift({at:timestamp,actor:'System',message:'Automatic invoice email needs manager attention. Check recipient and email configuration.'});state.audit=state.audit.slice(0,200)}
       }
      }
@@ -203,7 +203,7 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
     }
     case 'supplier.save':result=saveSupplier(state,actor,data);break;
     case 'invoice.email.queue':manager(m);emailDelivery=prepareDelivery(state,data.id,emailConfig(billingEnv));await assertRecipientAvailable(db,workspace,emailDelivery);emailInvoiceId=data.id;state.audit.unshift({at:timestamp,actor:'Manager',message:'Queued invoice email for '+state.invoices.find(i=>i.id===data.id).number});state.audit=state.audit.slice(0,200);break;
-    case 'invoice.issue':result=issueInvoice(state,actor,data.id,asOf);break;
+    case 'invoice.issue':result=issueInvoice(state,actor,data.id,asOf,config?.mode==='live'?'live':'test');break;
     case 'invoice.credit':result=creditInvoice(state,actor,data.id,data.reason,asOf);break;
     case 'invoice.create':result=D.createInvoice(state,actor,data.jobId,Number(data.vat||0),asOf);break;
     case 'invoice.paid':D.markPaid(state,actor,data.id,asOf);break;
