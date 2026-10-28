@@ -4,7 +4,7 @@ import {issueInvoice,validBilling} from '../server/billing.mjs';
 import {prepareInvoiceEmail} from '../public/invoice-email.js';
 import {prepareDelivery} from '../server/invoice-delivery.mjs';
 import {handle} from '../server/api.mjs';
-import {startTrial,TERMS_VERSION} from '../server/subscriptions.mjs';
+import {startTrial,acceptServiceTerms,TERMS_VERSION} from '../server/subscriptions.mjs';
 import {database,setup,fixtures,command,job,request,ORIGIN,fixed} from './support/database.mjs';
 
 const supplier={legalName:'Fictional Supplier',tradingName:'',address:'Fictional Road',contact:'billing@example.com',entity:'sole-trader',companyNumber:'',vatRegistered:false,vatNumber:''};
@@ -44,7 +44,7 @@ test('document mode is assigned by the server release configuration, never comma
    const draft=await command(db,w,'invoice.create',{jobId:id,vat:0});
    const current=await request(db,'workspaces/'+w);
    const billingEnv=mode==='live'?{QUENVIRA_BILLING_MODE:'live',QUENVIRA_PAID_LAUNCH_APPROVED:'yes',STRIPE_RESTRICTED_KEY:'rk_live_local_fixture',STRIPE_WEBHOOK_SECRET:'whsec_local_fixture',STRIPE_PRICE_ID:'price_local',STRIPE_PORTAL_CONFIGURATION:'bpc_local',QUENVIRA_SITE_ORIGIN:ORIGIN,QUENVIRA_TERMS_VERSION:TERMS_VERSION}:{};
-   if(mode==='live')await startTrial(db,w,fixed().toISOString());
+   if(mode==='live'){await startTrial(db,w,fixed().toISOString());await acceptServiceTerms(db,w,'alice',{acceptTerms:true,termsVersion:TERMS_VERSION},fixed().toISOString())}
    const options={now:fixed,bucket:db.bucket,billingEnv,billingClient:{}};
    const r=await handle(new Request(`${ORIGIN}/api/quenvira/workspaces/${w}/commands`,{method:'POST',headers:{origin:ORIGIN,'Content-Type':'application/json','oai-authenticated-user-id':'alice','oai-authenticated-user-email':'alice@example.com'},body:JSON.stringify({requestId:crypto.randomUUID(),revision:current.body.revision,action:'invoice.issue',data:{id:draft.body.result.id,documentMode:mode==='test'?'live':'test'}})}),db,options);
    assert.equal(r.status,200);const result=await r.json();assert.equal(result.result.issue.documentMode??'test',mode);
