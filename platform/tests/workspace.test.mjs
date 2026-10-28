@@ -7,6 +7,18 @@ import {encryptBusinessBackup,decryptBusinessBackup} from '../public/backup-cryp
 import {prepareStaffPhoto} from '../public/staff-photo.js';
 import {prepareInvoiceEmail,copyInvoiceText} from '../public/invoice-email.js';
 const source=fs.readFileSync(new URL('../public/workspace.js',import.meta.url),'utf8').replace(/^import .*?;\n/gm,'');
+test('invoice preview retains its issued mode independently of the current workspace mode',async()=>{
+ const db=database();try{
+  const w=await setup(db),h=await browserAdapter(db);
+  const data=h.ui.data();data.documentMode='live';
+  const invoice={id:'local-mode-preview',number:'QV-9999',customerName:'Fictional QA',address:'Fictional Road',description:'Fictional service',issued:'2026-10-20',due:'2026-11-03',net:0,tax:0,total:0,vat:0,status:'Issued',issue:{supplier:{legalName:'Fictional QA',address:'Fictional Road',contact:'qa@example.com',vatRegistered:false},supplyDate:'2026-10-20',line:{description:'Fictional service',unitPrice:0}}};
+  data.state.invoices.push(invoice);h.ui.invoiceDetail(invoice.id);
+  assert.match(h.elements.get('#modal').innerHTML,/PRIVATE TEST DOCUMENT/);
+  invoice.issue.documentMode='live';data.documentMode='test';h.ui.invoiceDetail(invoice.id);
+  assert.doesNotMatch(h.elements.get('#modal').innerHTML,/PRIVATE TEST DOCUMENT/);
+  assert.match(h.elements.get('#modal').innerHTML,/>INVOICE</);
+ }finally{db.sqlite.close()}
+});
 async function browserAdapter(db,user='alice'){
  const elements=new Map(),events=new Map();let currentControls=[];
  const make=()=>({innerHTML:'',textContent:'',open:false,dataset:{},setAttribute(){},classList:{add(){},remove(){}},showModal(){this.open=true},close(){this.open=false},click(){},focus(){},setSelectionRange(){}});

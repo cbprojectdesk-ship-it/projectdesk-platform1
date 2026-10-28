@@ -20,8 +20,9 @@ function profile(data){
 }
 const audit=(state,message)=>{state.audit.unshift({at:new Date().toISOString(),actor:'Manager',message});state.audit=state.audit.slice(0,200)};
 export function saveSupplier(state,actor,data){manager(actor);const p=profile(data);state.supplier=p;audit(state,'Updated invoice supplier profile');return p}
-export function issueInvoice(state,actor,id,asOf){
+export function issueInvoice(state,actor,id,asOf,documentMode='test'){
  manager(actor);const i=state.invoices.find(i=>i.id===id);
+ if(!['test','live'].includes(documentMode))fail('Choose a valid invoice document mode.');
  if(!i||i.status!=='Draft'||i.issue)fail('Only an unpaid draft can be issued.');
  if(!date(asOf))fail('Choose a valid invoice date.');
  if(!state.supplier)fail('Save your supplier details in Settings before issuing an invoice.');
@@ -29,7 +30,7 @@ export function issueInvoice(state,actor,id,asOf){
  if(!j||j.status!=='Completed'||j.date>asOf)fail('The completed service date must not be in the future.');
  if(i.vat&&!supplier.vatRegistered)fail('A supplier without VAT registration cannot issue a VAT invoice.');
  const due=new Date(asOf+'T12:00:00Z');due.setUTCDate(due.getUTCDate()+14);if(due.getUTCFullYear()>9999)fail('Due date is outside the supported calendar.');
- const issue={supplier:structuredClone(supplier),supplyDate:j.date,line:{description:i.description,quantity:1,unit:'visit',unitPrice:i.net}};
+ const issue={supplier:structuredClone(supplier),supplyDate:j.date,line:{description:i.description,quantity:1,unit:'visit',unitPrice:i.net},...(documentMode==='live'?{documentMode:'live'}:{})};
  Object.assign(i,{issued:asOf,due:due.toISOString().slice(0,10),issue,status:'Issued'});audit(state,'Issued invoice '+i.number);return i;
 }
 export function creditInvoice(state,actor,id,reason,asOf){
@@ -46,6 +47,7 @@ export function validBilling(state){
   for(const i of state.invoices){
    if(!i.issue){if(i.credit||['Issued','Credited'].includes(i.status))return false;continue}
    const x=i.issue,p=profile(x.supplier),line=x.line;
+   if(!['test','live'].includes(x.documentMode??'test'))return false;
    if(JSON.stringify(p)!==JSON.stringify(x.supplier)||!date(x.supplyDate)||x.supplyDate>i.issued||!['Issued','Paid','Credited'].includes(i.status)||i.vat&&!p.vatRegistered)return false;
    if(!line||line.description!==i.description||line.quantity!==1||line.unit!=='visit'||line.unitPrice!==i.net)return false;
    if(i.status==='Credited'){

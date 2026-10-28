@@ -14,12 +14,12 @@ export function prepareDelivery(state,invoiceId,config){
  if(!config)fail(503,'Automatic email is not configured. Your invoice remains saved.');
  const invoice=state.invoices.find(i=>i.id===invoiceId),job=state.jobs.find(j=>j.id===invoice?.jobId);
  if(!invoice?.issue||invoice.status!=='Issued'||job?.status!=='Completed')fail(400,'Only an authorised, unpaid issued invoice for a completed visit can be queued.');
+ if((invoice.issue.documentMode??'test')!==config.mode)fail(400,'Invoice document mode does not match email mode. Test documents cannot be sent as commercial invoices.');
  const to=state.customers.find(c=>c.id===invoice.customerId)?.email;
  if(!validEmail(to))fail(400,'Save a single valid customer email address before queueing.');
  if(config.mode==='test'&&!config.allowlist.includes(to.toLowerCase()))fail(403,'Test email is limited to owner-approved test recipients. No customer email was queued.');
  const mail=prepareInvoiceEmail(invoice,to);
- let text=mail.body;
- if(config.mode==='live')text=text.replace('PRIVATE TEST DOCUMENT — NOT FOR CUSTOMER USE\r\n','').replace('Private testing only. Do not use this document to request customer payment.','Please contact the supplier shown above with any invoice queries.');
+ const text=mail.body;
  return {mode:config.mode,payload:JSON.stringify({from:config.from,to:[to],subject:(config.mode==='test'?'[Quenvira test] ':'')+mail.subject,text,reply_to:validEmail(invoice.issue.supplier.contact)?invoice.issue.supplier.contact:'ccscreativetech@gmail.com'})};
 }
 export function enqueueStatement(db,workspace,operation,invoiceId,delivery,timestamp){
@@ -60,6 +60,7 @@ export async function dispatchEmails(db,config,{now=()=>new Date(),fetcher=fetch
   const business=await db.prepare('SELECT document FROM workspaces WHERE id=?').bind(row.workspace_id).first();
   const invoice=business&&JSON.parse(business.document).invoices.find(i=>i.id===row.invoice_id);
   if(!invoice||invoice.status!=='Issued'){status='cancelled';error='Invoice is no longer unpaid and issued.';await update();continue}
+  if((invoice.issue?.documentMode??'test')!==row.mode){error='Invoice document mode changed. Operator review required.';await update();continue}
   try{
    const permitted=await db.prepare("INSERT INTO invoice_email_events (id,workspace_id,outbox_id,status,created_at) SELECT ?,workspace_id,id,'attempt',? FROM invoice_outbox WHERE id=? AND lease_token=? AND (SELECT COUNT(*) FROM invoice_email_events WHERE status='attempt' AND created_at>=?) < 90 RETURNING id").bind(crypto.randomUUID(),timestamp,row.id,lease,new Date(Date.parse(timestamp)-86400000).toISOString()).all();
    if(!permitted.results.length){status='review';error='Daily email safety limit reached. Operator review required.';await update();continue}
