@@ -39,3 +39,18 @@ Fresh local acceptance: all 228 application tests pass, no failures/skips. The i
 With the owner's specific one-email approval, QV-1005 automatically issued/queued/sent on fictional £0 visit completion, arrived only in ccscreativetech@gmail.com at 08:30:29 GMT, and is marked delivered with one attempt. Gmail SPF/DKIM/DMARC passed. That approval is consumed; do not repeat the test or resend existing invoices. No customer sending or paid launch is approved.
 
 Runtime remains billing=test, email=test, self-service=no; actual From remains onboarding@resend.dev. Owned-domain sender acceptance, unattended retries, real bounce/complaint and missed-run recovery, automatic payment-retry/hosted entitlement transitions, separate-person staff/device acceptance and final customer/provider particulars remain open. Owner-held encrypted laptop backup stays LAST, before separate explicit live launch approval.
+
+## Verified continuation — 28 October 2026
+
+This section supersedes the earlier missing-plugin and sender observations.
+
+- The Quenvira read-only queue tool is connected and works. Fresh reads report zero due and zero review entries. No periodic retry schedule is configured; unattended write invocation and real retry/bounce/complaint acceptance are still open. Do not repeat plugin installation investigations.
+- The one expressly approved £0 fictional invoice QV-1005 reached the business inbox and signed delivery status, one attempt, using onboarding@resend.dev. That approval is consumed; no resend or further test is authorised by it.
+- The owned sender is verified in Resend. Runtime revision 13 now uses invoices@mail.ccscreativetech.co.uk while retaining billing=test, email=test and self-service=no. New-sender inbox delivery has not been tested.
+- GitHub PR #41 merged as 549685abf8693cff9f90ca7f1661f7f0be267f5a. Hosted email MCP controls, API dispatch limit and customer notices are reconciled; independent standalone identity/build adapters were preserved.
+- Fresh local check/test/typecheck/build succeeded: all 228 tests pass, no failures or skipped tests. PR #41 browser, platform, server, verification and test checks succeeded.
+- Provider evidence is updated in docs/HOSTING_PROVIDER_REVIEW_2026-10-23.md, including Resend US storage, stated retention and European sending-region distinction. No UK-only claim is supported.
+- Stripe connector searches did not expose existing test-clock retrieval/advancement, so no unused clock was created. Historical owner decline/manual recovery remains valid; automatic retry and hosted entitlement transition acceptance are still open.
+- Two-person staff and physical-device acceptance, actual customer/order/DPA particulars and factual owner administration remain open. Encrypted independent laptop backup remains the final prelaunch technical task, followed by explicit owner commercial launch approval. Billing/customer sending remain disabled.
+
+No new email, charge, paid resource, customer contract or customer-data onboarding was performed by this continuation.
