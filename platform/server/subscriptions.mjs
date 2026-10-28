@@ -4,7 +4,7 @@ export class SubscriptionProblem extends Error {
  constructor(status,message){super(message);this.status=status}
 }
 const fail=(status,message)=>{throw new SubscriptionProblem(status,message)};
-export const TERMS_VERSION='2026-10-22';
+export const TERMS_VERSION='2026-10-28';
 const handledEvents=new Set(['checkout.session.completed','checkout.session.async_payment_succeeded','checkout.session.async_payment_failed','customer.subscription.created','customer.subscription.updated','customer.subscription.deleted','invoice.paid','invoice.payment_failed']);
 const objectId=value=>typeof value==='string'?value:value?.id;
 export function billingConfig(env={}) {
@@ -12,7 +12,9 @@ export function billingConfig(env={}) {
  if(!mode||mode==='disabled')return null;
  if(!['test','live'].includes(mode))fail(503,'Subscription configuration needs operator attention.');
  const key=env.STRIPE_RESTRICTED_KEY;
- if(typeof key!=='string'||!key.startsWith(mode==='live'?'rk_live_':'rk_test_')||!env.STRIPE_WEBHOOK_SECRET?.startsWith('whsec_')||!/^price_\w+$/.test(env.STRIPE_PRICE_ID||'')||!/^bpc_\w+$/.test(env.STRIPE_PORTAL_CONFIGURATION||'')||env.QUENVIRA_TERMS_VERSION!==TERMS_VERSION)fail(503,'Subscriptions are not configured for this release.');
+ // Permit the previous version only in sandbox during this staged rollout.
+ const termsReady=env.QUENVIRA_TERMS_VERSION===TERMS_VERSION||(mode==='test'&&env.QUENVIRA_TERMS_VERSION==='2026-10-22');
+ if(typeof key!=='string'||!key.startsWith(mode==='live'?'rk_live_':'rk_test_')||!env.STRIPE_WEBHOOK_SECRET?.startsWith('whsec_')||!/^price_\w+$/.test(env.STRIPE_PRICE_ID||'')||!/^bpc_\w+$/.test(env.STRIPE_PORTAL_CONFIGURATION||'')||!termsReady)fail(503,'Subscriptions are not configured for this release.');
  let origin;try{origin=new URL(env.QUENVIRA_SITE_ORIGIN)}catch{fail(503,'Subscription origin is not configured.')}
  if(origin.protocol!=='https:'||origin.origin!==env.QUENVIRA_SITE_ORIGIN)fail(503,'Subscription origin is invalid.');
  if(mode==='live'&&env.QUENVIRA_PAID_LAUNCH_APPROVED!=='yes')fail(503,'Paid subscriptions have not been activated.');
@@ -31,6 +33,22 @@ export function liveVerificationConfig(env={}) {
  return {mode:'live',key,secret,verificationOnly:true};
 }
 async function row(db,workspace){return db.prepare('SELECT * FROM subscription_accounts WHERE workspace_id = ?').bind(workspace).first()}
+export function assertServiceTerms(body){
+ if(body.acceptTerms!==true||body.termsVersion!==TERMS_VERSION)fail(400,'Review and accept the current business terms and data-processing schedule first.');
+}
+export async function serviceTermsAccepted(db,workspace){
+ const account=await row(db,workspace);return account?.terms_version===TERMS_VERSION&&!!account.terms_accepted_at;
+}
+export async function acceptServiceTerms(db,workspace,user,body,timestamp){
+ assertServiceTerms(body);
+ // Membership is rechecked in the acceptance write, not only in the route.
+ const saved=await db.batch([
+  db.prepare("UPDATE subscription_accounts SET terms_accepted_at=CASE WHEN terms_version=? AND terms_accepted_at IS NOT NULL THEN terms_accepted_at ELSE ? END,terms_version=? WHERE workspace_id=? AND EXISTS(SELECT 1 FROM memberships WHERE workspace_id=? AND user_id=? AND role='manager') RETURNING terms_version,terms_accepted_at").bind(TERMS_VERSION,timestamp,TERMS_VERSION,workspace,workspace,user),
+  db.prepare("INSERT OR IGNORE INTO events (workspace_id,id,user_id,action,created_at) SELECT ?,?,?,?,? WHERE EXISTS(SELECT 1 FROM subscription_accounts a JOIN memberships m ON a.workspace_id=m.workspace_id WHERE a.workspace_id=? AND m.user_id=? AND m.role='manager' AND a.terms_version=? AND a.terms_accepted_at IS NOT NULL)").bind(workspace,'terms-'+TERMS_VERSION,user,'terms.accept.'+TERMS_VERSION,timestamp,workspace,user,TERMS_VERSION)
+ ]);
+ if(!saved[0].results.length)fail(403,'Current manager permission is required to accept business terms.');
+ return {accepted:true,termsVersion:TERMS_VERSION,acceptedAt:saved[0].results[0].terms_accepted_at};
+}
 export async function startTrial(db,workspace,timestamp){
  const end=new Date(Date.parse(timestamp)+14*86400000).toISOString();
  await db.prepare('INSERT OR IGNORE INTO subscription_accounts (workspace_id,trial_end,checkout_generation) VALUES (?,?,0)').bind(workspace,end).run();

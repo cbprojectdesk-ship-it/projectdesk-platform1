@@ -1,6 +1,6 @@
 import {EmailProblem,assertRecipientAvailable,authoriseDispatcher,emailConfig,prepareDelivery,enqueueStatement,deliveryHistory,dispatchEmails,emailWebhook} from './invoice-delivery.mjs';
 import {health} from './health.mjs';
-import {billingConfig,liveVerificationConfig,stripeClient,startTrial,entitlement,checkout,portal,webhook,assertDeletable,SubscriptionProblem} from './subscriptions.mjs';
+import {billingConfig,liveVerificationConfig,stripeClient,startTrial,entitlement,checkout,portal,webhook,assertDeletable,SubscriptionProblem,TERMS_VERSION,assertServiceTerms,serviceTermsAccepted,acceptServiceTerms} from './subscriptions.mjs';
 import {createBusinessBackup,prepareBusinessRestore,BACKUP_LIMIT} from './business-backup.mjs';
 import {photoKey,decodePhoto,setStaffPhoto} from './staff-photos.mjs';
 import {saveSupplier,issueInvoice,creditInvoice,assertFinancialRestore} from './billing.mjs';
@@ -83,22 +83,24 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
   if(path.length===1&&path[0]==='workspaces'&&request.method==='POST'){
    const body=await readBody(request);if(typeof body.name!=='string'||!body.name.trim()||body.name.length>100)problem(400,'Business name must be 1–100 characters.');
    if(!mayCreateWorkspace(email,pilotEmails)&&!config?.selfServe)problem(403,'New business workspaces are currently invitation-only. Explore the public demo or contact ccscreativetech@gmail.com to request pilot access.');
+   if(config?.mode==='live')assertServiceTerms(body);
    // Stable per-user creation ID makes retries create at most one initial workspace.
    const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(user));
    const workspace='w-'+Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
    await db.batch([
     db.prepare('INSERT OR IGNORE INTO workspaces (id,name,revision,document,created_at,updated_at) VALUES (?,?,0,?,?,?)').bind(workspace,body.name.trim(),JSON.stringify(empty()),timestamp,timestamp),
     db.prepare("INSERT OR IGNORE INTO memberships (workspace_id,user_id,role,staff_id) VALUES (?,?,'manager',NULL)").bind(workspace,user)
-   ]);if(config)await startTrial(db,workspace,timestamp);return json({workspaceId:workspace},201);
+   ]);if(config)await startTrial(db,workspace,timestamp);if(config?.mode==='live')await acceptServiceTerms(db,workspace,user,body,timestamp);return json({workspaceId:workspace},201);
   }
   if(path.length<2||path[0]!=='workspaces')problem(404,'Route not found.');
   const workspace=path[1],m=await membership(db,workspace,user);
   const {row,state}=await load(db,workspace);
   if(path.length===3&&path[2]==='subscription'){
    manager(m);
-   if(request.method==='GET')return json(config?{enabled:true,mode:config.mode,...await entitlement(db,workspace,config,await getClient(),Date.parse(timestamp))}:{enabled:false,status:'pilot',canWrite:true});
+   if(request.method==='GET')return json(config?{enabled:true,mode:config.mode,termsVersion:TERMS_VERSION,termsAccepted:await serviceTermsAccepted(db,workspace),...await entitlement(db,workspace,config,await getClient(),Date.parse(timestamp))}:{enabled:false,status:'pilot',canWrite:true});
    const body=await readBody(request);
    if(!config)problem(503,'Subscriptions are not activated.');
+   if(body.action==='accept-terms'){assertServiceTerms(body);await startTrial(db,workspace,timestamp);return json(await acceptServiceTerms(db,workspace,user,body,timestamp))}
    if(body.action==='checkout')return json(await checkout(db,workspace,email,body,config,await getClient(),timestamp));
    if(body.action==='portal')return json(await portal(db,workspace,config,await getClient()));
    problem(400,'Unknown subscription action.');
@@ -109,6 +111,7 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
   if(config&&needsEntitlement){
    const permittedMaintenance=path[2]==='invitations'&&(await readBody(request.clone())).revoke;
    const recovery=path[2]==='commands'&&path[3]==='backup';
+   if(config.mode==='live'&&!permittedMaintenance&&!recovery&&!await serviceTermsAccepted(db,workspace))problem(403,'A manager must accept the current business terms in Settings before editing. Viewing and exports remain available.');
    if(!permittedMaintenance&&!recovery&&!(await entitlement(db,workspace,config,await getClient(),Date.parse(timestamp))).canWrite)problem(402,'Your trial or subscription has ended. A manager can manage the subscription in Settings. Records and exports remain available.');
   }
   if(path.length===3&&path[2]==='email-history'&&request.method==='GET'){manager(m);return json({configured:!!emailConfig(billingEnv),deliveries:await deliveryHistory(db,workspace)})}

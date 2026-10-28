@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import Stripe from 'stripe';
 import {handle} from '../server/api.mjs';
-import {billingConfig,liveVerificationConfig} from '../server/subscriptions.mjs';
+import {billingConfig,liveVerificationConfig,TERMS_VERSION} from '../server/subscriptions.mjs';
 const origin='https://quenvira.test';
 const env={QUENVIRA_LIVE_WEBHOOK_VERIFY:'yes',STRIPE_LIVE_RESTRICTED_KEY:'rk_live_fixture_only',STRIPE_LIVE_WEBHOOK_SECRET:'whsec_live_fixture_only'};
 const sdk=new Stripe('rk_live_fixture_only');
@@ -38,5 +38,5 @@ test('staged credentials cannot unlock normal webhook processing or unapproved l
  const body=JSON.stringify({id:'evt_live',type:'invoice.paid',livemode:true,data:{object:{customer:'cus_live'}}});
  const primary=new Request(origin+'/api/quenvira/subscription-webhook',{method:'POST',body});
  const r=await handle(primary,undefined,{billingEnv:env,billingClient:client});assert.equal(r.status,503);
- assert.throws(()=>billingConfig({...env,QUENVIRA_BILLING_MODE:'live',STRIPE_RESTRICTED_KEY:env.STRIPE_LIVE_RESTRICTED_KEY,STRIPE_WEBHOOK_SECRET:env.STRIPE_LIVE_WEBHOOK_SECRET,STRIPE_PRICE_ID:'price_live',STRIPE_PORTAL_CONFIGURATION:'bpc_live',QUENVIRA_TERMS_VERSION:'2026-10-22',QUENVIRA_SITE_ORIGIN:origin}),/not been activated/);
+ assert.throws(()=>billingConfig({...env,QUENVIRA_BILLING_MODE:'live',STRIPE_RESTRICTED_KEY:env.STRIPE_LIVE_RESTRICTED_KEY,STRIPE_WEBHOOK_SECRET:env.STRIPE_LIVE_WEBHOOK_SECRET,STRIPE_PRICE_ID:'price_live',STRIPE_PORTAL_CONFIGURATION:'bpc_live',QUENVIRA_TERMS_VERSION:TERMS_VERSION,QUENVIRA_SITE_ORIGIN:origin}),/not been activated/);
 });
