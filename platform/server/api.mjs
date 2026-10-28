@@ -35,8 +35,8 @@ async function membership(db,workspace,user){
  if(!m||!['manager','staff'].includes(m.role))problem(404,'Workspace not found.');return m;
 }
 async function load(db,workspace){const row=await db.prepare('SELECT * FROM workspaces WHERE id = ?').bind(workspace).first();if(!row)problem(404,'Workspace not found.');let state;try{state=JSON.parse(row.document)}catch{problem(503,'Workspace data needs recovery.')}if(!D.validateState(state))problem(503,'Workspace data needs recovery.');return {row,state}}
-/** @param {Request} request @param {D1Database | undefined} db @param {{now?: () => Date, bucket?: R2Bucket, pilotEmails?: string, billingEnv?: Cloudflare.Env, billingClient?: any}} [options] */
-export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,billingEnv={},billingClient}={}){
+/** @param {Request} request @param {D1Database | undefined} db @param {{now?: () => Date, bucket?: R2Bucket, pilotEmails?: string, billingEnv?: Cloudflare.Env, billingClient?: any, emailDispatchLimit?: number}} [options] */
+export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,billingEnv={},billingClient,emailDispatchLimit=5}={}){
  try{
   if(new URL(request.url).pathname==='/api/quenvira/health')return health(request,db,{bucket,billingEnv});
   const requestPath=new URL(request.url).pathname;
@@ -112,7 +112,7 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
    if(!permittedMaintenance&&!recovery&&!(await entitlement(db,workspace,config,await getClient(),Date.parse(timestamp))).canWrite)problem(402,'Your trial or subscription has ended. A manager can manage the subscription in Settings. Records and exports remain available.');
   }
   if(path.length===3&&path[2]==='email-history'&&request.method==='GET'){manager(m);return json({configured:!!emailConfig(billingEnv),deliveries:await deliveryHistory(db,workspace)})}
-  if(path.length===3&&path[2]==='email-dispatch'&&request.method==='POST'){manager(m);return json(await dispatchEmails(db,emailConfig(billingEnv),{now,workspace}))}
+  if(path.length===3&&path[2]==='email-dispatch'&&request.method==='POST'){manager(m);return json(await dispatchEmails(db,emailConfig(billingEnv),{now,workspace,limit:emailDispatchLimit}))}
   if(path.length===2&&request.method==='GET')return json({workspaceId:workspace,name:row.name,revision:row.revision,actor:{role:m.role,staffId:m.staff_id},today:asOf,state:project(state,m)});
   if(path.length===3&&path[2]==='backup-file'&&request.method==='GET'){manager(m);try{return json(await createBusinessBackup(state,row.name,workspace,bucket,timestamp))}catch(e){const safe=['Photo storage is unavailable. A complete backup could not be created.','A staff photo is unavailable. A complete backup could not be created.','Backup exceeds the 20 MB limit.'];problem(503,safe.includes(e.message)?e.message:'A complete business backup could not be created. Try again or contact support.')}}
   if(path.length===5&&path[2]==='staff'&&path[4]==='photo'&&request.method==='GET'){
