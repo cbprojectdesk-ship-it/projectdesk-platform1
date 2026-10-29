@@ -1,4 +1,5 @@
 import * as F from './team-features.mjs';
+import {websiteEnquiry} from './website-enquiries.mjs';
 import {jobPhotoKey,decodeJobPhoto,prepareJobPhoto} from './job-photos.mjs';
 import {EmailProblem,assertRecipientAvailable,authoriseDispatcher,emailConfig,prepareDelivery,enqueueStatement,deliveryHistory,dispatchEmails,emailWebhook} from './invoice-delivery.mjs';
 import {health} from './health.mjs';
@@ -40,6 +41,7 @@ async function load(db,workspace){const row=await db.prepare('SELECT * FROM work
 /** @param {Request} request @param {D1Database | undefined} db @param {{now?: () => Date, bucket?: R2Bucket, pilotEmails?: string, billingEnv?: Cloudflare.Env, billingClient?: any, emailDispatchLimit?: number}} [options] */
 export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,billingEnv={},billingClient,emailDispatchLimit=5}={}){
  try{
+  if(new URL(request.url).pathname==='/api/quenvira/website-enquiry')return websiteEnquiry(request,{...billingEnv,BUCKET:bucket});
   if(new URL(request.url).pathname==='/api/quenvira/health')return health(request,db,{bucket,billingEnv});
   const requestPath=new URL(request.url).pathname;
   const billingPath=requestPath==='/api/quenvira/subscription-webhook';
