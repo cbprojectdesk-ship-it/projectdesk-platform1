@@ -1,6 +1,6 @@
 # Quenvira business order and processing schedule
 
-Release candidate prepared 28 October 2026. Complete and agree this order before admitting a real customer. This template is not a signed contract or permission to activate billing.
+Release candidate updated 29 October 2026. Complete and agree this order before admitting a real customer. This template is not a signed contract or permission to activate billing.
 
 ## Parties and authority
 
@@ -15,13 +15,14 @@ No medical, safeguarding or children's records are included in this service.
 
 ## Offer to confirm
 
-- One UK business workspace at **£19 total monthly**. CCS is not VAT registered; no VAT is added. Earlier tiered prices are superseded.
+- Select one UK business workspace: **Solo £7.99 total monthly**, one owner-operator and no staff sign-in; or **Team £14.99 total monthly**, with staff sign-in. Included Team staff-record allowance: **[agree and configure after capacity/cost review]**. These replace the old £19 proposal for future orders; the current sandbox configuration is unchanged. CCS is not VAT registered; no VAT is added. Larger subscriptions stay shelved; tailored work requires its own written proposal.
 - Once-only 14-day card-free app trial. It does not automatically become a paid subscription. Paid service requires the customer's deliberate agreement and Stripe Checkout completion.
 - Monthly renewal; cancellation through Manage subscription at period end. The app shows the scheduled end date. Viewing/export and available access-revocation/recovery controls remain available after routine editing ends, subject to the agreed exit arrangements.
-- Scope: customer records, assigned staff, finite recurring visits, checklists/notes, invoice/credit records and manual exports/encrypted backups. One worker per visit. Workspace document limit 512 KiB; backup plaintext limit 20 MiB. Check these limits against the customer's expected use.
+- Scope: customer records, permitted assigned staff, finite recurring visits, checklists/notes, itemised quotes, availability/time-off, private visit photos, in-app notifications and invoice/credit records and manual exports/encrypted backups. One worker per visit. Workspace document limit 512 KiB; backup plaintext limit 20 MiB. Check these limits against the customer's expected use.
 - Automatic customer invoice email remains excluded unless separately approved and added to the agreed scope. Online collection of service-customer payments, accounting integrations, unlimited storage and native app-store distribution are excluded.
 - Support by ccscreativetech@gmail.com. No 24/7, response-time, uptime or recovery-time guarantee is offered. Any additional support promise must be expressly agreed rather than inferred.
 
+Selected plan, included staff records and accepted terms version: **[complete]**
 Trial/start date: **[complete]**  
 First paid billing date and monthly renewal basis: **[complete]**  
 Exit/export window and requested active-record deletion date: **[complete]**  

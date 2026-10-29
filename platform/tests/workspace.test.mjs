@@ -248,3 +248,7 @@ test('staff UI saves own availability, requests leave and reads only their notif
  const manager=await browserAdapter(db);const r=manager.ui.data().state.leaveRequests[0];await manager.ui.act('feature-leave-review',r.id);await manager.submit('feature-leave-review',{status:'Approved',managerNote:'Fictional approval'},r.id);await h.ui.reload();assert.equal(h.ui.data().state.leaveRequests[0].status,'Approved');
  }finally{db.sqlite.close()}
 });
+
+test('staged Solo/Team chooser shows exact prices and sends elected plan and current terms without old price',async()=>{
+ const db=database();try{await setup(db);const h=await browserAdapter(db);h.control.billingResponse={enabled:true,mode:'test',status:'trial',canWrite:true,canCheckout:true,termsVersion:'2026-10-29',plans:[{id:'solo',name:'Solo',amount:799,maxStaff:1,staffAccess:false},{id:'team',name:'Team',amount:1499,maxStaff:3,staffAccess:true}]};await h.ui.act('subscription');const html=h.elements.get('#modal').innerHTML;assert.match(html,/£7.99/);assert.match(html,/£14.99/);assert.match(html,/name="plan" required/);assert.match(html,/subscription-terms-solo-team.html/);assert.doesNotMatch(html,/£19/);await h.submit('subscription',{acceptTerms:'yes',plan:'solo',termsVersion:'2026-10-29'});assert.equal(h.control.billingBody.plan,'solo');assert.equal(h.control.billingBody.termsVersion,'2026-10-29');assert.equal(h.control.redirectedURL,'https://checkout.stripe.com/c/pay/test');}finally{db.sqlite.close()}
+});

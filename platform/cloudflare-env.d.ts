@@ -19,6 +19,12 @@ declare namespace Cloudflare {
     STRIPE_LIVE_RESTRICTED_KEY?: string;
     STRIPE_LIVE_WEBHOOK_SECRET?: string;
     QUENVIRA_LIVE_WEBHOOK_VERIFY?: string;
+    CCS_WEBSITE_ENQUIRIES?: string;
+    QUENVIRA_PLAN_CATALOG?: string;
+    QUENVIRA_PLAN_TERMS_APPROVED?: string;
+    QUENVIRA_TEAM_STAFF_LIMIT?: string;
+    STRIPE_SOLO_PRICE_ID?: string;
+    STRIPE_TEAM_PRICE_ID?: string;
     STRIPE_PRICE_ID?: string;
     STRIPE_PORTAL_CONFIGURATION?: string;
     QUENVIRA_TERMS_VERSION?: string;
