@@ -83,6 +83,8 @@ export async function emailWebhook(request,db,env,{now=()=>new Date()}={}){
  const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length}
  let event;const eventId=request.headers.get('svix-id');
  try{const {Webhook}=await import('svix');if(!/^[\w-]{1,200}$/.test(eventId||''))throw Error();new Webhook(env.RESEND_WEBHOOK_SECRET).verify(new TextDecoder().decode(bytes),{'svix-id':eventId,'svix-timestamp':request.headers.get('svix-timestamp'),'svix-signature':request.headers.get('svix-signature')});event=JSON.parse(new TextDecoder().decode(bytes));if(!event||typeof event!=='object'||Array.isArray(event)||typeof event.type!=='string')throw Error();}catch{fail(400,'Invalid email webhook signature.')}
+ // Signed website-contact events are separate from invoice delivery history.
+ if(event.data?.tags?.source==='ccs-enquiry'||Array.isArray(event.data?.tags)&&event.data.tags.some(t=>t.name==='source'&&t.value==='ccs-enquiry'))return {received:true,ignored:true};
  const states={'email.sent':'accepted','email.delivered':'delivered','email.bounced':'bounced','email.complained':'complained','email.failed':'failed','email.delivery_delayed':'delayed'};
  const status=Object.hasOwn(states,event.type)?states[event.type]:null;if(!status)return {received:true,ignored:true};
  if(typeof event.data?.email_id!=='string'||!/^[a-zA-Z0-9_-]{1,100}$/.test(event.data.email_id))fail(400,'Invalid email event identifier.');
