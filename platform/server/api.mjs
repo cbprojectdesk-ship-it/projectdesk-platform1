@@ -1,3 +1,5 @@
+import * as F from './team-features.mjs';
+import {jobPhotoKey,decodeJobPhoto,prepareJobPhoto} from './job-photos.mjs';
 import {EmailProblem,assertRecipientAvailable,authoriseDispatcher,emailConfig,prepareDelivery,enqueueStatement,deliveryHistory,dispatchEmails,emailWebhook} from './invoice-delivery.mjs';
 import {health} from './health.mjs';
 import {billingConfig,liveVerificationConfig,stripeClient,startTrial,entitlement,checkout,portal,webhook,assertDeletable,SubscriptionProblem,TERMS_VERSION,assertServiceTerms,serviceTermsAccepted,acceptServiceTerms} from './subscriptions.mjs';
@@ -18,9 +20,9 @@ const validId=v=>typeof v==='string'&&/^[\w-]{1,100}$/.test(v);
 const manager=m=>{if(m.role!=='manager')problem(403,'Manager access required.')};
 function project(state,m){
  if(m.role==='manager')return state;
- const jobs=state.jobs.filter(j=>j.staffId===m.staff_id).map(({price,invoiceId,...j})=>j);
+ const jobs=state.jobs.filter(j=>j.staffId===m.staff_id).map(({price,invoiceId,quoteId,...j})=>j);
  const customerIds=new Set(jobs.map(j=>j.customerId));
- return {version:1,jobs,customers:state.customers.filter(c=>customerIds.has(c.id)).map(({email,active,checklistTemplate,...c})=>c),staff:state.staff.filter(s=>s.id===m.staff_id),invoices:[],audit:[]};
+ return {version:1,jobs,customers:state.customers.filter(c=>customerIds.has(c.id)).map(({email,active,checklistTemplate,...c})=>c),staff:state.staff.filter(s=>s.id===m.staff_id),invoices:[],audit:[],availability:(state.availability||[]).filter(r=>r.staffId===m.staff_id),leaveRequests:(state.leaveRequests||[]).filter(r=>r.staffId===m.staff_id),notifications:F.notificationsFor(state,{role:m.role,staffId:m.staff_id})};
 }
 async function readBody(request,maximum=16384){
  if(!request.headers.get('content-type')?.startsWith('application/json'))problem(415,'Use JSON requests.');
@@ -117,7 +119,13 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
   if(path.length===3&&path[2]==='email-history'&&request.method==='GET'){manager(m);return json({configured:!!emailConfig(billingEnv),deliveries:await deliveryHistory(db,workspace)})}
   if(path.length===3&&path[2]==='email-dispatch'&&request.method==='POST'){manager(m);return json(await dispatchEmails(db,emailConfig(billingEnv),{now,workspace,limit:emailDispatchLimit}))}
   if(path.length===2&&request.method==='GET')return json({workspaceId:workspace,name:row.name,revision:row.revision,actor:{role:m.role,staffId:m.staff_id},today:asOf,documentMode:config?.mode==='live'?'live':'test',state:project(state,m)});
-  if(path.length===3&&path[2]==='backup-file'&&request.method==='GET'){manager(m);try{return json(await createBusinessBackup(state,row.name,workspace,bucket,timestamp))}catch(e){const safe=['Photo storage is unavailable. A complete backup could not be created.','A staff photo is unavailable. A complete backup could not be created.','Backup exceeds the 20 MB limit.'];problem(503,safe.includes(e.message)?e.message:'A complete business backup could not be created. Try again or contact support.')}}
+  if(path.length===3&&path[2]==='backup-file'&&request.method==='GET'){manager(m);try{return json(await createBusinessBackup(state,row.name,workspace,bucket,timestamp))}catch(e){const safe=['Photo storage is unavailable. A complete backup could not be created.','A staff photo is unavailable. A complete backup could not be created.','A job photo is unavailable. A complete backup could not be created.','Backup exceeds the 20 MB limit.'];problem(503,safe.includes(e.message)?e.message:'A complete business backup could not be created. Try again or contact support.')}}
+  if(path.length===6&&path[2]==='jobs'&&path[4]==='photos'&&request.method==='GET'){
+   const j=state.jobs.find(j=>j.id===path[3]&&(m.role==='manager'||j.staffId===m.staff_id));
+   if(!j?.photos?.some(p=>p.id===path[5]))problem(404,'Job photo not found.');if(!bucket)problem(503,'Photo storage is unavailable.');
+   const photo=await bucket.get(jobPhotoKey(workspace,j.id,path[5]));if(!photo)problem(404,'Job photo not found.');
+   return new Response(photo.body,{headers:{'Content-Type':'image/jpeg','Cross-Origin-Resource-Policy':'same-origin','Cache-Control':'no-store, private','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'",'Referrer-Policy':'no-referrer'}});
+  }
   if(path.length===5&&path[2]==='staff'&&path[4]==='photo'&&request.method==='GET'){
    const staff=state.staff.find(s=>s.id===path[3]);if(!staff||m.role!=='manager'&&m.staff_id!==staff.id)problem(404,'Staff photo not found.');
    if(!staff.photoId)problem(404,'Staff photo not found.');if(!bucket)problem(503,'Photo storage is unavailable.');
@@ -161,17 +169,30 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
   const photoCommand=path.length===4&&path[2]==='commands'&&path[3]==='photo';
   if(!(path.length===3&&path[2]==='commands'||photoCommand||importCommand)||request.method!=='POST')problem(404,'Route not found.');
   if(importCommand)manager(m);
-  const body=await readBody(request,importCommand?BACKUP_LIMIT+1024:photoCommand?65536:16384);
-  if(photoCommand!==(body.action==='staff.photo')||importCommand!==(body.action==='backup.import'))problem(400,'Use the correct command endpoint.');
+  const body=await readBody(request,importCommand?BACKUP_LIMIT+1024:photoCommand?360000:16384);
+  if(photoCommand!==(['staff.photo','job.photo'].includes(body.action))||importCommand!==(body.action==='backup.import'))problem(400,'Use the correct command endpoint.');
   if(!validId(body.requestId)||!Number.isSafeInteger(body.revision)||body.revision<0||typeof body.action!=='string'||!body.data||typeof body.data!=='object'||Array.isArray(body.data))problem(400,'Invalid command.');
   const requestHash=await hashToken(JSON.stringify({revision:body.revision,action:body.action,data:body.data}));
   const prior=await db.prepare('SELECT user_id, response FROM operations WHERE workspace_id = ? AND id = ?').bind(workspace,body.requestId).first();
   if(prior){if(prior.user_id!==user)problem(409,'Request ID already used.');const {_requestHash,...replay}=JSON.parse(prior.response);if(_requestHash&&_requestHash!==requestHash)problem(409,'Request ID was already used for a different command.');return json({...replay,result:m.role==='manager'?replay.result:null,replayed:true})}
   const recent=await db.prepare('SELECT COUNT(*) AS n FROM operations WHERE workspace_id = ? AND user_id = ? AND created_at >= ?').bind(workspace,user,new Date(new Date(timestamp).getTime()-60000).toISOString()).first();if(recent.n>=120)problem(429,'Too many updates. Wait a minute and try again.');
   if(body.revision!==row.revision)problem(409,'Workspace changed. Reload and try again.');
-  const data=body.data,actor={role:m.role,staffId:m.staff_id};let result=null,emailDelivery=null,emailInvoiceId=null;
+  const before=structuredClone(state);const data=body.data,actor={role:m.role,staffId:m.staff_id};let result=null,emailDelivery=null,emailInvoiceId=null;
   try{
    switch(body.action){
+    case 'availability.save':result=F.saveAvailability(state,actor,data,asOf);break;
+    case 'leave.request':result=F.requestLeave(state,actor,data,asOf);break;
+    case 'leave.decide':result=F.decideLeave(state,actor,data);break;
+    case 'notification.read':result=F.readNotification(state,actor,data.id,timestamp);break;
+    case 'quote.save':result=F.saveQuote(state,actor,data,asOf);break;
+    case 'quote.action':result=F.quoteAction(state,actor,data,asOf,config?.mode);break;
+    case 'job.photo':{
+     const upload=prepareJobPhoto(state,actor,data,timestamp);
+     if(upload){if(!bucket)problem(503,'Photo storage is unavailable.');const bytes=decodeJobPhoto(data.jpegBase64),photoId=await hashToken(data.jpegBase64);
+      upload.id=photoId;if(state.jobs.find(j=>j.id===data.id).photos.some(p=>p!==upload&&p.id===photoId))problem(400,'This photo is already attached.');
+      try{await bucket.put(jobPhotoKey(workspace,data.id,photoId),bytes,{httpMetadata:{contentType:'image/jpeg'}})}catch{problem(503,'Photo could not be saved. Try again.');}
+     }result={saved:true};break;
+    }
     case 'customer.save':result=D.saveCustomer(state,actor,data,data.id);break;
     case 'customer.archive':D.archiveCustomer(state,actor,data.id);break;
     case 'staff.photo':{
@@ -215,13 +236,14 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
      manager(m);if(!Number.isSafeInteger(data.revision)||data.revision<0)problem(400,'Choose a backup revision.');
      const backup=await db.prepare('SELECT document FROM history WHERE workspace_id = ? AND revision = ?').bind(workspace,data.revision).first();
      if(!backup)problem(404,'Backup not found.');const restored=JSON.parse(backup.document);
-     if(!D.validateState(restored))problem(400,'Backup is invalid.');assertFinancialRestore(state,restored);
-     if(restored.supplier===undefined)delete state.supplier;Object.assign(state,restored);
+     if(!D.validateState(restored))problem(400,'Backup is invalid.');assertFinancialRestore(state,restored);F.assertFeatureRestore(state,restored);
+     for(const key of ['supplier','quotes','availability','leaveRequests','notifications'])if(restored[key]===undefined)delete state[key];Object.assign(state,restored);
      state.audit.unshift({at:timestamp,actor:'Manager',message:'Restored revision '+data.revision});state.audit=state.audit.slice(0,200);break;
     }
     default:problem(400,'Unknown command.');
    }
   }catch(e){if(e instanceof Problem||e instanceof EmailProblem)throw e;if(e.backupStorage)problem(503,e.message);problem(/Manager|not assigned/.test(e.message)?403:400,e.message)}
+  if(['job.save','job.series','job.update','quote.action'].includes(body.action))F.assignmentNotifications(state,before);
   if(!D.validateState(state))problem(400,'Operation would create invalid records.');
   const document=JSON.stringify(state);if(new TextEncoder().encode(document).byteLength>524288)problem(413,'Workspace storage limit reached. Export your records and contact support.');
   const reply={revision:row.revision+1,result};

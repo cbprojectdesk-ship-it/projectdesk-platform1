@@ -1,0 +1,37 @@
+import {test,expect} from '@playwright/test';
+import {randomUUID} from 'node:crypto';
+import fs from 'node:fs/promises';
+import {JPEG} from '../platform/tests/support/photo-fixture.mjs';
+const sessions=new WeakMap();
+test.beforeEach(async({context,page})=>{const key=randomUUID();sessions.set(context,key);await context.setExtraHTTPHeaders({'x-e2e-session':key});await context.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());await context.request.post('/__test/seed',{data:{scenario:'seeded'}});page.on('dialog',dialog=>dialog.accept());});
+const ready=async page=>{await expect(page.locator('main#main')).toBeVisible();await expect(page.locator('#app')).not.toHaveAttribute('aria-busy','true')};
+const saved=async context=>{const session=await(await context.request.get('/api/quenvira/session')).json();return(await context.request.get('/api/quenvira/workspaces/'+session.workspaces[0].id)).json()};
+const fits=async page=>expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBeTruthy();
+const close=page=>page.getByRole('button',{name:'Close dialog',exact:true}).click();
+test('itemised quote is saved, downloaded, accepted and converted once at this viewport',async({page,context})=>{
+ await page.goto('/workspace.html#settings');await ready(page);await page.getByRole('button',{name:'Edit supplier details',exact:true}).click();
+ await page.getByLabel('Legal name',{exact:false}).fill('Fictional QA supplier');await page.getByLabel('Address',{exact:false}).fill('Fictional Road');await page.getByLabel('Contact',{exact:false}).fill('qa@example.com');
+ await page.getByRole('button',{name:'Save supplier',exact:false}).click();await expect(page.locator('#modal')).not.toBeVisible();
+ await page.locator('nav a[href="#quotes"]').click();await page.getByRole('button',{name:'New quote',exact:true}).click();
+ await page.getByLabel('Work description',{exact:true}).fill('Fictional office cleaning');await page.getByLabel('Valid until',{exact:true}).fill('2026-11-20');await page.getByLabel('Item lines:',{exact:false}).fill('Cleaning | 2 | 25.01\nSupplies | 1 | 9.99');
+ await fits(page);await page.getByRole('button',{name:'Save draft quote',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible();
+ await page.reload();await ready(page);await page.getByRole('button',{name:'Open quote',exact:true}).click();await expect(page.locator('#modal')).toContainText('£60.01');
+ await page.getByRole('button',{name:'Issue for sharing',exact:true}).click();await ready(page);await expect(page.locator('#modal')).toContainText('TEST QUOTE');await expect(page.locator('#modal')).toContainText('Issued');
+ await page.getByRole('button',{name:'Download quote',exact:true}).click();const downloadPromise=page.waitForEvent('download');await page.getByRole('link',{name:'Save quote document',exact:true}).click();const download=await downloadPromise;expect(await fs.readFile(await download.path(),'utf8')).toContain('£60.01');
+ await close(page);await page.getByRole('button',{name:'Open quote',exact:true}).click();await page.getByRole('button',{name:'Record acceptance',exact:true}).click();await ready(page);await page.getByRole('button',{name:'Create booking',exact:true}).click();await page.getByLabel('Date',{exact:true}).fill('2026-10-21');await page.getByLabel('Duration in minutes',{exact:true}).fill('60');await page.getByRole('button',{name:'Create booking',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible();
+ const data=await saved(context);expect(data.state.quotes[0].status).toBe('Converted');expect(data.state.jobs.filter(j=>j.quoteId)).toHaveLength(1);await fits(page);
+});
+test('staff availability, holiday request, manager decision and notification persist at this viewport',async({page,context})=>{
+ await context.setExtraHTTPHeaders({'x-e2e-session':sessions.get(context),'x-e2e-user':'worker'});await page.goto('/workspace.html#availability');await ready(page);await expect(page.locator('main')).toContainText('My availability');await expect(page.locator('nav a[href="#quotes"]')).toHaveCount(0);
+ await page.getByRole('button',{name:'Set weekly hours',exact:true}).click();await page.getByRole('button',{name:'Save weekly hours',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible();
+ await page.getByRole('button',{name:'Request time off',exact:true}).click();await page.getByLabel('First day',{exact:true}).fill('2026-10-21');await page.getByLabel('Last day',{exact:true}).fill('2026-10-22');await page.getByLabel('Logistical note (optional)',{exact:true}).fill('Fictional planned leave');await fits(page);await page.getByRole('button',{name:'Submit request',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible();await expect(page.locator('main')).toContainText('Pending');
+ await context.setExtraHTTPHeaders({'x-e2e-session':sessions.get(context)});await page.reload();await ready(page);await page.getByRole('button',{name:'Review request',exact:true}).click();await page.getByRole('button',{name:'Save decision',exact:true}).click();await expect(page.locator('#modal')).not.toBeVisible();await expect(page.locator('main')).toContainText('Approved');
+ await context.setExtraHTTPHeaders({'x-e2e-session':sessions.get(context),'x-e2e-user':'worker'});await page.goto('/workspace.html#notifications');await page.reload();await ready(page);await expect(page.locator('main')).toContainText('Your time-off request was approved.');await page.getByRole('button',{name:'Mark read',exact:true}).first().click();await ready(page);await fits(page);const data=await saved(context);expect(data.state.notifications.every(n=>n.target===data.actor.staffId)).toBeTruthy();expect(data.state.notifications.some(n=>n.readAt)).toBeTruthy();
+});
+test('assigned staff photo upload is private, renders, persists and is removed at this viewport',async({page,context})=>{
+ await context.setExtraHTTPHeaders({'x-e2e-session':sessions.get(context),'x-e2e-user':'worker'});await page.goto('/workspace.html#jobs');await ready(page);await page.getByRole('button',{name:'Open visit',exact:true}).click();await page.getByRole('button',{name:'Add photo',exact:true}).click();
+ await page.locator('input[type=file]').setInputFiles({name:'fictional.jpg',mimeType:'image/jpeg',buffer:Buffer.from(JPEG,'base64')});await page.getByLabel('Caption (optional)',{exact:true}).fill('Fictional photo fixture');await page.getByRole('button',{name:'Save private photo',exact:true}).click();await ready(page);await expect(page.locator('.job-photo-grid img')).toBeVisible();await expect.poll(()=>page.locator('.job-photo-grid img').evaluate(img=>img.complete&&img.naturalWidth>0)).toBeTruthy();await fits(page);
+ const image=await page.locator('.job-photo-grid img').getAttribute('src');expect((await context.request.get(image)).status()).toBe(200);const data=await saved(context);expect(data.state.jobs[0].photos).toHaveLength(1);await close(page);await page.reload();await ready(page);await page.getByRole('button',{name:'Open visit',exact:true}).click();await expect(page.locator('.job-photo-grid img')).toBeVisible();
+ const denied=await context.request.get(image,{headers:{'x-e2e-user':'outsider'}});expect(denied.status()).toBe(404);
+ await page.getByRole('button',{name:'Remove photo',exact:true}).click();await ready(page);await expect(page.locator('.job-photo-grid img')).toHaveCount(0);expect((await saved(context)).state.jobs[0].photos).toHaveLength(0);
+});
