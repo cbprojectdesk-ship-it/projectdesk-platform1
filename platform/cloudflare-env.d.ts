@@ -25,6 +25,9 @@ declare namespace Cloudflare {
     QUENVIRA_TEAM_STAFF_LIMIT?: string;
     STRIPE_SOLO_PRICE_ID?: string;
     STRIPE_TEAM_PRICE_ID?: string;
+    STRIPE_TEAM10_PRICE_ID?: string;
+    STRIPE_TEAM15_PRICE_ID?: string;
+    STRIPE_TEAM20_PRICE_ID?: string;
     STRIPE_PRICE_ID?: string;
     STRIPE_PORTAL_CONFIGURATION?: string;
     QUENVIRA_TERMS_VERSION?: string;

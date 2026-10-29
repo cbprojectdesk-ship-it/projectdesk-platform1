@@ -7,7 +7,8 @@ export class SubscriptionProblem extends Error {
 const fail=(status,message)=>{throw new SubscriptionProblem(status,message)};
 export const TERMS_VERSION='2026-10-28';
 export const PLAN_TERMS_VERSION='2026-10-29';
-const handledEvents=new Set(['checkout.session.completed','checkout.session.async_payment_succeeded','checkout.session.async_payment_failed','customer.subscription.created','customer.subscription.updated','customer.subscription.deleted','invoice.paid','invoice.payment_failed']);
+const riskEvents=new Set(['charge.dispute.created','charge.refunded','radar.early_fraud_warning.created']);
+const handledEvents=new Set([...riskEvents,'checkout.session.completed','checkout.session.async_payment_succeeded','checkout.session.async_payment_failed','customer.subscription.created','customer.subscription.updated','customer.subscription.deleted','invoice.paid','invoice.payment_failed']);
 const objectId=value=>typeof value==='string'?value:value?.id;
 export function billingConfig(env={}) {
  const mode=env.QUENVIRA_BILLING_MODE;
@@ -27,7 +28,7 @@ export function billingConfig(env={}) {
 }
 export async function stripeClient(config) {
  const {default:Stripe}=await import('stripe');
- return new Stripe(config.key,{apiVersion:'2026-08-26.dahlia',httpClient:Stripe.createFetchHttpClient(),maxNetworkRetries:2,timeout:10000});
+ return new Stripe(config.key,{apiVersion:'2026-09-30.endive',httpClient:Stripe.createFetchHttpClient(),maxNetworkRetries:2,timeout:10000});
 }
 // Isolated, non-charging live signature acceptance. These staged credentials
 // are never consumed by checkout, enrollment or paid entitlement decisions.
@@ -61,12 +62,19 @@ export async function startTrial(db,workspace,timestamp){
 }
 function matches(subscription,config){if(config.plans)return !!planForSubscription(subscription,config);const items=subscription.items?.data;return subscription.livemode===(config.mode==='live')&&Array.isArray(items)&&items.length===1&&objectId(items[0].price)===config.price&&items[0].quantity===1}
 async function subscriptions(client,customer){
- const list=await client.subscriptions.list({customer,status:'all',limit:100});
+ const list=await client.subscriptions.list({customer,status:'all',limit:100,expand:['data.latest_invoice']});
  if(list.has_more)fail(503,'Subscription account requires support.');return list.data;
 }
-function paid(subscription,now){
+async function paid(subscription,config,client,now){
  const item=subscription.items.data[0];
- return subscription.status==='active'&&Number.isSafeInteger(item.current_period_end)&&item.current_period_end>Math.floor(now/1000)&&(!subscription.cancel_at||subscription.cancel_at>Math.floor(now/1000));
+ if(subscription.status!=='active'||!Number.isSafeInteger(item.current_period_end)||item.current_period_end<=Math.floor(now/1000)||subscription.cancel_at&&subscription.cancel_at<=Math.floor(now/1000))return false;
+ const ref=subscription.latest_invoice;
+ const invoice=typeof ref==='string'?await client.invoices.retrieve(ref):ref;
+ if(!invoice||invoice.livemode!==(config.mode==='live')||invoice.status!=='paid'||invoice.amount_remaining!==0||objectId(invoice.customer)!==objectId(subscription.customer)||objectId(invoice.parent?.subscription_details?.subscription||invoice.subscription)!==subscription.id)return false;
+ // The default provider status can ignore an older unpaid invoice. Do not
+ // restore paid access while any invoice on this same subscription is open.
+ const outstanding=await client.invoices.list({subscription:subscription.id,status:'open',limit:1});
+ return Array.isArray(outstanding.data)&&outstanding.data.length===0&&!outstanding.has_more;
 }
 const terminal=subscription=>['canceled','incomplete_expired'].includes(subscription.status);
 export async function entitlement(db,workspace,config,client,now=Date.now()){
@@ -76,7 +84,7 @@ export async function entitlement(db,workspace,config,client,now=Date.now()){
  const ongoing=current.filter(s=>!terminal(s));
  if(config.plans&&ongoing.length>1)fail(503,'Multiple subscriptions require support before plan access can be determined.');
  const matching=ongoing.filter(s=>matches(s,config));
- const active=matching.find(s=>paid(s,now));
+ let active;for(const candidate of matching){if(await paid(candidate,config,client,now)){active=candidate;break}}
  const subscription=active||matching.find(s=>s.status==='trialing')||matching[0];
  const trial=Date.parse(account.trial_end)>now;
  const plan=config.plans?(planForSubscription(subscription,config)||(trial?selectPlan(config,'team'):null)):null;
@@ -86,8 +94,8 @@ export async function entitlement(db,workspace,config,client,now=Date.now()){
  const cancelAt=Number.isSafeInteger(subscription?.cancel_at)&&subscription.cancel_at>0?subscription.cancel_at:null;
  const cancellationScheduled=!!subscription?.cancel_at_period_end||cancelAt!==null;
  return {
-  status:active?'active':subscription?.status||(trial?'trial':current.some(s=>s.status==='canceled')?'canceled':'expired'),
-  canWrite:(!!active||trial)&&!overLimit,...(config.plans?{plan:plan?.id||null,maxStaff:plan?.maxStaff||0,staffAccess:!!plan?.staffAccess,overLimit,plans:publicPlans(config)}:{}),trialEnd:account.trial_end,canManage:!!account.customer_id,
+  status:active?'active':subscription?.status==='active'?'payment_pending':subscription?.status||(trial?'trial':current.some(s=>s.status==='canceled')?'canceled':'expired'),
+  canWrite:(!!active||trial)&&!overLimit,...(config.plans?{plan:plan?.id||null,maxStaff:plan?.maxStaff||0,maxPeople:plan?.maxPeople||0,maxStaffAccounts:plan?.maxStaffAccounts||0,staffAccess:!!plan?.staffAccess,overLimit,plans:publicPlans(config)}:{}),trialEnd:account.trial_end,canManage:!!account.customer_id,
   canCheckout:ongoing.length===0,subscriptionStatus:subscription?.status||null,
   cancelAtPeriodEnd:!!subscription?.cancel_at_period_end,cancellationScheduled,cancelAt,
   periodEnd:Number.isSafeInteger(periodEnd)?periodEnd:null
@@ -112,7 +120,7 @@ function safeURL(value,host){let url;try{url=new URL(value)}catch{fail(503,'Inva
 export async function checkout(db,workspace,email,body,config,client,timestamp){
  if(body.acceptTerms!==true||body.termsVersion!==(config.termsVersion||TERMS_VERSION))fail(400,'Review and accept the current subscription terms first.');
  const plan=config.plans?selectPlan(config,body.plan):null;
- if(config.plans&&!plan)fail(400,'Choose Solo or Team.');
+ if(config.plans&&!plan)fail(400,'Choose an available Solo or Team plan.');
  if(plan){const business=await db.prepare('SELECT document FROM workspaces WHERE id=?').bind(workspace).first();const members=await db.prepare("SELECT COUNT(*) AS n FROM memberships WHERE workspace_id=? AND role='staff'").bind(workspace).first();if(!business||!fitsPlan(JSON.parse(business.document),members.n,plan))fail(409,'Existing staff records or access exceed this plan. Keep your current plan and contact support before changing it.');}
  await verifyPrice(client,config,plan);
  let account=await customer(db,workspace,email,config,client,timestamp);
@@ -151,6 +159,34 @@ export async function assertDeletable(db,workspace,client){
  if((await subscriptions(client,account.customer_id)).some(s=>!['canceled','incomplete_expired'].includes(s.status)))fail(409,'Cancel the subscription and wait for its end before deleting the business. Your export remains available.');
  if(account.checkout_id){const session=await client.checkout.sessions.retrieve(account.checkout_id);if(session.status==='open')await client.checkout.sessions.expire(session.id)}
 }
+// Resolve risk ownership using provider resources, never customer IDs or
+// workspace references supplied in event metadata. Current API uses InvoicePayments.
+async function riskCustomer(source,type,config,client){
+ const chargeId=type==='charge.refunded'?source?.id:objectId(source?.charge);
+ if(!/^ch_\w+$/.test(chargeId||''))fail(400,'Risk event charge is missing.');
+ const charge=await client.charges.retrieve(chargeId);
+ if(charge.id!==chargeId||charge.livemode!==(config.mode==='live'))fail(400,'Risk event mode mismatch.');
+ const customerId=objectId(charge.customer),intent=objectId(charge.payment_intent);
+ if(!intent)return null; // Not an invoice PaymentIntent; not this checkout integration.
+ const payments=await client.invoicePayments.list({payment:{type:'payment_intent',payment_intent:intent},limit:100});
+ if(payments.has_more)fail(503,'Risk payment requires operator review.');
+ let found=false;
+ for(const payment of payments.data){
+  if(payment.livemode!==(config.mode==='live')||objectId(payment.payment?.payment_intent)!==intent)fail(400,'Risk payment mismatch.');
+  const invoice=await client.invoices.retrieve(objectId(payment.invoice));
+  if(invoice.livemode!==(config.mode==='live')||objectId(invoice.customer)!==customerId)fail(400,'Risk invoice mismatch.');
+  const id=objectId(invoice.parent?.subscription_details?.subscription);
+  if(!id)continue;
+  const subscription=await client.subscriptions.retrieve(id);
+  if(subscription.id!==id||subscription.livemode!==(config.mode==='live')||objectId(subscription.customer)!==customerId)fail(400,'Risk subscription mismatch.');
+  found=true;
+ }
+ return found?customerId:null;
+}
+export async function billingReview(db,workspace){
+ const result=await db.prepare("SELECT COUNT(*) AS n FROM subscription_events WHERE workspace_id=? AND type IN ('charge.dispute.created','charge.refunded','radar.early_fraud_warning.created')").bind(workspace).first();
+ return {billingReviewRecorded:result.n>0};
+}
 export async function webhook(request,db,config,client){
  if(!config||!db&&!config.verificationOnly)fail(503,'Subscription webhook is not configured.');
  if(request.method!=='POST')fail(405,'Method not allowed.');
@@ -164,7 +200,8 @@ export async function webhook(request,db,config,client){
  // sandbox customer mappings, store live billing records or grant paid access.
  if(config.verificationOnly)return {received:true,verificationOnly:true};
  if(!handledEvents.has(event.type))return {received:true,ignored:true};
- const source=event.data?.object,customerId=objectId(source?.customer);
+ const source=event.data?.object,customerId=riskEvents.has(event.type)?await riskCustomer(source,event.type,config,client):objectId(source?.customer);
+ if(riskEvents.has(event.type)&&!customerId)return {received:true,ignored:true};
  if(!/^cus_\w+$/.test(customerId||''))fail(400,'Webhook customer is missing.');
  const account=await db.prepare('SELECT * FROM subscription_accounts WHERE customer_id = ?').bind(customerId).first();
  if(!account)return {received:true,ignored:true};
@@ -173,6 +210,6 @@ export async function webhook(request,db,config,client){
  // This is a receipt, not an entitlement cache: writes independently query Stripe.
  await subscriptions(client,customerId);
  const received=new Date();
- await db.batch([db.prepare('INSERT OR IGNORE INTO subscription_events (id,workspace_id,type,received_at) VALUES (?,?,?,?)').bind(event.id,account.workspace_id,event.type,received.toISOString()),db.prepare('DELETE FROM subscription_events WHERE received_at < ?').bind(new Date(received.getTime()-30*86400000).toISOString())]);
+ await db.batch([db.prepare('INSERT OR IGNORE INTO subscription_events (id,workspace_id,type,received_at) VALUES (?,?,?,?)').bind(event.id,account.workspace_id,event.type,received.toISOString()),db.prepare("DELETE FROM subscription_events WHERE received_at < ? AND type NOT IN ('charge.dispute.created','charge.refunded','radar.early_fraud_warning.created')").bind(new Date(received.getTime()-30*86400000).toISOString())]);
  return {received:true};
 }

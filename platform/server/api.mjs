@@ -1,10 +1,10 @@
-import {publicPlans,selectPlan,fitsPlan} from './plans.mjs';
+import {publicPlans,selectPlan,fitsPlan,LARGE_TEAM_MESSAGE} from './plans.mjs';
 import * as F from './team-features.mjs';
 import {websiteEnquiry} from './website-enquiries.mjs';
 import {jobPhotoKey,decodeJobPhoto,prepareJobPhoto} from './job-photos.mjs';
 import {EmailProblem,assertRecipientAvailable,authoriseDispatcher,emailConfig,prepareDelivery,enqueueStatement,deliveryHistory,dispatchEmails,emailWebhook} from './invoice-delivery.mjs';
 import {health} from './health.mjs';
-import {billingConfig,liveVerificationConfig,stripeClient,startTrial,entitlement,checkout,portal,webhook,assertDeletable,SubscriptionProblem,TERMS_VERSION,assertServiceTerms,serviceTermsAccepted,acceptServiceTerms} from './subscriptions.mjs';
+import {billingReview,billingConfig,liveVerificationConfig,stripeClient,startTrial,entitlement,checkout,portal,webhook,assertDeletable,SubscriptionProblem,TERMS_VERSION,assertServiceTerms,serviceTermsAccepted,acceptServiceTerms} from './subscriptions.mjs';
 import {createBusinessBackup,prepareBusinessRestore,BACKUP_LIMIT} from './business-backup.mjs';
 import {photoKey,decodePhoto,setStaffPhoto} from './staff-photos.mjs';
 import {saveSupplier,issueInvoice,creditInvoice,assertFinancialRestore} from './billing.mjs';
@@ -76,12 +76,15 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
    const hash=await hashToken(body.token);
    const invitation=await db.prepare('SELECT * FROM invitations WHERE hash = ?').bind(hash).first();
    if(!invitation||invitation.email!==email.toLowerCase()||invitation.expires_at<=timestamp||(invitation.accepted_by&&invitation.accepted_by!==user))problem(403,'Invitation is unavailable for this account.');
-   if(config?.plans){const access=await entitlement(db,invitation.workspace_id,config,await getClient(),Date.parse(timestamp));if(!access.canWrite||!access.staffAccess)problem(403,'This plan does not allow staff sign-in. Ask the manager to review the subscription.');}
+   let staffSeatLimit=2147483647;
+   if(config?.plans){const access=await entitlement(db,invitation.workspace_id,config,await getClient(),Date.parse(timestamp));if(!access.canWrite||!access.staffAccess)problem(403,'This plan does not allow staff sign-in. Ask the manager to review the subscription.');staffSeatLimit=selectPlan(config,access.plan).maxStaffAccounts;}
    const {state}=await load(db,invitation.workspace_id);if(!state.staff.some(s=>s.id===invitation.staff_id))problem(409,'This staff record is no longer available.');
    const existing=await db.prepare('SELECT * FROM memberships WHERE workspace_id = ? AND user_id = ?').bind(invitation.workspace_id,user).first();
    if(existing&&(existing.role!=='staff'||existing.staff_id!==invitation.staff_id))problem(409,'This account already has a different membership.');
+   const seats=await db.prepare("SELECT COUNT(*) AS n FROM memberships WHERE workspace_id=? AND role='staff'").bind(invitation.workspace_id).first();
+   if(!existing&&seats.n>=staffSeatLimit)problem(409,LARGE_TEAM_MESSAGE);
    await db.batch([
-    db.prepare("INSERT OR IGNORE INTO memberships (workspace_id,user_id,role,staff_id) SELECT workspace_id,?,'staff',staff_id FROM invitations WHERE hash = ? AND email = ? AND expires_at > ? AND (accepted_by IS NULL OR accepted_by = ?)").bind(user,hash,email.toLowerCase(),timestamp,user),
+    db.prepare("INSERT OR IGNORE INTO memberships (workspace_id,user_id,role,staff_id) SELECT workspace_id,?,'staff',staff_id FROM invitations WHERE hash = ? AND email = ? AND expires_at > ? AND (accepted_by IS NULL OR accepted_by = ?) AND (EXISTS (SELECT 1 FROM memberships WHERE workspace_id=invitations.workspace_id AND user_id=?) OR (SELECT COUNT(*) FROM memberships WHERE workspace_id=invitations.workspace_id AND role='staff') < ?)").bind(user,hash,email.toLowerCase(),timestamp,user,user,staffSeatLimit),
     db.prepare('UPDATE invitations SET accepted_by = ? WHERE hash = ? AND accepted_by IS NULL AND EXISTS (SELECT 1 FROM memberships WHERE workspace_id = ? AND user_id = ? AND staff_id = ?)').bind(user,hash,invitation.workspace_id,user,invitation.staff_id)
    ]);
    await membership(db,invitation.workspace_id,user);return json({workspaceId:invitation.workspace_id});
@@ -106,7 +109,7 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
   if(config?.plans&&m.role==='staff'&&!(await access()).staffAccess)problem(403,'Staff access is unavailable on this plan. Ask your manager to review the subscription.');
   if(path.length===3&&path[2]==='subscription'){
    manager(m);
-   if(request.method==='GET')return json(config?{enabled:true,mode:config.mode,...(config.plans?{plans:publicPlans(config)}:{}),termsVersion:config.termsVersion||TERMS_VERSION,termsAccepted:await serviceTermsAccepted(db,workspace,config.termsVersion),...await entitlement(db,workspace,config,await getClient(),Date.parse(timestamp))}:{enabled:false,status:'pilot',canWrite:true});
+   if(request.method==='GET')return json(config?{enabled:true,mode:config.mode,...(config.plans?{plans:publicPlans(config)}:{}),termsVersion:config.termsVersion||TERMS_VERSION,...await billingReview(db,workspace),termsAccepted:await serviceTermsAccepted(db,workspace,config.termsVersion),...await entitlement(db,workspace,config,await getClient(),Date.parse(timestamp))}:{enabled:false,status:'pilot',canWrite:true});
    const body=await readBody(request);
    if(!config)problem(503,'Subscriptions are not activated.');
    if(body.action==='accept-terms'){assertServiceTerms(body,config.termsVersion);await startTrial(db,workspace,timestamp);return json(await acceptServiceTerms(db,workspace,user,body,timestamp,config.termsVersion))}
@@ -121,7 +124,7 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
    const permittedMaintenance=path[2]==='invitations'&&(await readBody(request.clone())).revoke;
    const recovery=path[2]==='commands'&&path[3]==='backup';
    if(config.mode==='live'&&!permittedMaintenance&&!recovery&&!await serviceTermsAccepted(db,workspace,config.termsVersion))problem(403,'A manager must accept the current business terms in Settings before editing. Viewing and exports remain available.');
-   if(!permittedMaintenance&&!recovery&&!(await access()).canWrite)problem(402,planAccess.overLimit?'Existing staff records or access exceed the current plan. Records and exports remain available; contact support before changing the plan.':'Your trial or subscription has ended. A manager can manage the subscription in Settings. Records and exports remain available.');
+   if(!permittedMaintenance&&!recovery&&!(await access()).canWrite)problem(402,planAccess.overLimit?(planAccess.staffAccess?LARGE_TEAM_MESSAGE:'Existing staff records or access exceed the current plan. Records and exports remain available; contact support before changing the plan.'):'Your trial or subscription has ended. A manager can manage the subscription in Settings. Records and exports remain available.');
   }
   if(path.length===3&&path[2]==='email-history'&&request.method==='GET'){manager(m);return json({configured:!!emailConfig(billingEnv),deliveries:await deliveryHistory(db,workspace)})}
   if(path.length===3&&path[2]==='email-dispatch'&&request.method==='POST'){manager(m);return json(await dispatchEmails(db,emailConfig(billingEnv),{now,workspace,limit:emailDispatchLimit}))}
@@ -252,7 +255,7 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
    }
   }catch(e){if(e instanceof Problem||e instanceof EmailProblem)throw e;if(e.backupStorage)problem(503,e.message);problem(/Manager|not assigned/.test(e.message)?403:400,e.message)}
   if(['job.save','job.series','job.update','quote.action'].includes(body.action))F.assignmentNotifications(state,before);
-  if(config?.plans){const a=await access(),plan=selectPlan(config,a.plan);const members=await db.prepare("SELECT COUNT(*) AS n FROM memberships WHERE workspace_id=? AND role='staff'").bind(workspace).first();if(!plan||!fitsPlan(state,members.n,plan))problem(409,'This update exceeds the current plan allowance. No records were changed.');}
+  if(config?.plans){const a=await access(),plan=selectPlan(config,a.plan);const members=await db.prepare("SELECT COUNT(*) AS n FROM memberships WHERE workspace_id=? AND role='staff'").bind(workspace).first();if(!plan||!fitsPlan(state,members.n,plan))problem(409,plan?.staffAccess?LARGE_TEAM_MESSAGE:'Solo includes one owner-operator. Choose Team before adding more people. No records were changed.');}
   if(!D.validateState(state))problem(400,'Operation would create invalid records.');
   const document=JSON.stringify(state);if(new TextEncoder().encode(document).byteLength>524288)problem(413,'Workspace storage limit reached. Export your records and contact support.');
   const reply={revision:row.revision+1,result};
