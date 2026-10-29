@@ -102,7 +102,7 @@ async function act(action,id){
   const canCheckout=billing.canCheckout===true;
   const plans=Array.isArray(billing.plans)?billing.plans.filter(p=>['solo','team'].includes(p.id)):[];
   const planText=plans.length?plans.map(p=>esc(p.name)+' '+money(p.amount)+'/month, '+p.maxStaff+' staff record'+(p.maxStaff===1?'':'s')+(p.staffAccess?' with staff sign-in':' for the owner only')).join(' · '):'£19 total per month';
-  const planChoice=plans.length?'<label>Choose a plan<select name="plan" required><option value="">Choose Solo or Team</option>'+plans.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+' — '+money(p.amount)+'/month</option>').join('')+'</select></label>':'';
+  const planChoice=plans.length?'<label for="subscription-plan">Choose a plan</label><select id="subscription-plan" name="plan" required><option value="">Choose Solo or Team</option>'+plans.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+' — '+money(p.amount)+'/month</option>').join('')+'</select>':'';
   const termsVersion=billing.termsVersion||'2026-10-28';
   const termsDate=termsVersion==='2026-10-29'?'29 October 2026':'28 October 2026';
   const termsInput='<input type="hidden" name="termsVersion" value="'+esc(termsVersion)+'">';
