@@ -1,24 +1,29 @@
 // Server-only SaaS billing. Defaults to disabled; never trust a return URL,
 // visitor-supplied customer ID, price, status, or event metadata for access.
+import {planCatalog,planForSubscription,selectPlan,fitsPlan,publicPlans} from './plans.mjs';
 export class SubscriptionProblem extends Error {
  constructor(status,message){super(message);this.status=status}
 }
 const fail=(status,message)=>{throw new SubscriptionProblem(status,message)};
 export const TERMS_VERSION='2026-10-28';
+export const PLAN_TERMS_VERSION='2026-10-29';
 const handledEvents=new Set(['checkout.session.completed','checkout.session.async_payment_succeeded','checkout.session.async_payment_failed','customer.subscription.created','customer.subscription.updated','customer.subscription.deleted','invoice.paid','invoice.payment_failed']);
 const objectId=value=>typeof value==='string'?value:value?.id;
 export function billingConfig(env={}) {
  const mode=env.QUENVIRA_BILLING_MODE;
  if(!mode||mode==='disabled')return null;
  if(!['test','live'].includes(mode))fail(503,'Subscription configuration needs operator attention.');
+ let plans;try{plans=planCatalog(env)}catch{fail(503,'Plan configuration needs operator attention.')}
  const key=env.STRIPE_RESTRICTED_KEY;
  // Permit the previous version only in sandbox during this staged rollout.
- const termsReady=env.QUENVIRA_TERMS_VERSION===TERMS_VERSION||(mode==='test'&&env.QUENVIRA_TERMS_VERSION==='2026-10-22');
- if(typeof key!=='string'||!key.startsWith(mode==='live'?'rk_live_':'rk_test_')||!env.STRIPE_WEBHOOK_SECRET?.startsWith('whsec_')||!/^price_\w+$/.test(env.STRIPE_PRICE_ID||'')||!/^bpc_\w+$/.test(env.STRIPE_PORTAL_CONFIGURATION||'')||!termsReady)fail(503,'Subscriptions are not configured for this release.');
+ const termsVersion=plans?PLAN_TERMS_VERSION:TERMS_VERSION;
+ const termsReady=env.QUENVIRA_TERMS_VERSION===termsVersion||(!plans&&mode==='test'&&env.QUENVIRA_TERMS_VERSION==='2026-10-22');
+ if(plans&&mode==='live'&&env.QUENVIRA_PLAN_TERMS_APPROVED!=='yes')fail(503,'Solo and Team terms have not been approved for paid launch.');
+ if(typeof key!=='string'||!key.startsWith(mode==='live'?'rk_live_':'rk_test_')||!env.STRIPE_WEBHOOK_SECRET?.startsWith('whsec_')||(!plans&&!/^price_\w+$/.test(env.STRIPE_PRICE_ID||''))||!/^bpc_\w+$/.test(env.STRIPE_PORTAL_CONFIGURATION||'')||!termsReady)fail(503,'Subscriptions are not configured for this release.');
  let origin;try{origin=new URL(env.QUENVIRA_SITE_ORIGIN)}catch{fail(503,'Subscription origin is not configured.')}
  if(origin.protocol!=='https:'||origin.origin!==env.QUENVIRA_SITE_ORIGIN)fail(503,'Subscription origin is invalid.');
  if(mode==='live'&&env.QUENVIRA_PAID_LAUNCH_APPROVED!=='yes')fail(503,'Paid subscriptions have not been activated.');
- return {mode,key,price:env.STRIPE_PRICE_ID,secret:env.STRIPE_WEBHOOK_SECRET,portal:env.STRIPE_PORTAL_CONFIGURATION,origin:origin.origin,selfServe:env.QUENVIRA_SELF_SERVE==='yes'};
+ return {mode,key,termsVersion,price:env.STRIPE_PRICE_ID,secret:env.STRIPE_WEBHOOK_SECRET,portal:env.STRIPE_PORTAL_CONFIGURATION,origin:origin.origin,selfServe:env.QUENVIRA_SELF_SERVE==='yes',...(plans?{plans}:{})};
 }
 export async function stripeClient(config) {
  const {default:Stripe}=await import('stripe');
@@ -33,28 +38,28 @@ export function liveVerificationConfig(env={}) {
  return {mode:'live',key,secret,verificationOnly:true};
 }
 async function row(db,workspace){return db.prepare('SELECT * FROM subscription_accounts WHERE workspace_id = ?').bind(workspace).first()}
-export function assertServiceTerms(body){
- if(body.acceptTerms!==true||body.termsVersion!==TERMS_VERSION)fail(400,'Review and accept the current business terms and data-processing schedule first.');
+export function assertServiceTerms(body,version=TERMS_VERSION){
+ if(body.acceptTerms!==true||body.termsVersion!==version)fail(400,'Review and accept the current business terms and data-processing schedule first.');
 }
-export async function serviceTermsAccepted(db,workspace){
- const account=await row(db,workspace);return account?.terms_version===TERMS_VERSION&&!!account.terms_accepted_at;
+export async function serviceTermsAccepted(db,workspace,version=TERMS_VERSION){
+ const account=await row(db,workspace);return account?.terms_version===version&&!!account.terms_accepted_at;
 }
-export async function acceptServiceTerms(db,workspace,user,body,timestamp){
- assertServiceTerms(body);
+export async function acceptServiceTerms(db,workspace,user,body,timestamp,version=TERMS_VERSION){
+ assertServiceTerms(body,version);
  // Membership is rechecked in the acceptance write, not only in the route.
  const saved=await db.batch([
-  db.prepare("UPDATE subscription_accounts SET terms_accepted_at=CASE WHEN terms_version=? AND terms_accepted_at IS NOT NULL THEN terms_accepted_at ELSE ? END,terms_version=? WHERE workspace_id=? AND EXISTS(SELECT 1 FROM memberships WHERE workspace_id=? AND user_id=? AND role='manager') RETURNING terms_version,terms_accepted_at").bind(TERMS_VERSION,timestamp,TERMS_VERSION,workspace,workspace,user),
-  db.prepare("INSERT OR IGNORE INTO events (workspace_id,id,user_id,action,created_at) SELECT ?,?,?,?,? WHERE EXISTS(SELECT 1 FROM subscription_accounts a JOIN memberships m ON a.workspace_id=m.workspace_id WHERE a.workspace_id=? AND m.user_id=? AND m.role='manager' AND a.terms_version=? AND a.terms_accepted_at IS NOT NULL)").bind(workspace,'terms-'+TERMS_VERSION,user,'terms.accept.'+TERMS_VERSION,timestamp,workspace,user,TERMS_VERSION)
+  db.prepare("UPDATE subscription_accounts SET terms_accepted_at=CASE WHEN terms_version=? AND terms_accepted_at IS NOT NULL THEN terms_accepted_at ELSE ? END,terms_version=? WHERE workspace_id=? AND EXISTS(SELECT 1 FROM memberships WHERE workspace_id=? AND user_id=? AND role='manager') RETURNING terms_version,terms_accepted_at").bind(version,timestamp,version,workspace,workspace,user),
+  db.prepare("INSERT OR IGNORE INTO events (workspace_id,id,user_id,action,created_at) SELECT ?,?,?,?,? WHERE EXISTS(SELECT 1 FROM subscription_accounts a JOIN memberships m ON a.workspace_id=m.workspace_id WHERE a.workspace_id=? AND m.user_id=? AND m.role='manager' AND a.terms_version=? AND a.terms_accepted_at IS NOT NULL)").bind(workspace,'terms-'+version,user,'terms.accept.'+version,timestamp,workspace,user,version)
  ]);
  if(!saved[0].results.length)fail(403,'Current manager permission is required to accept business terms.');
- return {accepted:true,termsVersion:TERMS_VERSION,acceptedAt:saved[0].results[0].terms_accepted_at};
+ return {accepted:true,termsVersion:version,acceptedAt:saved[0].results[0].terms_accepted_at};
 }
 export async function startTrial(db,workspace,timestamp){
  const end=new Date(Date.parse(timestamp)+14*86400000).toISOString();
  await db.prepare('INSERT OR IGNORE INTO subscription_accounts (workspace_id,trial_end,checkout_generation) VALUES (?,?,0)').bind(workspace,end).run();
  return row(db,workspace);
 }
-function matches(subscription,config){const items=subscription.items?.data;return subscription.livemode===(config.mode==='live')&&Array.isArray(items)&&items.length===1&&objectId(items[0].price)===config.price&&items[0].quantity===1}
+function matches(subscription,config){if(config.plans)return !!planForSubscription(subscription,config);const items=subscription.items?.data;return subscription.livemode===(config.mode==='live')&&Array.isArray(items)&&items.length===1&&objectId(items[0].price)===config.price&&items[0].quantity===1}
 async function subscriptions(client,customer){
  const list=await client.subscriptions.list({customer,status:'all',limit:100});
  if(list.has_more)fail(503,'Subscription account requires support.');return list.data;
@@ -69,16 +74,20 @@ export async function entitlement(db,workspace,config,client,now=Date.now()){
  if(!account)return {status:'not_enrolled',canWrite:false,trialEnd:null,canManage:false,canCheckout:false};
  const current=account.customer_id?await subscriptions(client,account.customer_id):[];
  const ongoing=current.filter(s=>!terminal(s));
+ if(config.plans&&ongoing.length>1)fail(503,'Multiple subscriptions require support before plan access can be determined.');
  const matching=ongoing.filter(s=>matches(s,config));
  const active=matching.find(s=>paid(s,now));
  const subscription=active||matching.find(s=>s.status==='trialing')||matching[0];
  const trial=Date.parse(account.trial_end)>now;
+ const plan=config.plans?(planForSubscription(subscription,config)||(trial?selectPlan(config,'team'):null)):null;
+ let overLimit=false;
+ if(plan){const business=await db.prepare('SELECT document FROM workspaces WHERE id=?').bind(workspace).first();const members=await db.prepare("SELECT COUNT(*) AS n FROM memberships WHERE workspace_id=? AND role='staff'").bind(workspace).first();overLimit=!business||!fitsPlan(JSON.parse(business.document),members.n,plan);}
  const periodEnd=subscription?.items?.data?.[0]?.current_period_end;
  const cancelAt=Number.isSafeInteger(subscription?.cancel_at)&&subscription.cancel_at>0?subscription.cancel_at:null;
  const cancellationScheduled=!!subscription?.cancel_at_period_end||cancelAt!==null;
  return {
   status:active?'active':subscription?.status||(trial?'trial':current.some(s=>s.status==='canceled')?'canceled':'expired'),
-  canWrite:!!active||trial,trialEnd:account.trial_end,canManage:!!account.customer_id,
+  canWrite:(!!active||trial)&&!overLimit,...(config.plans?{plan:plan?.id||null,maxStaff:plan?.maxStaff||0,staffAccess:!!plan?.staffAccess,overLimit,plans:publicPlans(config)}:{}),trialEnd:account.trial_end,canManage:!!account.customer_id,
   canCheckout:ongoing.length===0,subscriptionStatus:subscription?.status||null,
   cancelAtPeriodEnd:!!subscription?.cancel_at_period_end,cancellationScheduled,cancelAt,
   periodEnd:Number.isSafeInteger(periodEnd)?periodEnd:null
@@ -95,20 +104,24 @@ async function customer(db,workspace,email,config,client,timestamp){
  }
  return account;
 }
-async function verifyPrice(client,config){
- const price=await client.prices.retrieve(config.price);
- if(price.livemode!==(config.mode==='live')||!price.active||price.currency!=='gbp'||price.unit_amount!==1900||price.billing_scheme!=='per_unit'||price.recurring?.interval!=='month'||price.recurring.interval_count!==1||price.recurring.usage_type!=='licensed'||price.tax_behavior!=='inclusive')fail(503,'The configured price must be the approved £19 total monthly plan.');
+async function verifyPrice(client,config,plan){
+ const price=await client.prices.retrieve(plan?.price||config.price);
+ if(price.livemode!==(config.mode==='live')||!price.active||price.currency!=='gbp'||price.unit_amount!==(plan?.amount||1900)||price.billing_scheme!=='per_unit'||price.recurring?.interval!=='month'||price.recurring.interval_count!==1||price.recurring.usage_type!=='licensed'||price.tax_behavior!=='inclusive')fail(503,'The configured price must match the approved total monthly plan.');
 }
 function safeURL(value,host){let url;try{url=new URL(value)}catch{fail(503,'Invalid payment provider redirect.')};if(url.protocol!=='https:'||url.hostname!==host||url.username||url.password)fail(503,'Invalid payment provider redirect.');return url.href}
 export async function checkout(db,workspace,email,body,config,client,timestamp){
- if(body.acceptTerms!==true||body.termsVersion!==TERMS_VERSION)fail(400,'Review and accept the current subscription terms first.');
- await verifyPrice(client,config);
+ if(body.acceptTerms!==true||body.termsVersion!==(config.termsVersion||TERMS_VERSION))fail(400,'Review and accept the current subscription terms first.');
+ const plan=config.plans?selectPlan(config,body.plan):null;
+ if(config.plans&&!plan)fail(400,'Choose Solo or Team.');
+ if(plan){const business=await db.prepare('SELECT document FROM workspaces WHERE id=?').bind(workspace).first();const members=await db.prepare("SELECT COUNT(*) AS n FROM memberships WHERE workspace_id=? AND role='staff'").bind(workspace).first();if(!business||!fitsPlan(JSON.parse(business.document),members.n,plan))fail(409,'Existing staff records or access exceed this plan. Keep your current plan and contact support before changing it.');}
+ await verifyPrice(client,config,plan);
  let account=await customer(db,workspace,email,config,client,timestamp);
  const existing=await subscriptions(client,account.customer_id);
  if(existing.some(s=>!terminal(s)))fail(409,'A subscription already exists. Use Manage subscription.');
  if(account.checkout_id){
   const session=await client.checkout.sessions.retrieve(account.checkout_id);
   if(objectId(session.customer)!==account.customer_id||session.livemode!==(config.mode==='live'))fail(503,'Checkout account mismatch.');
+  if(session.status==='open'&&plan&&session.metadata?.quenvira_plan!==plan.id)fail(409,'An existing checkout is open for another plan. Finish or expire it before changing plans.');
   if(session.status==='open')return {url:safeURL(session.url,'checkout.stripe.com')};
   if(session.status==='complete'&&!existing.some(s=>s.id===objectId(session.subscription)&&terminal(s)))fail(409,'Checkout has completed. Refresh subscription status or use Manage subscription.');
   if(!['expired','complete'].includes(session.status))fail(503,'Checkout status is unavailable.');
@@ -123,9 +136,9 @@ export async function checkout(db,workspace,email,body,config,client,timestamp){
  const identifier='quenvira_'+Array.from(digest.slice(0,8),n=>String.fromCharCode(97+n%26)).join('');
  // Account defaults can enable Stripe's merchant-of-record product. This app
  // uses CCS's own fixed-GBP subscription terms and tax configuration instead.
- const result=await client.checkout.sessions.create({mode:'subscription',customer:account.customer_id,line_items:[{price:config.price,quantity:1}],subscription_data:subscriptionData,integration_identifier:identifier,success_url:config.origin+'/workspace.html?billing=return#settings',cancel_url:config.origin+'/workspace.html?billing=cancel#settings',billing_address_collection:'required',consent_collection:{terms_of_service:'required'},managed_payments:{enabled:false},automatic_tax:{enabled:false},adaptive_pricing:{enabled:false}},{idempotencyKey:'quenvira-checkout-v2-'+workspace+'-'+account.checkout_generation});
+ const result=await client.checkout.sessions.create({mode:'subscription',customer:account.customer_id,...(plan?{metadata:{quenvira_plan:plan.id}}:{}),line_items:[{price:plan?.price||config.price,quantity:1}],subscription_data:subscriptionData,integration_identifier:identifier,success_url:config.origin+'/workspace.html?billing=return#settings',cancel_url:config.origin+'/workspace.html?billing=cancel#settings',billing_address_collection:'required',consent_collection:{terms_of_service:'required'},managed_payments:{enabled:false},automatic_tax:{enabled:false},adaptive_pricing:{enabled:false}},{idempotencyKey:(plan?'quenvira-checkout-plans-v1-':'quenvira-checkout-v2-')+workspace+'-'+account.checkout_generation});
  if(result.livemode!==(config.mode==='live')||objectId(result.customer)!==account.customer_id)fail(503,'Checkout account mismatch.');
- await db.prepare('UPDATE subscription_accounts SET checkout_id = ?, terms_version = ?, terms_accepted_at = ? WHERE workspace_id = ? AND checkout_generation = ?').bind(result.id,TERMS_VERSION,timestamp,workspace,account.checkout_generation).run();
+ await db.prepare('UPDATE subscription_accounts SET checkout_id = ?, terms_version = ?, terms_accepted_at = ? WHERE workspace_id = ? AND checkout_generation = ?').bind(result.id,config.termsVersion||TERMS_VERSION,timestamp,workspace,account.checkout_generation).run();
  return {url:safeURL(result.url,'checkout.stripe.com')};
 }
 export async function portal(db,workspace,config,client){
