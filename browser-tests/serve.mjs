@@ -19,7 +19,7 @@ const server=http.createServer(async(req,res)=>{
   if(url.pathname==='/__test/health')return send(200,'{}');
   if(req.headers.host!=='127.0.0.1:4173')return send(403,'{}');
   if(typeof key!=='string'||!/^[a-f0-9-]{36}$/.test(key))return send(403,'{}');
-  const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>16384)return send(413,'{}');chunks.push(chunk)}
+  const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>(url.pathname.endsWith('/commands/photo')?360000:16384))return send(413,'{}');chunks.push(chunk)}
   const body=Buffer.concat(chunks).toString('utf8');
   if(url.pathname==='/__test/seed'&&req.method==='POST'){
    sessions.get(key)?.db.sqlite.close();
@@ -50,7 +50,7 @@ const server=http.createServer(async(req,res)=>{
    headers.delete('oai-authenticated-user-id');headers.delete('oai-authenticated-user-email');
    const user=req.headers['x-e2e-user']||'alice';
    if(['alice','worker','outsider'].includes(user)){headers.set('oai-authenticated-user-id',user);headers.set('oai-authenticated-user-email',user+'@example.com')}
-   const response=await handle(new Request(url,{method:req.method,headers,...(body?{body}:{})}),session.db,{now:fixed});
+   const response=await handle(new Request(url,{method:req.method,headers,...(body?{body}:{})}),session.db,{now:fixed,bucket:session.db.bucket});
    res.writeHead(response.status,Object.fromEntries(response.headers));return res.end(Buffer.from(await response.arrayBuffer()));
   }
   if(req.method!=='GET')return send(405,'{}');
