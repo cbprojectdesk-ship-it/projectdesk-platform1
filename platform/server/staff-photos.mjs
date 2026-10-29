@@ -1,9 +1,9 @@
 // JPEG thumbnails only. Files remain behind workspace membership checks.
 export const photoKey=(workspace,staff,id)=>`${workspace}/staff/${staff}/${id}.jpg`;
-export function decodePhoto(base64){
- if(typeof base64!=='string'||base64.length>44000||!base64.length||!/^[A-Za-z0-9+/]+={0,2}$/.test(base64)||base64.length%4)throw Error('Choose a valid staff photo.');
+export function decodePhoto(base64,{maxBytes=32768,maxSide=256}={}){
+ if(typeof base64!=='string'||base64.length>Math.ceil(maxBytes/3)*4||!base64.length||!/^[A-Za-z0-9+/]+={0,2}$/.test(base64)||base64.length%4)throw Error('Choose a valid staff photo.');
  const raw=atob(base64),bytes=Uint8Array.from(raw,c=>c.charCodeAt(0));
- if(bytes.length>32768||bytes[0]!==255||bytes[1]!==216||bytes.at(-2)!==255||bytes.at(-1)!==217)throw Error('Photo must be a JPEG thumbnail under 32 KB.');
+ if(bytes.length>maxBytes||bytes[0]!==255||bytes[1]!==216||bytes.at(-2)!==255||bytes.at(-1)!==217)throw Error('Photo must be a JPEG within the upload size limit.');
  let offset=2,dimensions=null,scan=false;
  while(offset<bytes.length-2){
   if(bytes[offset++]!==255)throw Error('Invalid JPEG photo.');
@@ -13,7 +13,7 @@ export function decodePhoto(base64){
   if([192,193,194].includes(marker)){if(length<8)throw Error('Invalid JPEG photo.');dimensions={height:(bytes[offset+3]<<8)|bytes[offset+4],width:(bytes[offset+5]<<8)|bytes[offset+6]};}
   if(marker===218){scan=true;break}offset+=length;
  }
- if(!scan||!dimensions||dimensions.width<1||dimensions.height<1||dimensions.width>256||dimensions.height>256)throw Error('Photo must be resized to at most 256 pixels.');
+ if(!scan||!dimensions||dimensions.width<1||dimensions.height<1||dimensions.width>maxSide||dimensions.height>maxSide)throw Error('Photo exceeds the allowed dimensions.');
  return bytes;
 }
 export function setStaffPhoto(state,actor,id,photoId){
