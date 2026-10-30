@@ -31,3 +31,40 @@ Do not use the password on an untrusted shared device. Do not substitute the low
 ## Recovery limitations and incident handling
 
 Re-establish manager/staff sign-in, invitations, subscription/provider mappings, secrets, hosting and independent operational monitoring separately. Keep sending disabled after any infrastructure restoration until provider history is reconciled; do not replay old invoice emails or create duplicate subscriptions. Prior recovery revisions and external audit/provider histories are outside the business file. Preserve the original and hashes when verification fails, retry the correct password/file, and contact ccscreativetech@gmail.com without sharing passwords. No recovery-time or automatic-backup guarantee is implied.
+
+## Infrastructure inventory and database export (separate operator operation)
+
+The manager `.qvb` is a business-record backup, not a full cloud account export. Retain a separate private inventory with:
+
+- Source commit, lockfiles, all `platform/drizzle/*.sql` migrations and reviewed deployment/build configuration. Current GitHub main and hosted source differ; record both SHAs and the actual deployed version.
+- The selected host/Site ID and URL, tenant/workspace identifiers, actual D1 account/database identifiers and `DB` binding, object-store/bucket identity and `BUCKET` binding. Staff/job photo bytes are in `.qvb`; a full infrastructure recovery also needs the complete authorised object inventory and integrity checks.
+- Non-secret runtime names/values, cron/scheduler IDs and timing, email sender/domain DNS/authentication records, webhook URLs/event subscriptions and API versions, Stripe account/mode/price/portal mappings.
+- **Secret names and vault locations only** in ordinary documentation. Export credentials only through the owner's existing secure secret-management procedure, separately encrypted and access-controlled; never put them in Git, terminal output, a report or this chat. Reissue/rotate lost credentials rather than embedding them in a database dump.
+- Required membership/access reconstruction, provider contract/retention information and manual recovery contacts. Business `.qvb` intentionally excludes sign-in permissions and external subscription accounts.
+
+### Existing standalone staging D1 only
+
+These commands are a prepared procedure, **not a completed export**. Use only an already authorised Cloudflare account and the exact verified database. From `platform/`, the committed `wrangler.staging.jsonc` currently selects the separate `quenvira-staging` database `a91be5bb-6565-473e-98c2-40e83bc0e2d5`; it does **not** identify the live managed Sites database. Never substitute it for production.
+
+```bash
+node node_modules/wrangler/bin/wrangler.js d1 info quenvira-staging --config wrangler.staging.jsonc
+# Compare account/database identity with the private inventory before exporting.
+node node_modules/wrangler/bin/wrangler.js d1 export quenvira-staging --remote --config wrangler.staging.jsonc --output /private/owner-backups/quenvira-staging.sql
+```
+
+Run on the owner's trusted machine and private directory with restrictive permissions. The export is plaintext sensitive SQL: encrypt it immediately with an already available trusted tool. For an existing GnuPG installation:
+
+```bash
+gpg --symmetric --cipher-algo AES256 --output /private/owner-backups/quenvira-staging.sql.gpg /private/owner-backups/quenvira-staging.sql
+sha256sum /private/owner-backups/quenvira-staging.sql.gpg
+```
+
+GnuPG prompts locally; do not supply a passphrase in arguments or environment variables. Independently decrypt and inspect the saved encrypted copy before treating it as verified. Do not delete existing backup material. Keep plaintext exports access-restricted under the owner's retention procedure.
+
+### Managed production D1
+
+No supported full managed-Sites database export endpoint, consistent-snapshot permission or production Cloudflare database identity is available to this session. Record this as an **infrastructure recovery blocker**, not a successful export. Use the host's authorised consistent-export/support workflow once supplied; do not scrape independent table pages and claim they constitute an atomic backup, and do not use a different Cloudflare account/database as a workaround. The verified manager `.qvb` remains the supported business export path.
+
+### Isolated database restore test
+
+Use a disposable local SQLite database or an already authorised isolated test destination with billing, sending and scheduled jobs disabled. Decrypt a copy to a private temporary directory; inspect the SQL before execution. Import into an empty local database using an existing SQLite CLI, then run `PRAGMA integrity_check;` and `PRAGMA foreign_key_check;`, inspect table/row counts and compare the source receipt. Do not run imported SQL against production. Reconcile object bytes separately. On infrastructure restoration, use the reviewed operator `restoreIntoEmptyDatabase` path for logical snapshots where applicable: queued/retry/sending invoice emails become `review`, requiring provider reconciliation before sending. A raw SQL import does not automatically apply that safeguard and must never be connected to dispatch until queued work has been reviewed. Verify identities/permissions and external Stripe customer mappings independently; never initiate duplicate subscriptions during recovery.

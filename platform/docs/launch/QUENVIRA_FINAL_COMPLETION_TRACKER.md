@@ -1,0 +1,60 @@
+# Quenvira final completion tracker
+
+Authoritative continuation record, 30 October 2026. **Not ready because mandatory launch blockers remain.** Replaces no historical evidence: earlier receipts are linked below. £0 additional expenditure; no live billing/customer sending activation, production-data mutation, merge bypass or destructive migration authorised/performed by this continuation.
+
+## Source and deployment reconciliation
+
+- Main is `47d4eda9a328ec73edaf9da0a28686319c822973` (PR #51). Existing PR #52 remains open, head `8f98cd8ef52821694f91770d3fcfce109f4e0ea8`. Local equivalents `39f6bf9` / `29c4394` have identical published trees; avoid another branch/PR.
+- PR #52 implementation and verification are already completed: staged Access JWT hardening, offline .qvb authentication/integrity verifier and recovery instructions. All five GitHub workflows passed, including 138 browser cases on the source fixture server. Do not repeat these unchanged checks as new work.
+- Hosted Quenvira remains active v57, source `9738e6ce02eb68c3d3795e08617c332be8683d24`, differing from GitHub. CCS website remains active v21, source `5e9457cde68ac3b249f6057b10250337640c8036`.
+- Merge to main was rejected by automatic approval review for insufficient explicit merge authorisation and potential downstream production deployment. The latest instruction says to record mandatory approvals and continue; it is not treated as approval to bypass/retry this rejection.
+- Git shell transport still cannot reach the configured proxy. Native GitHub tools work. Supported Sites source helper/browser-control module remain absent; hosted artifact download previously could not be authorised. Reconcile latest hosted source before publishing. No stale checkout deployment.
+
+## Status matrix
+
+| Workstream | Implemented | Tested evidence | Deployed/approved boundary | Outstanding action |
+| --- | --- | --- | --- | --- |
+| Security | Managed ChatGPT identity, verified standalone Access adapter, CSRF, role/tenant checks, bounded bodies, per-workspace mutation throttle, invitation binding/revocation | Existing API/security suites and 138 fixture browser checks passed; malformed JWT regressions passed | Managed hosted identity is separate from staged standalone hardening; paid launch not approved | Two independent intended accounts, managed session expiry/renewal/logout/recovery and hosted role acceptance |
+| Account lifecycle | Provider-managed sign-in; no local password store or reset flow | Local trusted-header boundary tests; recent hosted anonymous session request rejected 401 | Registration/session/recovery supplied by host/ChatGPT | Verify through genuine independent provider sessions; do not invent password reset mail or store application passwords |
+| Plans | Solo 799p/1, Team5 1499p/5, Team10 2499p/10, Team15 3299p/15, Team20 3999p/20, owner-inclusive; >20 quote | Existing limits/mappings tests and five actual sandbox prices verified | Five-band runtime catalogue not enabled; billing=test, self-service=no | Isolated hosted five-plan checkout, portal changes/proration, cancellation, entitlement and retry acceptance |
+| Stripe permission | Restricted key and fail-closed provider errors | Fresh Worker log: subscription GET returned 503, StripePermissionError 403, request req_z2hUDr5yxdXDqv, 2026-10-30T00:39:10.767Z | No permissions or credentials changed | Inspect this exact Workbench request; grant only missing sandbox read permissions, then repeat hosted subscription read. API connector does not expose key-permission management or request-log retrieval |
+| Portal/debit | Portal/history/payment-update/cancellation supported; signed settlement guards reject pending funds | Sandbox portal subscription changes disabled; all six payment-method configurations show Bacs/SEPA unavailable/off | No portal/account defaults changed | Provider availability required for direct debit. Isolated five-band portal configuration and acceptance before enabling plan switching |
+| Email | Transactional invoice outbox, status tracking, retries, leases, idempotency, webhook/suppression; hourly schedule linked | Four hosted delivered rows/no pending rows; historical owned-inbox receipts; local failure/retry tests | email=test; customer invoice live sending unapproved | Real forced provider-failure/missed-run/bounce recovery; notification/enquiry-confirmation changes must remain gated |
+| D1/infrastructure | Four reviewed migrations, transaction/revision checks, tenant keys, health/schema checks, backup/restore | Existing SQLite/migration/recovery tests and native D1 overview succeeded | Existing managed D1 retained; no migrations run remotely | Hosted integrity/write/restart/isolated recovery acceptance with suitable credentials; standalone staging remains gated |
+| Core journeys | Customers, staff editing/photos, jobs/recurrence/clashes, checklists, notes/photos, invoices, terms/exports | Existing platform suite and six browser configurations | Fixtures do not establish physical Android or real-account hosted behaviour | Reversible staff deactivation/reactivation is now implemented and locally tested; preserve historical records rather than hard-deleting staff. Check remaining newly requested features; preserve historical device receipts |
+| CCS website | Existing branding/demos/product panels/contact delivery | Historical 29 Oct business-inbox acceptance; fresh recent Worker error query returned no website errors | v21 retained; no fresh website edits deployed | Current source/live pricing, demo/Kivza/Care/Garage links, mobile/a11y and new enquiry acknowledgement acceptance |
+| Commercial | Trial/disclosure/terms/privacy/support/export/recovery text and acceptance evidence supported | Existing terms/commercial-document tests | Prepared text is not legal certification or final customer agreement | Actual provider/retention/customer particulars, business/legal approval, separate paid launch authorisation |
+| Owner backup | Offline verifier + exact independent download/hash/decrypt/restore instructions | Synthetic local and historical hosted recovery evidence | Actual owner backup **not created/verified by this work** | Owner's final independent encrypted backup, integrity check and isolated restore evidence |
+
+## Fresh review and work in this continuation
+
+1. Rechecked local source/status, main and PR #52; reused the existing branch.
+2. Rechecked hosted versions and recent error logs. Unsigned webhook POST 400 and anonymous session 401 are expected rejections, not application crashes. A crawler `/signin-with-chatgpt` 404 is recorded separately; it does not prove a real signed-in user's auth flow is broken. Genuine provider sign-in must be tested through the managed boundary.
+3. Ran requested lint: zero errors, 16 warnings. Seven intentionally omitted sensitive rest-destructured fields are false-positive unused bindings; other warnings include vendored-runtime/plain-JS framework advice and removable unused locals. Address these without introducing chargeable image optimisation or weakening staff projections.
+4. Implemented optional allowlisted test-only enquiry acknowledgements with separate idempotency, pending/accepted/unconfirmed receipts, failure isolation and a preserved five-provider-attempt daily budget. See `ENQUIRY_CONFIRMATIONS_STAGING.md`. Live arbitrary-recipient acknowledgements will remain unavailable until explicitly configured and hosted acceptance passes. Never resend historical delivered invoices or create another scheduler.
+
+## Backup and recovery
+
+Use [ENCRYPTED_BACKUP_PROCEDURE.md](ENCRYPTED_BACKUP_PROCEDURE.md) for manager download, separate password, independent copies, SHA-256, offline authenticated validation and isolated restore. The procedure now also inventories source, migrations, D1/object bindings, non-secret runtime settings, vault references, scheduler/provider mappings, read-only standalone staging D1 export, local encryption and isolated restore. Managed production full-D1 export is blocked on a supported provider workflow/identity; no table-page scrape is claimed as a consistent snapshot. No owner backup completion claimed.
+
+## Completed source changes in this continuation
+
+- Added manager-only reversible staff lifecycle: no open visits may be abandoned; history/photos retained; invitations and staff memberships revoked in the winning revision transaction. Stale revisions/database failures cannot partially revoke links. Residual inactive/orphan memberships are denied at the API boundary; inactive profiles cannot be assigned or invited. Reactivation does not restore old links.
+- Active people allowance now excludes explicitly inactive historical profiles. Retained records remain subject to existing state/storage limits. Reactivation/additions still enforce the chosen plan and independent staff sign-in caps. Access-removal maintenance remains available after expiry/provider outage, cannot activate staff or other edits, and cannot wake queued email.
+- Added API/domain/race/rollback/entitlement regressions, a client adapter lifecycle exercise and a six-viewport Playwright lifecycle case. Existing replay/billing fixtures were corrected to use real staff profiles rather than orphan IDs so they still exercise their original security properties.
+- Added test-gated enquiry acknowledgement support and five focused acceptance cases without enabling it or sending an email. No new scheduler or database migration.
+- Corrected stale landing text that incorrectly said delivery tracking was unavailable. It now accurately describes restricted test delivery and closed public billing.
+- Cleaned unused test imports/locals; configured lint to understand intentional sensitive-field omission and narrowly scoped non-applicable Next image/navigation advice for dimensioned local SVGs/plain browser assets. No chargeable image service added.
+- Expanded independent backup/infrastructure export procedures. Owner's actual backup remains pending.
+
+## Validation and deployment record
+
+Local full rerun passed 29 platform test files and three demo test files with no failures/skips. Lint passed with zero warnings/errors; syntax, TypeScript and production build passed. The final race-error wording received a focused API/lifecycle rerun; final release checks for the complete committed source are recorded in PR #52. All prior source checks remain historical evidence and must not be represented as CI for later commits. No new hosted deployment, production migration, real provider email/payment, live activation or merge was performed.
+
+## Remaining feature/acceptance gaps
+
+Custom application onboarding/subscription-failure notification emails are not implemented or provider-verified; determine whether existing Stripe/provider notifications cover the approved service before adding a duplicate mail pipeline. ChatGPT password reset is provider-managed, not an application email feature. Production enquiry acknowledgements remain gated/unimplemented for arbitrary recipients. The current test-only acknowledgement path is preparation, not a claim of customer delivery readiness.
+
+## Exact resume point
+
+Use existing PR #52 and its newest commits; do not recreate prior changes. Review final CI results, reconcile the latest hosted v57 source using the supported Sites workflow when available, then deploy only the reviewed reconciled source to an authorised test environment. Resolve Stripe Workbench request `req_z2hUDr5yxdXDqv` with least-privilege key access, then conduct genuine hosted subscription reads and isolated sandbox lifecycle/portal/failed-payment acceptance. Bacs/SEPA require provider availability before they can be tested. Verify two independent managed identities, sender/inbox and forced retry acceptance; finish fresh CCS live-source/device review, commercial particulars and required notification scope. Perform owner's independent backup LAST. Do not retry the rejected main merge, bypass security controls, enable live billing/self-service, or deploy this older source over v57.
