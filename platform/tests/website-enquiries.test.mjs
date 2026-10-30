@@ -15,3 +15,36 @@ test('enforces two enquiries per client and a global five-per-day cap',async()=>
 test('R2 conditional claims prevent concurrent duplicate sends',async()=>{const e=env(),b=body();let count=0;await Promise.all([1,2].map(()=>websiteEnquiry(req(b),e,{now,fetcher:async()=>{count++;return ok()}})));assert.equal(count,1)});
 test('prior-day accepted references stay idempotent, but a new request cannot use a prior day',async()=>{const e=env(),b=body();await websiteEnquiry(req(b),e,{now,fetcher:ok});const tomorrow=()=>new Date('2026-10-30T08:00:00Z');assert.equal((await websiteEnquiry(req(b),e,{now:tomorrow,fetcher:()=>{throw Error('must not send')}})).status,200);assert.equal((await websiteEnquiry(req(body()),e,{now:tomorrow,fetcher:ok})).status,400)});
 test('signed contact callbacks do not enter invoice tables; unsigned callbacks still fail',async()=>{const secret='whsec_'+Buffer.from('synthetic-contact-signature').toString('base64'),at=new Date(),id='msg_contact_1';for(const tags of [{source:'ccs-enquiry'},[{name:'source',value:'ccs-enquiry'}]]){const payload=JSON.stringify({type:'email.delivered',data:{email_id:'contact-id',tags}});const request=new Request('https://app.example/api/quenvira/email-webhook',{method:'POST',headers:{'svix-id':id,'svix-timestamp':String(Math.floor(at.getTime()/1000)),'svix-signature':new Webhook(secret).sign(id,at,payload)},body:payload});assert.deepEqual(await emailWebhook(request,null,{RESEND_WEBHOOK_SECRET:secret}),{received:true,ignored:true})}await assert.rejects(emailWebhook(new Request('https://app.example/api/quenvira/email-webhook',{method:'POST',body:JSON.stringify({data:{tags:{source:'ccs-enquiry'}}})}),null,{RESEND_WEBHOOK_SECRET:secret}),/signature/)});
+
+test('test confirmations require explicit configuration and an approved recipient, with separate stable keys',async()=>{
+ for(const [flag,email,count] of [[undefined,'ccscreativetech@gmail.com',1],['live','ccscreativetech@gmail.com',1],['test','outside@example.invalid',1],['test','ccscreativetech@gmail.com',2]]){
+  const e={...env(),CCS_WEBSITE_CONFIRMATIONS:flag},b=body({email}),sent=[];
+  const options={now,fetcher:async(url,o)=>{sent.push(o);return Response.json({id:'synthetic_'+sent.length})}};
+  const result=await (await websiteEnquiry(req(b),e,options)).json();assert.equal(result.success,true);assert.equal(sent.length,count);
+  const replay=await (await websiteEnquiry(req(b),e,options)).json();assert.deepEqual(replay,result);assert.equal(sent.length,count);
+  if(count===2){assert.equal(result.confirmation,'accepted');const payload=JSON.parse(sent[1].body);assert.deepEqual(payload.to,[email]);assert.equal(payload.reply_to,'ccscreativetech@gmail.com');assert.ok(!payload.text.includes(b.message));assert.match(sent[1].headers['Idempotency-Key'],/^ccs-contact-confirmation\//);assert.notEqual(sent[0].headers['Idempotency-Key'],sent[1].headers['Idempotency-Key']);for(const row of e.BUCKET.rows.values())assert.ok(!row.value.includes(email));}
+ }
+});
+test('unconfirmed acknowledgement preserves business success and cannot resend either message',async()=>{
+ const e={...env(),CCS_WEBSITE_CONFIRMATIONS:'test'},b=body({email:'ccscreativetech@gmail.com'});let calls=0;
+ const options={now,fetcher:async()=>{if(++calls===2)throw Error('private-provider-detail');return ok()}};
+ const result=await (await websiteEnquiry(req(b),e,options)).json();assert.deepEqual(result,{success:true,reference:b.requestId,confirmation:'unconfirmed'});
+ assert.deepEqual(await (await websiteEnquiry(req(b),e,options)).json(),result);assert.equal(calls,2);
+ assert.ok(!JSON.stringify([...e.BUCKET.rows.values()]).includes('private-provider-detail'));
+});
+test('confirmation quota reserves both provider attempts and business failure never triggers an acknowledgement',async()=>{
+ const e={...env(),CCS_WEBSITE_CONFIRMATIONS:'test'};let calls=0;
+ const options={now,fetcher:async()=>{calls++;return ok()}};
+ for(let i=0;i<2;i++)assert.equal((await websiteEnquiry(req(body({email:'ccscreativetech@gmail.com'}),{'cf-connecting-ip':'192.0.2.'+(20+i)}),e,options)).status,200);
+ assert.equal((await websiteEnquiry(req(body({email:'ccscreativetech@gmail.com'}),{'cf-connecting-ip':'192.0.2.25'}),e,options)).status,429);assert.equal(calls,4);
+ let failedCalls=0;assert.equal((await websiteEnquiry(req(body({email:'ccscreativetech@gmail.com'})),{...env(),CCS_WEBSITE_CONFIRMATIONS:'test'},{now,fetcher:async()=>{failedCalls++;return new Response('{}',{status:503})}})).status,503);assert.equal(failedCalls,1);
+});
+test('lost acknowledgement receipt and concurrent submissions cannot replay a second provider send',async()=>{
+ const e={...env(),CCS_WEBSITE_CONFIRMATIONS:'test'},b=body({email:'ccscreativetech@gmail.com'});let calls=0;
+ const put=e.BUCKET.put.bind(e.BUCKET);e.BUCKET.put=async(key,value,options)=>{if(JSON.parse(value).confirmation==='accepted')throw Error('Synthetic receipt storage failure');return put(key,value,options)};
+ const options={now,fetcher:async()=>{calls++;return ok()}};
+ assert.equal((await websiteEnquiry(req(b),e,options)).status,503);
+ const replay=await (await websiteEnquiry(req(b),e,options)).json();assert.equal(replay.success,true);assert.equal(replay.confirmation,'pending');assert.equal(calls,2);
+ const other={...env(),CCS_WEBSITE_CONFIRMATIONS:'test'},same=body({email:'ccscreativetech@gmail.com'});calls=0;
+ await Promise.all([1,2].map(()=>websiteEnquiry(req(same),other,options)));assert.equal(calls,2);
+});
