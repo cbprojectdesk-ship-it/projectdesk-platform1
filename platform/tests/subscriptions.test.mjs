@@ -1,20 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import Stripe from 'stripe';
-import {billingConfig,startTrial,entitlement,checkout,webhook,TERMS_VERSION} from '../server/subscriptions.mjs';
+import {billingConfig,startTrial,entitlement,checkout,webhook,billingReview,TERMS_VERSION} from '../server/subscriptions.mjs';
 import {handle} from '../server/api.mjs';
 import {database,setup,ORIGIN,customer} from './support/database.mjs';
 const timestamp='2026-10-22T12:00:00.000Z',now=Date.parse(timestamp);
 const env={QUENVIRA_BILLING_MODE:'test',STRIPE_RESTRICTED_KEY:'rk_test_fixture_only',STRIPE_WEBHOOK_SECRET:'whsec_fixture_only',STRIPE_PRICE_ID:'price_test',STRIPE_PORTAL_CONFIGURATION:'bpc_test',QUENVIRA_SITE_ORIGIN:ORIGIN,QUENVIRA_TERMS_VERSION:TERMS_VERSION,QUENVIRA_SELF_SERVE:'yes'};
 const config=billingConfig(env),terms={acceptTerms:true,termsVersion:TERMS_VERSION};
-const paid=(status='active')=>({id:'sub_test',customer:'cus_test',livemode:false,status,cancel_at_period_end:false,items:{data:[{price:{id:'price_test'},quantity:1,current_period_end:Math.floor(now/1000)+2592000}]}});
+const paid=(status='active')=>({id:'sub_test',customer:'cus_test',livemode:false,status,latest_invoice:{id:'in_confirmed',livemode:false,status:'paid',amount_remaining:0,customer:'cus_test',subscription:'sub_test'},cancel_at_period_end:false,items:{data:[{price:{id:'price_test'},quantity:1,current_period_end:Math.floor(now/1000)+2592000}]}});
 function provider(){
  const calls=[],sessions=new Map(),idempotency=new Map();let subs=[];
  const sdk=new Stripe('rk_test_fixture_only');
  const client={calls,sessions,setSubs:s=>{subs=s},fail:false,
  customers:{create:async(params,opts)=>{calls.push(['customer',params,opts]);return {id:'cus_test',livemode:false}}},
  prices:{retrieve:async()=>({active:true,livemode:false,currency:'gbp',unit_amount:1900,billing_scheme:'per_unit',tax_behavior:'inclusive',recurring:{interval:'month',interval_count:1,usage_type:'licensed'}})},
- subscriptions:{list:async()=>{if(client.fail)throw Error('secret provider details');return {data:subs,has_more:false}}},
+ invoices:{list:async()=>({data:[],has_more:false})},subscriptions:{list:async()=>{if(client.fail)throw Error('secret provider details');return {data:subs,has_more:false}}},
  checkout:{sessions:{retrieve:async id=>sessions.get(id),expire:async id=>{sessions.get(id).status='expired'},create:async(params,opts)=>{calls.push(['checkout',params,opts]);if(idempotency.has(opts.idempotencyKey)){assert.deepEqual(params,idempotency.get(opts.idempotencyKey).params);return idempotency.get(opts.idempotencyKey).result}const result={id:'cs_'+sessions.size,livemode:false,customer:'cus_test',status:'open',url:'https://checkout.stripe.com/c/pay/test'};sessions.set(result.id,result);idempotency.set(opts.idempotencyKey,{params,result});return result}}},
  billingPortal:{sessions:{create:async params=>{calls.push(['portal',params]);return {url:'https://billing.stripe.com/p/session/test'}}}},webhooks:sdk.webhooks};return client;
 }
@@ -134,5 +134,38 @@ test('completed checkout can be replaced only after its exact subscription is au
   f.client.setSubs([paid('canceled')]);assert.equal((await entitlement(f.db,f.workspace,config,f.client,now)).canCheckout,true);
   await checkout(f.db,f.workspace,'alice@example.com',terms,config,f.client,timestamp);assert.equal(f.client.sessions.size,2);
   await checkout(f.db,f.workspace,'alice@example.com',terms,config,f.client,timestamp);assert.equal(f.client.sessions.size,2);
+ }finally{f.db.sqlite.close()}
+});
+test('active status alone cannot grant access before settlement or while another invoice is open',async()=>{
+ const f=await fixture();try{await expire(f);const good=paid(),invoice=good.latest_invoice;
+ for(const patch of [null,{...invoice,status:'open',amount_remaining:1900},{...invoice,status:'draft'},{...invoice,livemode:true},{...invoice,customer:'cus_other'},{...invoice,subscription:'sub_other'}]){f.client.setSubs([{...good,latest_invoice:patch}]);const a=await entitlement(f.db,f.workspace,config,f.client,now);assert.equal(a.canWrite,false);assert.equal(a.status,'payment_pending')}
+ f.client.setSubs([good]);f.client.invoices.list=async params=>{assert.equal(params.subscription,'sub_test');return {data:[{id:'in_older_unpaid'}],has_more:false}};assert.equal((await entitlement(f.db,f.workspace,config,f.client,now)).canWrite,false);
+ f.client.invoices.list=async()=>({data:[],has_more:true});assert.equal((await entitlement(f.db,f.workspace,config,f.client,now)).canWrite,false);
+ f.client.invoices.list=async()=>({data:[],has_more:false});f.client.setSubs([{...good,latest_invoice:'in_confirmed'}]);f.client.invoices.retrieve=async id=>{assert.equal(id,'in_confirmed');return {...invoice,subscription:undefined,parent:{subscription_details:{subscription:'sub_test'}}}};assert.equal((await entitlement(f.db,f.workspace,config,f.client,now)).canWrite,true);
+ f.client.invoices.retrieve=async()=>{throw Error('provider unavailable')};await assert.rejects(entitlement(f.db,f.workspace,config,f.client,now));
+ }finally{f.db.sqlite.close()}
+});
+test('signed refund/dispute/fraud events resolve provider ownership and retain a manager-only review without moving money',async()=>{
+ const f=await fixture();try{await expire(f);const requests=[];
+ f.client.charges={retrieve:async id=>{requests.push(id);return {id,livemode:false,customer:'cus_test',payment_intent:'pi_risk'}}};
+ f.client.invoicePayments={list:async params=>{assert.deepEqual(params.payment,{type:'payment_intent',payment_intent:'pi_risk'});return {data:[{id:'inpay_risk',livemode:false,payment:{payment_intent:'pi_risk'},invoice:'in_risk'}],has_more:false}}};
+ f.client.invoices.retrieve=async()=>({id:'in_risk',livemode:false,customer:'cus_test',parent:{subscription_details:{subscription:'sub_test'}}});
+ f.client.subscriptions.retrieve=async()=>paid();
+ for(const [i,type] of ['charge.refunded','charge.dispute.created','radar.early_fraud_warning.created'].entries()){
+ const event={id:'evt_risk'+i,livemode:false,type,data:{object:{id:type==='charge.refunded'?'ch_risk':'object_risk',charge:'ch_risk',customer:'cus_evil',metadata:{workspace_id:'evil'}}}};
+ assert.deepEqual(await webhook(await signed(event),f.db,config,f.client),{received:true});assert.deepEqual(await webhook(await signed(event),f.db,config,f.client),{received:true,replayed:true});
+ }
+ assert.equal(f.db.sqlite.prepare('SELECT COUNT(*) n FROM subscription_events').get().n,3);assert.deepEqual(await billingReview(f.db,f.workspace),{billingReviewRecorded:true});assert.equal((await call(f,'workspaces/'+f.workspace+'/subscription')).body.billingReviewRecorded,true);
+ f.db.sqlite.prepare("UPDATE subscription_events SET received_at='2020-01-01'").run();await webhook(await signed({id:'evt_normal',livemode:false,type:'invoice.paid',data:{object:{customer:'cus_test'}}}),f.db,config,f.client);assert.equal(f.db.sqlite.prepare("SELECT COUNT(*) n FROM subscription_events WHERE id LIKE 'evt_risk%'").get().n,3);
+ f.client.charges.retrieve=async()=>({id:'ch_risk',livemode:true,customer:'cus_test',payment_intent:'pi_risk'});await assert.rejects(webhook(await signed({id:'evt_wrong',livemode:false,type:'charge.refunded',data:{object:{id:'ch_risk'}}}),f.db,config,f.client),/mode mismatch/);
+ assert.equal(f.db.sqlite.prepare("SELECT COUNT(*) n FROM subscription_events WHERE id='evt_wrong'").get().n,0);
+ }finally{f.db.sqlite.close()}
+});
+test('risk webhook retries provider failures and never maps unrelated invoices or metadata to a business',async()=>{
+ const f=await fixture();try{await expire(f);const event={id:'evt_risk_unlinked',livemode:false,type:'charge.refunded',data:{object:{id:'ch_risk',customer:'cus_test'}}};
+ f.client.charges={retrieve:async()=>({id:'ch_risk',livemode:false,customer:'cus_test',payment_intent:'pi_risk'})};
+ f.client.invoicePayments={list:async()=>({data:[],has_more:false})};assert.deepEqual(await webhook(await signed(event),f.db,config,f.client),{received:true,ignored:true});
+ f.client.invoicePayments.list=async()=>({data:[],has_more:true});await assert.rejects(webhook(await signed(event),f.db,config,f.client),/operator review/);
+ f.client.invoicePayments.list=async()=>{throw Error('provider down')};await assert.rejects(webhook(await signed(event),f.db,config,f.client),/provider down/);assert.equal(f.db.sqlite.prepare('SELECT COUNT(*) n FROM subscription_events').get().n,0);
  }finally{f.db.sqlite.close()}
 });
