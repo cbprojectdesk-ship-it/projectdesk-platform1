@@ -1,3 +1,4 @@
+import {stripeFailureDiagnostic} from './stripe-diagnostics.mjs';
 import {publicPlans,selectPlan,fitsPlan,LARGE_TEAM_MESSAGE} from './plans.mjs';
 import * as F from './team-features.mjs';
 import {websiteEnquiry} from './website-enquiries.mjs';
@@ -286,13 +287,8 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
   return response;
  }catch(e){
   // Record bounded provider diagnostics, never the request, headers or key.
-  if(typeof e.type==='string'&&/^Stripe[A-Za-z]+Error$/.test(e.type)){
-   // Provider messages/parameters can echo customer input, signing secrets or
-   // payment tokens. Log only bounded diagnostic fields, never free-form text.
-   const requestId=typeof e.requestId==='string'&&/^req_[A-Za-z0-9]{1,100}$/.test(e.requestId)?e.requestId:undefined;
-   const status=Number.isInteger(e.statusCode)&&e.statusCode>=400&&e.statusCode<=599?e.statusCode:undefined;
-   console.error('Quenvira Stripe request failed',JSON.stringify({type:e.type.slice(0,80),requestId,status}));
-  }
+  const diagnostic=stripeFailureDiagnostic(e);
+  if(diagnostic)console.error('Quenvira Stripe request failed',JSON.stringify(diagnostic));
   return json({error:e instanceof Problem||e instanceof SubscriptionProblem||e instanceof EmailProblem?e.message:'Service temporarily unavailable.',code:e instanceof Problem||e instanceof SubscriptionProblem||e instanceof EmailProblem?e.status:503},e instanceof Problem||e instanceof SubscriptionProblem||e instanceof EmailProblem?e.status:503)
  }
 }

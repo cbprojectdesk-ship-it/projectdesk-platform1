@@ -1,3 +1,4 @@
+import {stripeOperation} from './stripe-diagnostics.mjs';
 // Server-only SaaS billing. Defaults to disabled; never trust a return URL,
 // visitor-supplied customer ID, price, status, or event metadata for access.
 import {planCatalog,planForSubscription,selectPlan,fitsPlan,publicPlans} from './plans.mjs';
@@ -62,18 +63,18 @@ export async function startTrial(db,workspace,timestamp){
 }
 function matches(subscription,config){if(config.plans)return !!planForSubscription(subscription,config);const items=subscription.items?.data;return subscription.livemode===(config.mode==='live')&&Array.isArray(items)&&items.length===1&&objectId(items[0].price)===config.price&&items[0].quantity===1}
 async function subscriptions(client,customer){
- const list=await client.subscriptions.list({customer,status:'all',limit:100,expand:['data.latest_invoice']});
+ const list=await stripeOperation('subscriptions.list',()=>client.subscriptions.list({customer,status:'all',limit:100,expand:['data.latest_invoice']}));
  if(list.has_more)fail(503,'Subscription account requires support.');return list.data;
 }
 async function paid(subscription,config,client,now){
  const item=subscription.items.data[0];
  if(subscription.status!=='active'||!Number.isSafeInteger(item.current_period_end)||item.current_period_end<=Math.floor(now/1000)||subscription.cancel_at&&subscription.cancel_at<=Math.floor(now/1000))return false;
  const ref=subscription.latest_invoice;
- const invoice=typeof ref==='string'?await client.invoices.retrieve(ref):ref;
+ const invoice=typeof ref==='string'?await stripeOperation('invoices.retrieve',()=>client.invoices.retrieve(ref)):ref;
  if(!invoice||invoice.livemode!==(config.mode==='live')||invoice.status!=='paid'||invoice.amount_remaining!==0||objectId(invoice.customer)!==objectId(subscription.customer)||objectId(invoice.parent?.subscription_details?.subscription||invoice.subscription)!==subscription.id)return false;
  // The default provider status can ignore an older unpaid invoice. Do not
  // restore paid access while any invoice on this same subscription is open.
- const outstanding=await client.invoices.list({subscription:subscription.id,status:'open',limit:1});
+ const outstanding=await stripeOperation('invoices.list',()=>client.invoices.list({subscription:subscription.id,status:'open',limit:1}));
  return Array.isArray(outstanding.data)&&outstanding.data.length===0&&!outstanding.has_more;
 }
 const terminal=subscription=>['canceled','incomplete_expired'].includes(subscription.status);
@@ -105,7 +106,7 @@ export async function entitlement(db,workspace,config,client,now=Date.now()){
 async function customer(db,workspace,email,config,client,timestamp){
  let account=await startTrial(db,workspace,timestamp);
  if(!account.customer_id){
-  const result=await client.customers.create({email},{idempotencyKey:'quenvira-customer-'+workspace});
+  const result=await stripeOperation('customers.create',()=>client.customers.create({email},{idempotencyKey:'quenvira-customer-'+workspace}));
   if(result.livemode!==(config.mode==='live')||!/^cus_\w+$/.test(result.id))fail(503,'Unexpected payment account response.');
   await db.prepare('UPDATE subscription_accounts SET customer_id = ? WHERE workspace_id = ? AND customer_id IS NULL').bind(result.id,workspace).run();
   account=await row(db,workspace);
@@ -113,7 +114,7 @@ async function customer(db,workspace,email,config,client,timestamp){
  return account;
 }
 async function verifyPrice(client,config,plan){
- const price=await client.prices.retrieve(plan?.price||config.price);
+ const price=await stripeOperation('prices.retrieve',()=>client.prices.retrieve(plan?.price||config.price));
  if(price.livemode!==(config.mode==='live')||!price.active||price.currency!=='gbp'||price.unit_amount!==(plan?.amount||1900)||price.billing_scheme!=='per_unit'||price.recurring?.interval!=='month'||price.recurring.interval_count!==1||price.recurring.usage_type!=='licensed'||price.tax_behavior!=='inclusive')fail(503,'The configured price must match the approved total monthly plan.');
 }
 function safeURL(value,host){let url;try{url=new URL(value)}catch{fail(503,'Invalid payment provider redirect.')};if(url.protocol!=='https:'||url.hostname!==host||url.username||url.password)fail(503,'Invalid payment provider redirect.');return url.href}
@@ -127,7 +128,7 @@ export async function checkout(db,workspace,email,body,config,client,timestamp){
  const existing=await subscriptions(client,account.customer_id);
  if(existing.some(s=>!terminal(s)))fail(409,'A subscription already exists. Use Manage subscription.');
  if(account.checkout_id){
-  const session=await client.checkout.sessions.retrieve(account.checkout_id);
+  const session=await stripeOperation('checkout.sessions.retrieve',()=>client.checkout.sessions.retrieve(account.checkout_id));
   if(objectId(session.customer)!==account.customer_id||session.livemode!==(config.mode==='live'))fail(503,'Checkout account mismatch.');
   if(session.status==='open'&&plan&&session.metadata?.quenvira_plan!==plan.id)fail(409,'An existing checkout is open for another plan. Finish or expire it before changing plans.');
   if(session.status==='open')return {url:safeURL(session.url,'checkout.stripe.com')};
@@ -144,40 +145,40 @@ export async function checkout(db,workspace,email,body,config,client,timestamp){
  const identifier='quenvira_'+Array.from(digest.slice(0,8),n=>String.fromCharCode(97+n%26)).join('');
  // Account defaults can enable Stripe's merchant-of-record product. This app
  // uses CCS's own fixed-GBP subscription terms and tax configuration instead.
- const result=await client.checkout.sessions.create({mode:'subscription',customer:account.customer_id,...(plan?{metadata:{quenvira_plan:plan.id}}:{}),line_items:[{price:plan?.price||config.price,quantity:1}],subscription_data:subscriptionData,integration_identifier:identifier,success_url:config.origin+'/workspace.html?billing=return#settings',cancel_url:config.origin+'/workspace.html?billing=cancel#settings',billing_address_collection:'required',consent_collection:{terms_of_service:'required'},managed_payments:{enabled:false},automatic_tax:{enabled:false},adaptive_pricing:{enabled:false}},{idempotencyKey:(plan?'quenvira-checkout-plans-v1-':'quenvira-checkout-v2-')+workspace+'-'+account.checkout_generation});
+ const result=await stripeOperation('checkout.sessions.create',()=>client.checkout.sessions.create({mode:'subscription',customer:account.customer_id,...(plan?{metadata:{quenvira_plan:plan.id}}:{}),line_items:[{price:plan?.price||config.price,quantity:1}],subscription_data:subscriptionData,integration_identifier:identifier,success_url:config.origin+'/workspace.html?billing=return#settings',cancel_url:config.origin+'/workspace.html?billing=cancel#settings',billing_address_collection:'required',consent_collection:{terms_of_service:'required'},managed_payments:{enabled:false},automatic_tax:{enabled:false},adaptive_pricing:{enabled:false}},{idempotencyKey:(plan?'quenvira-checkout-plans-v1-':'quenvira-checkout-v2-')+workspace+'-'+account.checkout_generation}));
  if(result.livemode!==(config.mode==='live')||objectId(result.customer)!==account.customer_id)fail(503,'Checkout account mismatch.');
  await db.prepare('UPDATE subscription_accounts SET checkout_id = ?, terms_version = ?, terms_accepted_at = ? WHERE workspace_id = ? AND checkout_generation = ?').bind(result.id,config.termsVersion||TERMS_VERSION,timestamp,workspace,account.checkout_generation).run();
  return {url:safeURL(result.url,'checkout.stripe.com')};
 }
 export async function portal(db,workspace,config,client){
  const account=await row(db,workspace);if(!account?.customer_id)fail(409,'No subscription account exists yet.');
- const result=await client.billingPortal.sessions.create({customer:account.customer_id,configuration:config.portal,return_url:config.origin+'/workspace.html#settings'});
+ const result=await stripeOperation('billingPortal.sessions.create',()=>client.billingPortal.sessions.create({customer:account.customer_id,configuration:config.portal,return_url:config.origin+'/workspace.html#settings'}));
  return {url:safeURL(result.url,'billing.stripe.com')};
 }
 export async function assertDeletable(db,workspace,client){
  const account=await row(db,workspace);if(!account?.customer_id)return;
  if((await subscriptions(client,account.customer_id)).some(s=>!['canceled','incomplete_expired'].includes(s.status)))fail(409,'Cancel the subscription and wait for its end before deleting the business. Your export remains available.');
- if(account.checkout_id){const session=await client.checkout.sessions.retrieve(account.checkout_id);if(session.status==='open')await client.checkout.sessions.expire(session.id)}
+ if(account.checkout_id){const session=await stripeOperation('checkout.sessions.retrieve',()=>client.checkout.sessions.retrieve(account.checkout_id));if(session.status==='open')await stripeOperation('checkout.sessions.expire',()=>client.checkout.sessions.expire(session.id))}
 }
 // Resolve risk ownership using provider resources, never customer IDs or
 // workspace references supplied in event metadata. Current API uses InvoicePayments.
 async function riskCustomer(source,type,config,client){
  const chargeId=type==='charge.refunded'?source?.id:objectId(source?.charge);
  if(!/^ch_\w+$/.test(chargeId||''))fail(400,'Risk event charge is missing.');
- const charge=await client.charges.retrieve(chargeId);
+ const charge=await stripeOperation('charges.retrieve',()=>client.charges.retrieve(chargeId));
  if(charge.id!==chargeId||charge.livemode!==(config.mode==='live'))fail(400,'Risk event mode mismatch.');
  const customerId=objectId(charge.customer),intent=objectId(charge.payment_intent);
  if(!intent)return null; // Not an invoice PaymentIntent; not this checkout integration.
- const payments=await client.invoicePayments.list({payment:{type:'payment_intent',payment_intent:intent},limit:100});
+ const payments=await stripeOperation('invoicePayments.list',()=>client.invoicePayments.list({payment:{type:'payment_intent',payment_intent:intent},limit:100}));
  if(payments.has_more)fail(503,'Risk payment requires operator review.');
  let found=false;
  for(const payment of payments.data){
   if(payment.livemode!==(config.mode==='live')||objectId(payment.payment?.payment_intent)!==intent)fail(400,'Risk payment mismatch.');
-  const invoice=await client.invoices.retrieve(objectId(payment.invoice));
+  const invoice=await stripeOperation('invoices.retrieve',()=>client.invoices.retrieve(objectId(payment.invoice)));
   if(invoice.livemode!==(config.mode==='live')||objectId(invoice.customer)!==customerId)fail(400,'Risk invoice mismatch.');
   const id=objectId(invoice.parent?.subscription_details?.subscription);
   if(!id)continue;
-  const subscription=await client.subscriptions.retrieve(id);
+  const subscription=await stripeOperation('subscriptions.retrieve',()=>client.subscriptions.retrieve(id));
   if(subscription.id!==id||subscription.livemode!==(config.mode==='live')||objectId(subscription.customer)!==customerId)fail(400,'Risk subscription mismatch.');
   found=true;
  }

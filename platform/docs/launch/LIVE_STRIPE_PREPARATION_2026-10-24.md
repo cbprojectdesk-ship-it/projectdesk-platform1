@@ -111,3 +111,7 @@ Manual sandbox receipt delivery still requires sandbox access and a signed-in Da
 ## Authorization retry — 24 October 2026
 
 After the owner confirmed reconnection, account discovery still returned the correct live CCS account. Product, portal configuration and webhook endpoint lists were rechecked and remained empty. App runtime stayed at revision 8 with test mode and self-service disabled. The exact prepared PostProducts call was retried once and again returned UNAUTHORIZED / reauthentication required / missing mcp scope. No product/default price, portal, webhook, key, checkout or payment was created. Repeating the same account-selection link has not resolved write access. A Dashboard fallback requires the owner's approval under the browser connection-fallback rule; no browser sign-in or settings mutation was attempted in this retry.
+
+## Permission amendment — 30 October, not a live activation
+
+The original five-resource minimum above predates invoice settlement and risk-ownership reads. Current source also requires Invoices read (including InvoicePayments) and Charges read. See `STRIPE_RESTRICTED_KEY_DIAGNOSIS.md` for the exact resource map and unresolved hosted sandbox 403. This amendment does not assert that any existing key was changed or grant permission to activate live billing.
