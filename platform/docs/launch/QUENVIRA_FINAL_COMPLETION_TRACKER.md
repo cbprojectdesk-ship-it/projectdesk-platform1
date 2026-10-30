@@ -33,7 +33,7 @@ Status: **NO-GO for commercial launch**. This public tracker contains aggregate 
 
 ## Publication and deployment
 
-The revised documentation contains no live credential values, provider object identifiers, private endpoints or infrastructure inventory. The original rejected documentation commit must not be published. The replacement is submitted through normal security checks. A source commit or successful build does not establish deployment.
+The revised documentation contains no live credential values, provider object identifiers, private endpoints or infrastructure inventory. The original rejected documentation commit was not published. Its replacement passed normal security approval. Additional historical-document sanitization and scan limitations are recorded in `SECURITY_SANITIZATION_2026-10-30.md`. A source commit or successful build does not establish deployment.
 
 No deployment, production migration, paid resource, live billing activation, customer charge or customer email was performed by this sanitization. Existing merge restrictions remain in force.
 

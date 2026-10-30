@@ -44,7 +44,7 @@ The manager `.qvb` is a business-record backup, not a full cloud account export.
 
 ### Existing standalone staging D1 only
 
-These commands are a prepared procedure, **not a completed export**. Use only an already authorised Cloudflare account and the exact verified database. From `platform/`, the committed `wrangler.staging.jsonc` currently selects the separate `quenvira-staging` database `a91be5bb-6565-473e-98c2-40e83bc0e2d5`; it does **not** identify the live managed Sites database. Never substitute it for production.
+These commands are a prepared procedure, **not a completed export**. Use only an already authorised Cloudflare account and the exact verified database. From `platform/`, the committed `wrangler.staging.jsonc` currently selects the separate `quenvira-staging` database `CONFIGURE_IN_SECURE_ENVIRONMENT`; it does **not** identify the live managed Sites database. Never substitute it for production.
 
 ```bash
 node node_modules/wrangler/bin/wrangler.js d1 info quenvira-staging --config wrangler.staging.jsonc

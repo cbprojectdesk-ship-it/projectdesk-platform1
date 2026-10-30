@@ -2,9 +2,9 @@
 
 ## What is proven
 
-Hosted subscription read returned application 503 after `StripePermissionError`, HTTP 403, provider request `req_z2hUDr5yxdXDqv` at 2026-10-30 00:39:10.767 UTC. The protected runtime `STRIPE_RESTRICTED_KEY` value is write-only/redacted. Runtime revision 15 remains billing=test, email=test, self-service=no. No key was copied, replaced, rotated or widened.
+Hosted subscription read returned application 503 after `StripePermissionError`, HTTP 403, a provider request whose exact reference is retained in the authorized private diagnostic record. The protected runtime `STRIPE_RESTRICTED_KEY` value is write-only/redacted. Live billing remains disabled. No key was copied, replaced, rotated or widened.
 
-The mapped hosted customer exists in the intended CCS sandbox `acct_1USzoBJMLR8T7SSt`, livemode=false. This verifies the customer mapping in that sandbox through the connected Stripe account. **The connector credential is different from the hosted restricted key:** connector success does not prove any grant or account scope of the runtime key.
+The mapped hosted customer exists in the intended sandbox, livemode=false. This verifies the customer mapping in that sandbox through the connected Stripe account. **The connector credential is different from the hosted restricted key:** connector success does not prove any grant or account scope of the runtime key.
 
 The code's subscription GET can make these permissioned calls, in order:
 
@@ -18,7 +18,7 @@ The code's subscription GET can make these permissioned calls, in order:
 
 ## Exact supported resolution
 
-In the existing CCS **sandbox** Dashboard, open Workbench/API request logs and find `req_z2hUDr5yxdXDqv` at the timestamp above. Record only endpoint, required permission/resource, mode and whether the existing key belongs to the intended sandbox. Never copy the key, provider message containing key fragments, customer details or headers into chat/Git.
+In the existing CCS **sandbox** Dashboard, open Workbench/API request logs and locate the failed request using its private diagnostic reference. Record only endpoint, required permission/resource, mode and whether the existing key belongs to the intended sandbox. Never copy the key, provider message containing key fragments, customer details or headers into chat/Git.
 
 Open API keys → the **same existing runtime restricted key** → View request logs/Edit key. Compare the failed call to the table below; grant only the missing resource access confirmed by the log. Do not enable payout/transfer/bank administration, broad write categories or live billing. Do not rotate a functioning key merely to inspect it. If the binding actually points to a different account/key, identify that mismatch in the secret manager and correct only the verified binding using the owner's secure workflow; never guess or overwrite credentials.
 
