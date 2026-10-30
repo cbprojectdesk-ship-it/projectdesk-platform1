@@ -6,7 +6,7 @@ Status: procedure prepared; the owner's final backup is NOT complete or independ
 
 1. On the owner's trusted laptop, sign in to the intended Quenvira business as its manager. Check the business name and saved records. In **Settings & backups → Protected backup and recovery**, select **Download encrypted backup**. A records JSON export is not equivalent: it excludes photo bytes and is unencrypted.
 2. Enter and confirm a unique password of 12–256 characters, preferably a long password-manager-generated password. Save the password separately from the file. It is not sent to the service and cannot be recovered by support.
-3. Select **Encrypt and download**. Finish the browser's file save and locate the actual `.qvb` file in the laptop filesystem. A download click or open browser tab is insufficient evidence. The file includes current business records and staff/job photos. It excludes login permissions, prior revisions, provider billing accounts, secret configuration and infrastructure.
+3. Select **Encrypt and download**, then select **Save encrypted backup** in the resulting dialog. The first button creates a local download link; it does not save the file. Finish the browser's file save and locate the actual `quenvira-business-YYYY-MM-DD.qvb` file in the laptop filesystem. A download click or open browser tab is insufficient evidence. The file includes current business records and staff/job photos. It excludes login permissions, prior revisions, provider billing accounts, secret configuration and infrastructure.
 4. Copy the encrypted file to an existing independent offline device or owner-controlled encrypted storage, without purchasing storage. Keep its password separately. Preserve the original unchanged; do not upload the file or password into chat or email.
 5. Compute SHA-256 for both copies and compare. Linux: `sha256sum /path/business.qvb`; macOS: `shasum -a 256 /path/business.qvb`; Windows PowerShell: `Get-FileHash -Algorithm SHA256 'C:\path\business.qvb'`. Matching hashes prove identical bytes, not decryptability or complete recovery.
 6. Independently read and authenticate the saved file using the offline verifier below. Compare record/photo counts and creation time against the intended business. Save the verifier's safe JSON receipt alongside the hash. A synthetic receipt does not verify the owner's file.
@@ -27,6 +27,63 @@ unset quenvira_backup_password
 The password must not appear in command arguments, shell history, environment exports or receipts. The script reads it only from stdin, authenticates/decrypts in memory, checks supported state plus staff/job photo hashes/references using the application's restore validator, and outputs SHA-256, file size, creation time and counts. It never connects to production or restores records. It returns nonzero with a generic message for an incorrect password, corruption, unsupported data or unreadable input. JavaScript memory cannot guarantee password erasure; use a trusted laptop and end the process afterwards.
 
 Do not use the password on an untrusted shared device. Do not substitute the lower-level `workspace-recovery.mjs` encryption format: it is an operator database utility, not the manager `.qvb` format. Files larger than the current 20 MB plaintext / approximately 29 MB encrypted limits need a separately reviewed recovery plan; do not split or edit an encrypted file.
+
+## Samsung laptop running Windows
+
+Use the existing trusted application bookmark, sign in as the intended business manager, open **Settings & backups → Protected backup and recovery**, then follow the two-button download sequence above. Do not use the fictional demo or **Download records JSON (no photos)**. Check the business name before exporting. The application origin must come from the existing authorized deployment, not a guessed download endpoint. There is no permanent public URL for the file: the encrypted download link is generated locally in the signed-in browser.
+
+In Microsoft Edge or Chrome, press **Ctrl+J**, select **Show in folder**, and check the actual filename and date. Windows may hide known extensions; enable **View → Show → File name extensions** in File Explorer. The browser may append a duplicate-file suffix. Keep the file unchanged and save a second copy on existing independent owner-controlled storage. Store its password separately.
+
+In PowerShell, select the actual saved file (replace the example path), inspect its size and calculate its checksum:
+
+```powershell
+$quenviraBackupPath = (Resolve-Path -LiteralPath 'C:\Users\YOUR_WINDOWS_USER\Downloads\quenvira-business-YYYY-MM-DD.qvb').Path
+Get-Item -LiteralPath $quenviraBackupPath | Select-Object Name, Length, LastWriteTime
+Get-FileHash -LiteralPath $quenviraBackupPath -Algorithm SHA256
+```
+
+Calculate the hash of the independent copy too; the values must match. The actual file size/checksum cannot be supplied in advance: records/photos vary and each encryption uses fresh random values. A matching hash alone does not verify the password or completeness.
+
+For authenticated offline validation, use an existing Node.js >=22.13 installation and the reviewed repository checkout containing `platform/scripts/verify-business-backup.mjs`. Run from that checkout's root. Do not install paid software, relax device execution policy or paste the password into a command. This PowerShell method sends exact UTF-8 password bytes to the existing verifier without a trailing newline; ordinary PowerShell piping would add a newline and fail password verification.
+
+```powershell
+$quenviraNodePath = (Get-Command node -CommandType Application -ErrorAction Stop).Source
+$quenviraVerifierPath = (Resolve-Path -LiteralPath '.\platform\scripts\verify-business-backup.mjs').Path
+$quenviraSecret = Read-Host 'Backup password' -AsSecureString
+$quenviraSecretPointer = [IntPtr]::Zero
+$quenviraProcess = New-Object System.Diagnostics.Process
+try {
+    $quenviraProcess.StartInfo.FileName = $quenviraNodePath
+    $quenviraProcess.StartInfo.Arguments = '"{0}" "{1}"' -f $quenviraVerifierPath, $quenviraBackupPath
+    $quenviraProcess.StartInfo.UseShellExecute = $false
+    $quenviraProcess.StartInfo.RedirectStandardInput = $true
+    $quenviraProcess.StartInfo.RedirectStandardOutput = $true
+    $quenviraProcess.StartInfo.RedirectStandardError = $true
+    $quenviraProcess.StartInfo.StandardInputEncoding = New-Object System.Text.UTF8Encoding($false)
+    $quenviraSecretPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($quenviraSecret)
+    if (-not $quenviraProcess.Start()) { throw 'Verifier could not start.' }
+    try {
+        $quenviraProcess.StandardInput.Write([Runtime.InteropServices.Marshal]::PtrToStringBSTR($quenviraSecretPointer))
+    } finally {
+        $quenviraProcess.StandardInput.Close()
+    }
+    $quenviraReceipt = $quenviraProcess.StandardOutput.ReadToEnd()
+    $quenviraFailure = $quenviraProcess.StandardError.ReadToEnd()
+    $quenviraProcess.WaitForExit()
+    if ($quenviraProcess.ExitCode -ne 0) { throw 'Backup verification failed; preserve the original file and check the password.' }
+    $quenviraReceipt
+} finally {
+    if ($quenviraSecretPointer -ne [IntPtr]::Zero) {
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($quenviraSecretPointer)
+    }
+    $quenviraSecret.Dispose()
+    $quenviraProcess.Dispose()
+}
+```
+
+Check the receipt has `verified: true`, the same SHA-256 and byte length, the expected creation time/record/photo counts, and `productionRestorePerformed: false`. Save the safe receipt beside the checksum without its password. The managed-memory password copy cannot be guaranteed erased; close PowerShell afterwards. The verifier itself has automated coverage; this Windows launch sequence has been reviewed but not executed on the owner's Samsung laptop. An additional nested-process CLI check was blocked by the managed executor (EPERM), so it is not claimed as passing. If Node or the reviewed checkout is unavailable, retain both encrypted copies and record offline authentication as pending. Never substitute an untrusted online decryption site.
+
+The result is an **application-data snapshot**, not a complete infrastructure backup. Recovery must use the separately authorized empty isolated workspace procedure above. Do not restore into the owner's working business. Recreate sign-in permissions and reconcile external billing/email separately. The owner's actual download, checksum, password validation and recovery comparison remain unverified until performed.
 
 ## Recovery limitations and incident handling
 

@@ -43,4 +43,6 @@ Follow `ENCRYPTED_BACKUP_PROCEDURE.md` on the owner's trusted device for a non-d
 
 ## Resume rule
 
+Final review follow-up: the existing pull request is mergeable and has no unresolved inline review threads, but no submitted reviews/approvals were recorded. Its five workflows and 144 browser tests passed at the sanitized application head. This does not override the prior merge rejection; no merge or deployment was attempted. Supported hosted source/browser access, a second independent identity, private Stripe request diagnostics and consistent full infrastructure export remain unavailable. No fresh hosted lifecycle, email delivery or recovery pass is claimed. The backup procedure now includes the required second save click and a reviewed Windows/PowerShell workflow for the owner's laptop; that device sequence has not been executed here.
+
 Resume at the open gates above. Keep exact access/diagnostic details in approved private facilities, use existing provider accounts and infrastructure, and preserve successful tests. Do not repeat consumed payment/email tests, expose secrets, bypass approvals or overwrite a newer hosted source. Remain at £0 additional expenditure and keep live billing disabled.
