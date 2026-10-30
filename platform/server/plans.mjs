@@ -18,6 +18,6 @@ export function planForSubscription(subscription,config){
  return config.plans?.find(p=>p.price===price)||null;
 }
 export function selectPlan(config,id){return config.plans?.find(p=>p.id===id)||null}
-export function fitsPlan(state,staffMemberships,plan){return state.staff.length<=plan.maxStaff&&staffMemberships<=(plan.maxStaffAccounts??(plan.staffAccess?plan.maxStaff-1:0))}
+export function fitsPlan(state,staffMemberships,plan){return state.staff.filter(s=>s.active!==false).length<=plan.maxStaff&&staffMemberships<=(plan.maxStaffAccounts??(plan.staffAccess?plan.maxStaff-1:0))}
 
 export const LARGE_TEAM_MESSAGE='Your current people allowance has been reached. Choose an approved larger Team band; above twenty people, contact ccscreativetech@gmail.com for a tailored quote. No extra charge has been made.';
