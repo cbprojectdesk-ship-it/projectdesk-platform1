@@ -45,3 +45,11 @@ Resume from the newer hosted sources through the supported Sites workflow when a
 ## Final validation and commits
 
 Final rerun: all 28 platform test files and three demo test files pass with no failures or skips. Platform syntax checks, TypeScript (incremental disabled), production Vinext build and diff whitespace checks pass. New verifier and Access module syntax checks pass. Source changes are being committed on `quenvira-final-verification-20261030`; the final delivery report records exact commit/PR receipts. No change in this session is deployed.
+
+### Publication and provider configuration receipts
+
+Implementation commit published through the authorised GitHub connector: `a1c48f5b742dfea18084e23ba22446d93c661b4e`, PR https://github.com/cbprojectdesk-ship-it/projectdesk-platform1/pull/52. Local equivalent commit `39f6bf992b909ada5f452065a3b827389f0e15f4` has the identical tree `b14e3670757b093c46b786c7222155b7aac76c16`; Git transport itself was unavailable. No merge or hosted deployment is claimed.
+
+Fresh sandbox reads also verify one enabled subscription webhook at the expected Quenvira subscription-webhook route with all eleven application-handled event types configured. This is endpoint configuration evidence, not a new signed-event delivery test. Existing active sandbox portal configuration `bpc_1UT9sgJMLR8T7SStvLOSiTss` enables invoice history, payment-method update and cancellation at period end without proration; **subscription_update.enabled=false**. Five-band portal upgrades/downgrades are therefore not ready. It was deliberately not changed on the owner's active configuration; isolate and verify the new catalogue first.
+
+CI on implementation commit: Quality checks, Quenvira checks and Quenvira platform release checks succeeded. Server workspace checks and Free browser acceptance were still running at the last observation recorded here; the final chat report distinguishes any later result. Historical browser/device acceptance is not substituted for these checks or for hosted sign-in/payment testing.
