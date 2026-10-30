@@ -104,7 +104,7 @@ async function act(action,id){
   const planText=plans.length?plans.map(p=>esc(p.name)+' '+money(p.amount)+'/month, '+(p.maxPeople||p.maxStaff)+' '+((p.maxPeople||p.maxStaff)===1?'person, owner only':'people including the owner; '+(p.maxStaffAccounts??p.maxStaff-1)+' staff sign-ins')).join(' · '):'£19 total per month';
   const planChoice=plans.length?'<label for="subscription-plan">Choose a plan</label><select id="subscription-plan" name="plan" required><option value="">Choose Solo or Team</option>'+plans.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+' — '+money(p.amount)+'/month</option>').join('')+'</select>':'';
   const termsVersion=billing.termsVersion||'2026-10-28';
-  const termsDate=termsVersion==='2026-10-29'?'29 October 2026':'28 October 2026';
+  const termsDate=termsVersion==='2026-10-30'?'30 October 2026':termsVersion==='2026-10-29'?'29 October 2026':'28 October 2026';
   const termsInput='<input type="hidden" name="termsVersion" value="'+esc(termsVersion)+'">';
   const termsLink=plans.length?'/subscription-terms-solo-team.html':'/subscription-terms.html';
   const needsTerms=billing.mode==='live'&&billing.termsAccepted!==true;

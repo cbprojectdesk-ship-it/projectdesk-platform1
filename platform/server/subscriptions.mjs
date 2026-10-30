@@ -7,7 +7,7 @@ export class SubscriptionProblem extends Error {
 }
 const fail=(status,message)=>{throw new SubscriptionProblem(status,message)};
 export const TERMS_VERSION='2026-10-28';
-export const PLAN_TERMS_VERSION='2026-10-29';
+export const PLAN_TERMS_VERSION='2026-10-30';
 const riskEvents=new Set(['charge.dispute.created','charge.refunded','radar.early_fraud_warning.created']);
 const handledEvents=new Set([...riskEvents,'checkout.session.completed','checkout.session.async_payment_succeeded','checkout.session.async_payment_failed','customer.subscription.created','customer.subscription.updated','customer.subscription.deleted','invoice.paid','invoice.payment_failed']);
 const objectId=value=>typeof value==='string'?value:value?.id;
