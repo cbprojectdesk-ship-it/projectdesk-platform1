@@ -61,3 +61,13 @@ If callback transfer is impractical, use secure Cloudflare Dashboard sign-in in 
 - Supply/confirm outstanding commercial particulars if not already evidenced. Approve live billing separately only after remaining technical acceptance passes. Complete the encrypted backup separately as requested.
 
 No purchase, account creation, infrastructure creation, live charge, customer email, database migration, security-control removal or production deployment occurred in this review.
+
+## Fresh hosted acceptance after the checks
+
+The existing signed-in manager workspace loaded successfully, showed Up to date and unchanged business revision 72. Opening Subscription & billing reproduced the failure: Service temporarily unavailable. A fresh ten-minute log read confirmed subscription HTTP 503 with StripePermissionError HTTP 403 at 2026-10-30 16:09:53.543 UTC, provider request `req_ILYka3EkoubAMK`. This is a current reproduced blocker, not solely historical log evidence. No record was changed by this read.
+
+The private callback helper and its tests are available in PR https://github.com/cbprojectdesk-ship-it/projectdesk-platform1/pull/54 . The branch has no merge conflicts; checks/review and real OAuth completion remain separate. The helper was not deployed with the application.
+
+## Exact Stripe permission identified
+
+Reused the existing signed-in Stripe Dashboard in CCS sandbox test mode. Its read-only Workbench request-log operation retrieved `req_ILYka3EkoubAMK`: GET `/v1/subscriptions` with `expand=data.latest_invoice` failed with `more_permissions_required`. The provider explicitly identifies **Invoices Read (`invoice_read`)** on the existing runtime restricted key as missing. This supersedes the earlier statement that the exact missing permission was unknown. No secret was retrieved or changed. The key's permission edit page was opened for review; adding permission requires the owner's explicit confirmation because it expands credential access. Do not grant an unrestricted key or unrelated permissions. After an approved change, retest the subscription panel and check for further provider permission failures before declaring resolution.
