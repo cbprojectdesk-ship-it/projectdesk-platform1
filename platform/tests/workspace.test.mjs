@@ -10,7 +10,7 @@ import {prepareInvoiceEmail,copyInvoiceText} from '../public/invoice-email.js';
 const source=fs.readFileSync(new URL('../public/workspace.js',import.meta.url),'utf8').replace(/^import .*?;\n/gm,'');
 test('invoice preview retains its issued mode independently of the current workspace mode',async()=>{
  const db=database();try{
-  const w=await setup(db),h=await browserAdapter(db);
+  await setup(db);const h=await browserAdapter(db);
   const data=h.ui.data();data.documentMode='live';
   const invoice={id:'local-mode-preview',number:'QV-9999',customerName:'Fictional QA',address:'Fictional Road',description:'Fictional service',issued:'2026-10-20',due:'2026-11-03',net:0,tax:0,total:0,vat:0,status:'Issued',issue:{supplier:{legalName:'Fictional QA',address:'Fictional Road',contact:'qa@example.com',vatRegistered:false},supplyDate:'2026-10-20',line:{description:'Fictional service',unitPrice:0}}};
   data.state.invoices.push(invoice);h.ui.invoiceDetail(invoice.id);
@@ -134,7 +134,7 @@ test('unsaved changes can be kept when closing or navigating, then discarded exp
  h.context.confirm=()=>true;await h.ui.act('close');assert.equal(h.elements.get('#modal').open,false);warned=false;h.emit('beforeunload',{preventDefault(){warned=true}});assert.equal(warned,false);db.sqlite.close();
 });
 test('save feedback identifies an uncertain update and resolves after replay without duplicating records',async()=>{
- const db=database(),w=await setup(db),h=await browserAdapter(db);h.control.dropNextResponse=true;
+ const db=database();await setup(db);const h=await browserAdapter(db);h.control.dropNextResponse=true;
  await assert.rejects(()=>h.ui.command('staff.add',{name:'Saved once',role:'Cleaner',capacity:480}),/Connection lost/);assert.equal(h.elements.get('#save-status').textContent,'Check your last update');
  await h.ui.command('staff.add',{name:'Saved once',role:'Cleaner',capacity:480});assert.equal(h.elements.get('#save-status').textContent,'All changes saved');assert.equal(h.ui.data().state.staff.length,1);db.sqlite.close();
 });
@@ -250,5 +250,14 @@ test('staff UI saves own availability, requests leave and reads only their notif
 });
 
 test('staged Solo/Team chooser shows exact prices and sends elected plan and current terms without old price',async()=>{
- const db=database();try{await setup(db);const h=await browserAdapter(db);h.control.billingResponse={enabled:true,mode:'test',status:'trial',canWrite:true,canCheckout:true,termsVersion:'2026-10-29',plans:[{id:'solo',name:'Solo',amount:799,maxStaff:1,staffAccess:false},{id:'team',name:'Team',amount:1499,maxStaff:5,maxPeople:5,maxStaffAccounts:4,staffAccess:true}]};await h.ui.act('subscription');const html=h.elements.get('#modal').innerHTML;assert.match(html,/£7.99/);assert.match(html,/£14.99/);assert.match(html,/name="plan" required/);assert.match(html,/subscription-terms-solo-team.html/);assert.doesNotMatch(html,/£19/);assert.match(html,/Above twenty people, request a tailored quote/);assert.match(html,/including the owner/);await h.submit('subscription',{acceptTerms:'yes',plan:'solo',termsVersion:'2026-10-29'});assert.equal(h.control.billingBody.plan,'solo');assert.equal(h.control.billingBody.termsVersion,'2026-10-29');assert.equal(h.control.redirectedURL,'https://checkout.stripe.com/c/pay/test');}finally{db.sqlite.close()}
+ const db=database();try{await setup(db);const h=await browserAdapter(db);h.control.billingResponse={enabled:true,mode:'test',status:'trial',canWrite:true,canCheckout:true,termsVersion:'2026-10-30',plans:[{id:'solo',name:'Solo',amount:799,maxStaff:1,staffAccess:false},{id:'team',name:'Team',amount:1499,maxStaff:5,maxPeople:5,maxStaffAccounts:4,staffAccess:true}]};await h.ui.act('subscription');const html=h.elements.get('#modal').innerHTML;assert.match(html,/£7.99/);assert.match(html,/£14.99/);assert.match(html,/name="plan" required/);assert.match(html,/subscription-terms-solo-team.html/);assert.doesNotMatch(html,/£19/);assert.match(html,/Above twenty people, request a tailored quote/);assert.match(html,/including the owner/);await h.submit('subscription',{acceptTerms:'yes',plan:'solo',termsVersion:'2026-10-30'});assert.equal(h.control.billingBody.plan,'solo');assert.equal(h.control.billingBody.termsVersion,'2026-10-30');assert.equal(h.control.redirectedURL,'https://checkout.stripe.com/c/pay/test');}finally{db.sqlite.close()}
+});
+
+test('manager can deactivate and reactivate profiles through the team UI while inactive assignments stay unavailable',async()=>{
+ const db=database();try{const w=await setup(db),f=await fixtures(db,w),h=await browserAdapter(db);h.navigate('#team');assert.match(h.elements.get('#app').innerHTML,/Deactivate/);
+ await h.ui.act('staff-active',f.staffId);assert.equal(h.ui.data().state.staff[0].active,false);h.navigate('#team');assert.match(h.elements.get('#app').innerHTML,/Inactive · history retained/);assert.match(h.elements.get('#app').innerHTML,/Reactivate/);
+ h.ui.formJob();assert.ok(!h.elements.get('#modal').innerHTML.includes(`value="${f.staffId}"`));
+ await h.ui.act('staff-active',f.staffId);assert.equal(h.ui.data().state.staff[0].active,true);
+ db.sqlite.prepare("INSERT INTO memberships VALUES (?,?,'staff',?)").run(w,'worker',f.staffId);const staff=await browserAdapter(db,'worker');await assert.rejects(staff.ui.act('staff-active',f.staffId),/Manager access/);
+ }finally{db.sqlite.close()}
 });

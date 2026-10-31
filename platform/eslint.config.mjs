@@ -5,6 +5,16 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    // Discarding named sensitive fields before returning the rest is deliberate.
+    rules: {"@typescript-eslint/no-unused-vars": ["warn", {ignoreRestSiblings: true}]},
+  },
+  {
+    // Plain browser asset, not a Next client component. Full navigation after
+    // workspace deletion is intentional and clears the deleted workspace UI.
+    files: ["public/workspace.js"],
+    rules: {"@next/next/no-location-assign-relative-destination": "off"},
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

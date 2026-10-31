@@ -219,3 +219,12 @@ test('subscription controls preserve the disabled pilot and remain manager-only'
  await expect(page.getByRole('button',{name:'Subscription & billing',exact:true})).toHaveCount(0);
  const billing=await context.request.get('/api/quenvira/workspaces/'+workspaceId+'/subscription');expect(billing.status()).toBe(403);await fits(page);
 });
+
+test('staff deactivation preserves profile history and reactivation persists at this viewport',async({page,context})=>{
+ await page.goto('/workspace.html');await addStaff(page);const before=await state(context),id=before.state.staff[0].id;
+ await page.getByRole('button',{name:'Deactivate',exact:true}).click();await expect(page.getByRole('button',{name:'Reactivate',exact:true})).toBeVisible();
+ await page.reload();await ready(page);await expect(page.locator('main')).toContainText('Inactive · history retained');
+ const inactive=await state(context);expect(inactive.state.staff).toHaveLength(1);expect(inactive.state.staff[0].id).toBe(id);expect(inactive.state.staff[0].active).toBe(false);await fits(page);
+ await page.getByRole('button',{name:'Reactivate',exact:true}).click();await expect(page.getByRole('button',{name:'Deactivate',exact:true})).toBeVisible();await page.reload();await ready(page);
+ const active=await state(context);expect(active.state.staff[0].id).toBe(id);expect(active.state.staff[0].active).toBe(true);await fits(page);
+});

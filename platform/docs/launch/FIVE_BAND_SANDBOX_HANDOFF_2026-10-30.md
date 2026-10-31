@@ -1,29 +1,29 @@
 # Quenvira five-band sandbox catalogue — 30 October 2026
 
 ## Verified Stripe sandbox prices (not live)
-All prices independently read back from CCS Creative Technologies sandbox `acct_1USzoBJMLR8T7SSt`. All are active, GBP, monthly, licensed, quantity-one-compatible, tax-inclusive, and `livemode=false`.
+All prices were independently read back from the existing authorized sandbox. Actual provider identifiers are omitted from this public guide; configure distinct verified IDs privately. All are active, GBP, monthly, licensed, quantity-one-compatible, tax-inclusive, and `livemode=false`.
 
 | Plan | Owner-inclusive people | Amount | Stripe price |
 | --- | ---: | ---: | --- |
-| Solo | 1 | £7.99 | `price_1UW0L9JMLR8T7SStNkWagSBr` |
-| Team 5 | 5 | £14.99 | `price_1UW0LTJMLR8T7SStIAuvDVo5` |
-| Team 10 | 10 | £24.99 | `price_1UW41bJMLR8T7SStSqQOLu59` |
-| Team 15 | 15 | £32.99 | `price_1UW41dJMLR8T7SStq0WvjzwR` |
-| Team 20 | 20 | £39.99 | `price_1UW41fJMLR8T7SSt4309KNQp` |
+| Solo | 1 | £7.99 | `CONFIGURE_IN_SECURE_ENVIRONMENT` |
+| Team 5 | 5 | £14.99 | `CONFIGURE_IN_SECURE_ENVIRONMENT` |
+| Team 10 | 10 | £24.99 | `CONFIGURE_IN_SECURE_ENVIRONMENT` |
+| Team 15 | 15 | £32.99 | `CONFIGURE_IN_SECURE_ENVIRONMENT` |
+| Team 20 | 20 | £39.99 | `CONFIGURE_IN_SECURE_ENVIRONMENT` |
 
 The first two existed already; the remaining three were created and read back in sandbox on 30 October. This is a catalogue verification, not a successful Checkout, portal, renewal, Bacs, or hosted entitlement test.
 
 ## Hosted application activation — controlled test only
 
-The current platform code `platform/server/plans.mjs` already implements `solo-team-v2` and checks distinct server-side price IDs, maximum people, and plan entitlement. Set these non-secret test configuration values on an **isolated hosted test deployment**, not on the existing owner's active workspace:
+The current platform code `platform/server/plans.mjs` already implements `solo-team-v2` and checks distinct server-side price IDs, maximum people, and plan entitlement. Replace each placeholder with its distinct verified existing sandbox identifier and set these test configuration values on an **isolated hosted test deployment**, not on the existing owner's active workspace:
 
 ```text
 QUENVIRA_PLAN_CATALOG=solo-team-v2
-STRIPE_SOLO_PRICE_ID=price_1UW0L9JMLR8T7SStNkWagSBr
-STRIPE_TEAM_PRICE_ID=price_1UW0LTJMLR8T7SStIAuvDVo5
-STRIPE_TEAM10_PRICE_ID=price_1UW41bJMLR8T7SStSqQOLu59
-STRIPE_TEAM15_PRICE_ID=price_1UW41dJMLR8T7SStq0WvjzwR
-STRIPE_TEAM20_PRICE_ID=price_1UW41fJMLR8T7SSt4309KNQp
+STRIPE_SOLO_PRICE_ID=CONFIGURE_IN_SECURE_ENVIRONMENT
+STRIPE_TEAM_PRICE_ID=CONFIGURE_IN_SECURE_ENVIRONMENT
+STRIPE_TEAM10_PRICE_ID=CONFIGURE_IN_SECURE_ENVIRONMENT
+STRIPE_TEAM15_PRICE_ID=CONFIGURE_IN_SECURE_ENVIRONMENT
+STRIPE_TEAM20_PRICE_ID=CONFIGURE_IN_SECURE_ENVIRONMENT
 ```
 
 Preserve `QUENVIRA_BILLING_MODE=test`, `QUENVIRA_SELF_SERVE=no`, existing owner test account and trial mappings. Keep secrets in the host secret manager, not source. Confirm the sandbox Customer Portal allows only approved five prices and explicitly verify upgrade/downgrade, prorations, limits and failed payment handling before activating the catalogue on any existing workspace. Do not set live launch approval flags.

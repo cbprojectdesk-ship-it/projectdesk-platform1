@@ -1,0 +1,62 @@
+{
+  "mode": "test",
+  "source": "Read-only provider retrieval of existing fictional sandbox fixtures",
+  "sessions": [
+    {
+      "plan": "solo",
+      "amountPence": 799,
+      "currency": "gbp",
+      "status": "expired",
+      "paymentStatus": "unpaid",
+      "subscription": null,
+      "invoice": null,
+      "checkoutUrl": null
+    },
+    {
+      "plan": "team",
+      "amountPence": 1499,
+      "currency": "gbp",
+      "status": "expired",
+      "paymentStatus": "unpaid",
+      "subscription": null,
+      "invoice": null,
+      "checkoutUrl": null
+    },
+    {
+      "plan": "team10",
+      "amountPence": 2499,
+      "currency": "gbp",
+      "status": "expired",
+      "paymentStatus": "unpaid",
+      "subscription": null,
+      "invoice": null,
+      "checkoutUrl": null
+    },
+    {
+      "plan": "team15",
+      "amountPence": 3299,
+      "currency": "gbp",
+      "status": "expired",
+      "paymentStatus": "unpaid",
+      "subscription": null,
+      "invoice": null,
+      "checkoutUrl": null
+    },
+    {
+      "plan": "team20",
+      "amountPence": 3999,
+      "currency": "gbp",
+      "status": "expired",
+      "paymentStatus": "unpaid",
+      "subscription": null,
+      "invoice": null,
+      "checkoutUrl": null
+    }
+  ],
+  "limitations": [
+    "No completed card checkout or new subscription payment was performed.",
+    "Connector authorization does not prove hosted restricted-key permissions.",
+    "Dynamic payment method options were provider-selected; card or bank-debit acceptance is not established by session creation."
+  ],
+  "observedDate": "2026-10-30"
+}

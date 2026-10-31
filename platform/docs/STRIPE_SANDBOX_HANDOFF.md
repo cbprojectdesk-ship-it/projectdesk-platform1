@@ -1,39 +1,11 @@
-# Stripe sandbox handoff — 22 October 2026
+# Stripe sandbox handoff
 
-Stripe account: CCS Creative Technologies sandbox (test mode only).
+Use existing authorized sandbox products and secure configuration. Historical catalogue proposals are superseded by `launch/FIVE_BAND_SANDBOX_HANDOFF_2026-10-30.md`. No provider object identifiers or credentials are supplied in this public example.
 
-## Existing implementation
-The production-candidate backend already includes `server/subscriptions.mjs` with authenticated checkout, 14-day trial, portal, signed webhooks and server-side entitlement enforcement. Do not replace this with client-only payment status or a success-page trust check.
+The backend handles authenticated Checkout, Customer Portal, signed webhooks and server-side entitlements. Never trust a return URL as payment evidence or implement client-only payment status. A connected Stripe account does not prove that the hosted restricted key has matching permissions.
 
-## Stripe objects created in sandbox
-- Starter product `prod_VU888rxSugP0En`
-- **Configured code-compatible Starter price:** `price_1UT9u1JMLR8T7SStIPxJ4aTy` — GBP 19.00 monthly, tax_behavior inclusive.
-- Growth product `prod_VU88kCUrrXXJh5`, test price `price_1UT9sPJMLR8T7SStL07MiIgY` (£39 monthly).
-- Professional product `prod_VU88xXt20kIPCw`, test price `price_1UT9sRJMLR8T7SStsxHUJPQM` (£79 monthly).
-- Customer portal configuration `bpc_1UT9sgJMLR8T7SStvLOSiTss`: invoice history, payment method update, period-end cancellation, price changes.
+Start with `.env.example`; leave live billing and self-service disabled. Populate only the isolated authorized environment through existing secure facilities. Verify fixed GBP monthly prices, sandbox binding, signature secret and compatible API version. Do not reuse an unspecified-tax price where the code requires inclusive tax behavior.
 
-**Important:** The first Starter test price `price_1UT9sOJMLR8T7SStLVrWsFVT` had unspecified tax behavior. Do **not** use it with current code; `verifyPrice()` explicitly requires inclusive. Growth and Professional are provisional catalogue entries; current server code allows only the £19 Starter price. Do not advertise plan switching or publish other tiers until plan-aware authorization, entitlement, tests and commercial terms are implemented.
+Webhook configuration must cover Checkout completion/asynchronous outcomes, subscription create/update/delete and invoice paid/failed events. Obtain the exact deployed handler URL from the authorized source/host configuration, and verify real signatures. Never put signing secrets in this document.
 
-## Deployment environment (secrets must be stored in hosting secret manager)
-```text
-QUENVIRA_BILLING_MODE=test
-STRIPE_RESTRICTED_KEY=<rk_test_... from Stripe, NEVER commit>
-STRIPE_WEBHOOK_SECRET=<whsec_... from configured test webhook, NEVER commit>
-STRIPE_PRICE_ID=price_1UT9u1JMLR8T7SStIPxJ4aTy
-STRIPE_PORTAL_CONFIGURATION=bpc_1UT9sgJMLR8T7SStvLOSiTss
-QUENVIRA_TERMS_VERSION=2026-10-22
-QUENVIRA_SITE_ORIGIN=<verified HTTPS application origin, no trailing slash>
-QUENVIRA_SELF_SERVE=no
-```
-
-Webhook endpoint: `https://<verified application origin>/api/quenvira/subscription-webhook`. Subscribe to checkout.session.completed, checkout.session.async_payment_succeeded, checkout.session.async_payment_failed, customer.subscription.created, customer.subscription.updated, customer.subscription.deleted, invoice.paid and invoice.payment_failed. Verify the endpoint is publicly reachable through hosting routing, while the webhook handler remains signature-verified.
-
-## Release gates
-1. Verify hosted identity, tenant isolation and D1 persistence on deployed test origin.
-2. Verify the Stripe test secret is securely injected and the webhook endpoint signature checks pass.
-3. Test 14-day trial, Stripe-hosted Checkout, payment confirmation, account access, cancellation, failed payment, retries, webhook replay and late delivery. Do not trust redirect alone.
-4. Check portal behavior: the portal currently permits price changes but code validates only one Starter price. Restrict portal to Starter until plan-aware implementation is complete.
-5. Validate browser/device, accessibility, privacy terms, backup/restore, incident response and production invoicing requirements in `docs/RELEASE_STATUS.md`.
-6. Keep `QUENVIRA_BILLING_MODE=test`; do not enable live or paid launch without passing gates. No real customer charges.
-
-Stripe account connection through ChatGPT is **not** equivalent to deployment secrets being configured on the Quenvira hosting environment.
+Release gates: hosted identity and tenant isolation, Checkout completion, renewal, failed payment/recovery, replay/late delivery, cancellation, entitlement limits, portal behavior, mobile/accessibility, approved disclosures and independent recovery. Restrict portal plan changes until plan-aware acceptance passes. Keep test mode; do not enable live collection.
