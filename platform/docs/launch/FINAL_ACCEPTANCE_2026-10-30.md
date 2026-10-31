@@ -4,7 +4,7 @@ Status: NOT READY for paid public onboarding. No live billing, customer invoice 
 
 ## Reconciled managed-host candidate
 
-The actual managed-host source is `9738e6ce02eb68c3d3795e08617c332be8683d24`, version 57. The GitHub main tree is not a replacement for its hosting configuration. `MANAGED_HOST_CANDIDATE_2026-10-30.patch` applies to that exact source (verified with `git apply --check`). SHA-256: `9e6c68bb0d98cec8d80c07fc88b8a0bee48786750197695fb9468fe48fa44bcf`.
+The actual managed-host source is `9738e6ce02eb68c3d3795e08617c332be8683d24`, version 57. The GitHub main tree is not a replacement for its hosting configuration. `MANAGED_HOST_CANDIDATE_2026-10-30.patch` applies to that exact source (verified with `git apply --check`). SHA-256: `49d1b4b69dbfc9632aabf8180b36d7bf334f6bc72c37a1a89187892f40172981`.
 
 The patch reconciles this PR's staff access, bounded diagnostics, test acknowledgement, backup verifier and dependency fixes with the hosted source. It excludes the standalone-only Access adapter and its tests. It preserves the actual hosting manifest, D1/R2 bindings, managed sign-in, Worker adapter, source project and existing pilot billing configuration. No SQL migration is included. This is reviewable source, not a deployment or backup.
 
@@ -28,3 +28,12 @@ Provider reads reconfirmed the existing five sandbox prices and matching expired
 - Owner approval of final commercial terms and later separate live activation. No legal or regulatory compliance certification is claimed.
 
 Phone inventory and deferred owner encrypted-backup/download instructions are in the private CCS continuation report. Do not publish a pending number or export production secrets.
+
+
+## Recovery concurrency correction — 31 October 2026
+
+Supersedes the managed candidate test count above: 288 tests passed, zero failed/cancelled/skipped, after four new recovery regressions. Snapshot reads now share a SQLite savepoint; rollback/release preserves an outer caller transaction. Restore requires its own connection outside a transaction and obtains BEGIN IMMEDIATE before checking target emptiness, preventing a concurrent writer from invalidating that check. Tests use disposable fictional SQLite files and a second concurrent connection. No production export, encrypted owner backup or hosted restore was performed.
+
+The rebuilt managed candidate passed production build, syntax and git diff --check; full ESLint exited zero with two pre-existing image warnings. The regenerated patch applies cleanly to pristine managed baseline 9738e6ce02eb68c3d3795e08617c332be8683d24, SHA-256 49d1b4b69dbfc9632aabf8180b36d7bf334f6bc72c37a1a89187892f40172981. This patch preserves managed identity/storage configuration and contains the pending hardening plus recovery correction. Fresh GitHub CI on the new head must finish; earlier-head results are historical. Full managed D1/R2 export and isolated restore acceptance remain unverified.
+
+Independent review request #56 remains open and unassigned. No human approval, merge, deployment, secret/permission change, production/customer email or live billing is authorised by this correction.
