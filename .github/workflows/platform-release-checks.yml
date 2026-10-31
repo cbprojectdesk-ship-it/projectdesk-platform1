@@ -33,3 +33,7 @@ jobs:
         run: node node_modules/typescript/bin/tsc --noEmit
       - name: Production build
         run: npm run build
+      - name: Staging package dry run (no deployment)
+        env:
+          WRANGLER_SEND_METRICS: 'false'
+        run: pnpm staging:check
