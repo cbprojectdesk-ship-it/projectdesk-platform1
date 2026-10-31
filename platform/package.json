@@ -13,7 +13,9 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
     "test": "node --test tests/*.test.mjs",
-    "check": "node --check server/api.mjs && node --check server/domain.mjs && node --check public/workspace.js"
+    "check": "node --check server/api.mjs && node --check server/domain.mjs && node --check public/workspace.js",
+    "staging:prepare": "node scripts/prepare-staging-package.mjs",
+    "staging:check": "pnpm staging:prepare && wrangler deploy --dry-run --config dist/server/wrangler.staging.json"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
