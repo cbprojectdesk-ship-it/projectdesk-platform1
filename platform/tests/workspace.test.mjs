@@ -133,6 +133,19 @@ test('unsaved changes can be kept when closing or navigating, then discarded exp
  h.context.confirm=()=>false;await h.ui.act('close');assert.equal(h.elements.get('#modal').open,true);h.navigate('#team');assert.equal(h.elements.get('#modal').open,true);assert.match(h.elements.get('#app').innerHTML,/Let’s set up your working day/);
  h.context.confirm=()=>true;await h.ui.act('close');assert.equal(h.elements.get('#modal').open,false);warned=false;h.emit('beforeunload',{preventDefault(){warned=true}});assert.equal(warned,false);db.sqlite.close();
 });
+test('discarding a rejected booking clears its warning without hiding an uncertain saved change',async()=>{
+ const db=database();try{
+  const w=await setup(db),f=await fixtures(db,w);await command(db,w,'job.save',job(f));const h=await browserAdapter(db);
+  h.ui.formJob();h.emit('input',{target:{readOnly:false,closest:()=>({dataset:{form:'job'}})}});
+  await assert.rejects(()=>h.ui.command('job.save',job(f)),/overlapping/);assert.equal(h.elements.get('#save-status').textContent,'Changes not saved');
+  h.context.confirm=()=>false;await h.ui.act('close');assert.equal(h.elements.get('#modal').open,true);assert.equal(h.elements.get('#save-status').textContent,'Changes not saved');
+  h.context.confirm=()=>true;await h.ui.act('close');assert.equal(h.elements.get('#save-status').textContent,'Up to date');assert.equal(h.ui.data().state.jobs.length,1);
+  h.ui.formCustomer();h.control.dropNextResponse=true;const values={...customer,name:'Fictional uncertain save'};
+  await assert.rejects(()=>h.ui.command('customer.save',values),/Connection lost/);await h.ui.act('close');assert.equal(h.elements.get('#save-status').textContent,'Check your last update');
+  await assert.rejects(()=>h.ui.command('staff.add',{name:'Blocked',role:'Cleaner',capacity:480}),/unconfirmed/);
+  await h.ui.command('customer.save',values);assert.equal(h.ui.data().state.customers.filter(c=>c.name===values.name).length,1);assert.equal(h.elements.get('#save-status').textContent,'All changes saved');
+ }finally{db.sqlite.close()}
+});
 test('save feedback identifies an uncertain update and resolves after replay without duplicating records',async()=>{
  const db=database();await setup(db);const h=await browserAdapter(db);h.control.dropNextResponse=true;
  await assert.rejects(()=>h.ui.command('staff.add',{name:'Saved once',role:'Cleaner',capacity:480}),/Connection lost/);assert.equal(h.elements.get('#save-status').textContent,'Check your last update');

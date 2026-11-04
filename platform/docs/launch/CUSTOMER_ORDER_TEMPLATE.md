@@ -1,10 +1,10 @@
 # Quenvira business order and processing schedule
 
-Release candidate updated 30 October 2026. Complete and agree this order before admitting a real customer. This template is not a signed contract or permission to activate billing.
+Release candidate updated 4 November 2026. Complete and agree this order before admitting a real customer. This template is not a signed contract or permission to activate billing.
 
 ## Parties and authority
 
-Supplier: Charles Buckton trading as CCS Creative Technologies, UK sole trader. Use the current authorised correspondence address from the subscription terms. Notices/support: ccscreativetech@gmail.com.
+Supplier: Charles Buckton trading as CCS Creative Technologies, UK sole trader. Use the current authorised correspondence address from the subscription terms. Notices/support: ccscreativetech@gmail.com. Website: https://ccscreativetech.co.uk.
 
 Customer legal/trading name: **[complete]**  
 Business address: **[complete]**  

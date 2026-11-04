@@ -1,3 +1,101 @@
+diff --git a/app/page.tsx b/app/page.tsx
+index fc2ed8a..56e6109 100644
+--- a/app/page.tsx
++++ b/app/page.tsx
+@@ -10,7 +10,7 @@ export default async function Home(){
+  <section className="hero" aria-labelledby="hero-title"><div><p className="eyebrow">QUENVIRA · BY CCS CREATIVE TECHNOLOGIES</p><h1 id="hero-title">A clearer day.<br/>A better-run<br/>business.</h1><p className="intro">Keep your customers, recurring visits, team and invoices together. Built around the working day of a small cleaning or service business.</p><div className="hero-actions"><a className="button" href="/demo/index.html">Try the fictional demo →</a><a className="text-link" href="mailto:ccscreativetech@gmail.com?subject=Quenvira%20early%20access%20enquiry">Ask about early access →</a></div><p className="small">Public preview · No payment required · Demo records stay in your browser</p></div>
+  <div className="day-card" aria-label="Illustrative working day, fictional example"><div className="day-heading"><span>YOUR WORKING DAY</span><span className="example-label">Fictional example</span></div><h2>Everything has its place.</h2><ol><li><span className="step-number">01</span><div><strong>Plan the visits</strong><p>Customers, dates, repeat visits and availability.</p></div></li><li><span className="step-number">02</span><div><strong>Give your team clarity</strong><p>Assigned work, locations and customer checklists.</p></div></li><li><span className="step-number">03</span><div><strong>Finish and follow through</strong><p>Visit notes, completed work and invoice records.</p></div></li></ol><a href="/demo/index.html">Explore the working example →</a></div></section>
+  <section id="how-it-works" className="workflow" aria-labelledby="workflow-title"><p className="eyebrow">FROM FIRST BOOKING TO FINISHED VISIT</p><h2 id="workflow-title">Less searching. More getting on.</h2><div className="workflow-grid"><article><span>01 / ORGANISE</span><h3>A place for the details</h3><p>Keep customer service details and task checklists together. Set up staff profiles and working capacity before you book.</p></article><article><span>02 / SCHEDULE</span><h3>A plan your team can follow</h3><p>Book one-off or finite batches of repeat visits. Assign a team member, check clashes, and change or pause future visits.</p></article><article><span>03 / COMPLETE</span><h3>A record of the work</h3><p>Staff see assigned visits and record progress. Managers can prepare invoices, issue credits and record payments received elsewhere.</p></article></div></section>
+- <section id="access" className="access-panel" aria-labelledby="access-title"><div><p className="eyebrow">EXPLORE NOW · BUSINESS ACCESS BY INVITATION</p><h2 id="access-title">See if Quenvira fits your day.</h2><p>The public demo uses invented businesses and records. You can explore it without signing in. Please keep any changes fictional.</p><p>Server-backed business workspaces remain an invitation-only pilot while subscription billing and the remaining operational checks are completed. Paid subscriptions and production customer-data onboarding are not open yet.</p><a className="button" href="mailto:ccscreativetech@gmail.com?subject=Quenvira%20early%20access%20enquiry">Contact CCS about Quenvira →</a><p className="small">This opens your email app. Send your business type, team size and what you need help organising. Nothing is sent automatically.</p></div><aside className="access-facts"><h3>Before you try it</h3><ul><li>Browser-based; no app-store download.</li><li>Invited workspace users sign in with ChatGPT.</li><li>Business records are protected by server-side membership checks.</li><li>Invoice email uses your email app; delivery is not tracked.</li><li>Independent encrypted backups are manual.</li><li>No card collection, automatic renewal or live price list.</li></ul><a href="/legal.html">Read business, privacy and pilot information →</a></aside></section>
++ <section id="access" className="access-panel" aria-labelledby="access-title"><div><p className="eyebrow">EXPLORE NOW · BUSINESS ACCESS BY INVITATION</p><h2 id="access-title">See if Quenvira fits your day.</h2><p>The public demo uses invented businesses and records. You can explore it without signing in. Please keep any changes fictional.</p><p>Server-backed business workspaces remain an invitation-only pilot while subscription billing and the remaining operational checks are completed. Paid subscriptions and production customer-data onboarding are not open yet.</p><a className="button" href="mailto:ccscreativetech@gmail.com?subject=Quenvira%20early%20access%20enquiry">Contact CCS about Quenvira →</a><p className="small">This opens your email app. Send your business type, team size and what you need help organising. Nothing is sent automatically.</p></div><aside className="access-facts"><h3>Before you try it</h3><ul><li>Browser-based; no app-store download.</li><li>Invited workspace users sign in with ChatGPT.</li><li>Business records are protected by server-side membership checks.</li><li>Invoice copies can be prepared in your email app. Server delivery tracking remains restricted to approved fictional testing.</li><li>Independent encrypted backups are manual.</li><li>No card collection, automatic renewal or live price list.</li></ul><a href="/legal.html">Read business, privacy and pilot information →</a></aside></section>
+  <section className="pilot-entry" aria-label="Existing pilot accounts"><h2>Already testing Quenvira?</h2>{user?<><a href="/workspace.html">Open your workspace →</a><p className="small">Signed in as {user.email}. <a href={chatGPTSignOutPath('/')} target="_top">Sign out</a></p></>:<><p>Use the account on your pilot invitation. Signing in alone does not grant access to a business.</p><a href={chatGPTSignInPath('/workspace.html')} target="_top">Sign in with ChatGPT →</a></>}</section>
+- </main><footer className="site-footer"><div className="landing-credit"><img src="/ccs-mark.svg" alt="" width="32" height="32"/><span>Quenvira · Created by <strong>CCS Creative Technologies</strong></span></div><div><a href="/legal.html">Business &amp; privacy</a><a href="mailto:ccscreativetech@gmail.com">Contact CCS</a></div></footer></>
++ </main><footer className="site-footer"><div className="landing-credit"><img src="/ccs-mark.svg" alt="" width="32" height="32"/><span>Quenvira · Created by <strong>CCS Creative Technologies</strong></span></div><div><a href="/legal.html">Business &amp; privacy</a><a href="https://ccscreativetech.co.uk">CCS website</a><a href="mailto:ccscreativetech@gmail.com">Contact CCS</a></div></footer></>
+ }
+diff --git a/docs/launch/BUSINESS_AND_DATA_SCHEDULE.md b/docs/launch/BUSINESS_AND_DATA_SCHEDULE.md
+index 0f313fb..128bed2 100644
+--- a/docs/launch/BUSINESS_AND_DATA_SCHEDULE.md
++++ b/docs/launch/BUSINESS_AND_DATA_SCHEDULE.md
+@@ -1,19 +1,33 @@
+ # Quenvira business and customer-data schedule — prepared for review
+ 
+-Date: 21 October 2026. This schedule does not itself form a customer contract and is not an instruction to commence billing.
++Prepared catalogue update: 4 November 2026; supplier details retained from 21 October 2026. This schedule does not itself form a customer contract and is not an instruction to commence billing.
+ 
+ ## Supplier identity
+ 
+ Charles Buckton trading as CCS Creative Technologies, sole trader.
+ 78 Seaton Way, Southport, PR9 9GP, United Kingdom.
+ ccscreativetech@gmail.com — business, privacy, security and contract notices.
+-Owner/controller contact: Charles Buckton. No shares, ownership rights or spending authority have been allocated to anyone else. No limited-company incorporation or company number is asserted. The owner confirmed on 23 October 2026 that CCS is not UK VAT registered; do not add VAT to the proposed £19 total monthly subscription price.
++Owner/controller contact: Charles Buckton. No shares, ownership rights or spending authority have been allocated to anyone else. No limited-company incorporation or company number is asserted. The owner confirmed on 23 October 2026 that CCS is not UK VAT registered; do not add VAT to the prepared Solo and Team monthly subscription prices.
+ 
+ Business address currently uses the home address at the owner's request. No paid virtual office, registered-office or mail-forwarding service is ordered. Revisit after reliable income. A later change needs updating on legal notices, orders, invoices, banking and supplier records as applicable.
+ 
+ ## Current commercial position
+ 
+-Invitation-only pilot with sandbox billing. No live recurring payment collection, automatic renewal or paid order acceptance is enabled. The prepared UK business offer is one plan at £19 total per business per month, with a once-only 14-day card-free app trial. CCS is not VAT registered, so no VAT is added. Earlier £29/£59/£99 tiers are retired proposals and must not be advertised as implemented plans. Complete the customer order and processing schedule before any paid start.
++Invitation-only pilot; live billing and paid onboarding remain closed. Prepared future orders use the approved catalogue below. The old £19 sandbox mapping is historical test configuration, not the launch offer. CCS is not VAT registered under the owner's existing declaration; no VAT is added. Confirm that factual status before a paid order.
++
++| Plan | Total monthly price | Total people, including owner | Maximum independent staff sign-ins |
++| --- | --- | --- | --- |
++| Solo | £7.99 | 1 | 0 |
++| Team 5 | £14.99 | 5 | 4 |
++| Team 10 | £24.99 | 10 | 9 |
++| Team 15 | £32.99 | 15 | 14 |
++| Team 20 | £39.99 | 20 | 19 |
++
++Active staff-profile allowances are 1/5/10/15/20 respectively, including the owner if recorded as a worker; retained inactive profiles do not consume this allowance. Sign-in limits are enforced separately. Above twenty people requires a tailored quote. Business/Pro/Enterprise functions are not an available plan or a promise of implemented functionality.
++
++The once-only 14-day app trial requires no card and does not automatically become paid. Paid service requires deliberate customer agreement and completed Stripe Checkout. Proposed immediate prorated upgrades, end-of-period cheaper plans and cancellation still require final commercial approval and hosted acceptance. Exceeding a limit never purchases an upgrade automatically. Complete the customer order and processing schedule before any paid start.
++
++Website: https://ccscreativetech.co.uk . Support: ccscreativetech@gmail.com.
+ 
+ Paid-order fields to complete: customer legal/trading name and contact; adult authorised business decision-maker; actual workflow and capacity limits; hosted access arrangement; start and billing dates; total price and VAT treatment; payment method after bank approval; initial term/cancellation; export/exit window; support channel and realistic response arrangement; any separately agreed website work. Do not promise online payments, automatic email delivery, unlimited storage, accounting integration, native phone app distribution or 24-hour support.
+ 
+@@ -58,7 +72,7 @@ Customer identity, instructions, provider details and the parties' agreement mus
+ - HMRC: check existing Self Assessment registration and total gross trading income across all relevant business activities. Do not create a duplicate tax registration or assume Quenvira alone determines obligations. Use https://www.gov.uk/become-sole-trader/register-sole-trader .
+ - ICO: complete the official fee self-assessment for actual controller activities and retain the outcome. Do not assume either automatic exemption or a fee requirement. No fee has been paid. https://ico.org.uk/for-organisations/data-protection-fee/data-protection-fee-self-assessment/ .
+ - Banking: Charles reported opening Monzo Business Lite on 21 October. Live Stripe connection/payout mapping has not been verified; retain live billing off. No bank account is opened or changed by this work.
+-- VAT: owner confirmed not VAT registered on 23 October 2026; reflect this in CCS invoices and the £19 total subscription offer. Do not add VAT just because the software can calculate it for a VAT-registered customer business.
++- VAT: owner confirmed not VAT registered on 23 October 2026; reflect this in CCS invoices and the prepared Solo and Team subscription offer. Do not add VAT just because the software can calculate it for a VAT-registered customer business.
+ - Naming/IP: trading name chosen; registry/trademark clearance is not certified. No registration or trademark filing has been purchased.
+ - Final order/terms: keep a dated copy of the agreed version and customer authority. Review any liability cap, renewal, support commitment and customer-specific risk before making them contractual.
+ 
+diff --git a/docs/launch/CUSTOMER_ORDER_TEMPLATE.md b/docs/launch/CUSTOMER_ORDER_TEMPLATE.md
+index d89721a..320358e 100644
+--- a/docs/launch/CUSTOMER_ORDER_TEMPLATE.md
++++ b/docs/launch/CUSTOMER_ORDER_TEMPLATE.md
+@@ -1,10 +1,10 @@
+ # Quenvira business order and processing schedule
+ 
+-Release candidate updated 29 October 2026. Complete and agree this order before admitting a real customer. This template is not a signed contract or permission to activate billing.
++Release candidate updated 4 November 2026. Complete and agree this order before admitting a real customer. This template is not a signed contract or permission to activate billing.
+ 
+ ## Parties and authority
+ 
+-Supplier: Charles Buckton trading as CCS Creative Technologies, UK sole trader. Use the current authorised correspondence address from the subscription terms. Notices/support: ccscreativetech@gmail.com.
++Supplier: Charles Buckton trading as CCS Creative Technologies, UK sole trader. Use the current authorised correspondence address from the subscription terms. Notices/support: ccscreativetech@gmail.com. Website: https://ccscreativetech.co.uk.
+ 
+ Customer legal/trading name: **[complete]**  
+ Business address: **[complete]**  
+@@ -15,14 +15,14 @@ No medical, safeguarding or children's records are included in this service.
+ 
+ ## Offer to confirm
+ 
+-- Select one UK business workspace: **Solo £7.99 total monthly**, one owner-operator and no staff sign-in; or **Team £14.99 total monthly**, with staff sign-in. Included Team staff-record allowance: **[agree and configure after capacity/cost review]**. These replace the old £19 proposal for future orders; the current sandbox configuration is unchanged. CCS is not VAT registered; no VAT is added. Larger subscriptions stay shelved; tailored work requires its own written proposal.
++- Select one UK business workspace: **Solo £7.99/month** (one owner-operator, no independent staff sign-in); **Team 5 £14.99/month** (owner plus up to four staff sign-ins); **Team 10 £24.99/month** (owner plus nine); **Team 15 £32.99/month** (owner plus fourteen); or **Team 20 £39.99/month** (owner plus nineteen). All people allowances include the owner. Above twenty people requires a separately agreed tailored quotation, with no automatic enterprise checkout. These are the owner-approved catalogue figures for prepared future orders; they are not activation of any paid offer or a change to existing sandbox subscriptions. Under the existing owner declaration, CCS is not VAT registered and no VAT is added; reassess tax treatment if that factual status changes before an order.
+ - Once-only 14-day card-free app trial. It does not automatically become a paid subscription. Paid service requires the customer's deliberate agreement and Stripe Checkout completion.
+ - Monthly renewal; cancellation through Manage subscription at period end. The app shows the scheduled end date. Viewing/export and available access-revocation/recovery controls remain available after routine editing ends, subject to the agreed exit arrangements.
+ - Scope: customer records, permitted assigned staff, finite recurring visits, checklists/notes, itemised quotes, availability/time-off, private visit photos, in-app notifications and invoice/credit records and manual exports/encrypted backups. One worker per visit. Workspace document limit 512 KiB; backup plaintext limit 20 MiB. Check these limits against the customer's expected use.
+ - Automatic customer invoice email remains excluded unless separately approved and added to the agreed scope. Online collection of service-customer payments, accounting integrations, unlimited storage and native app-store distribution are excluded.
+ - Support by ccscreativetech@gmail.com. No 24/7, response-time, uptime or recovery-time guarantee is offered. Any additional support promise must be expressly agreed rather than inferred.
+ 
+-Selected plan, included staff records and accepted terms version: **[complete]**
++Selected plan, total active people including owner, independent staff sign-in allowance and accepted terms version: **[complete]**
+ Trial/start date: **[complete]**  
+ First paid billing date and monthly renewal basis: **[complete]**  
+ Exit/export window and requested active-record deletion date: **[complete]**  
 diff --git a/eslint.config.mjs b/eslint.config.mjs
 index 1c56c01..5df3e11 100644
 --- a/eslint.config.mjs
@@ -716,6 +814,33 @@ index fb9c27d..bcffd00 100644
    js-yaml: 4.3.2
    '@babel/core': 7.29.6
    brace-expansion@1: 1.1.21
+diff --git a/public/legal.html b/public/legal.html
+index b49fe07..129ed0e 100644
+--- a/public/legal.html
++++ b/public/legal.html
+@@ -1,10 +1,10 @@
+ <!doctype html>
+ <html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'"><meta name="referrer" content="no-referrer"><title>Business, privacy and terms · Quenvira</title><link rel="stylesheet" href="/legal.css"></head>
+ <body><a class="skip" href="#main">Skip to content</a><header><a href="/"><img src="/quenvira-logo.svg" alt="Quenvira" width="190" height="45"></a><a href="/workspace.html">Workspace</a></header>
+-<main id="main" tabindex="-1"><p class="eyebrow">BUSINESS &amp; PRIVACY · UPDATED 28 OCTOBER 2026</p><h1>Your data. Clear responsibilities.</h1>
++<main id="main" tabindex="-1"><p class="eyebrow">BUSINESS &amp; PRIVACY · PREPARED UPDATE 4 NOVEMBER 2026</p><h1>Your data. Clear responsibilities.</h1>
+ <aside><strong>Public preview · invitation-only workspaces</strong><p>The operator details and privacy information below describe the current service. Paid subscriptions are not enabled. Use fictional job/customer details while final operational and customer-contract checks are completed. Real sign-in information and any uploaded portraits are still personal data and are covered by this notice.</p></aside>
+ <nav aria-label="Business and privacy topics"><a href="#operator">Business details</a><a href="#privacy">Privacy notice</a><a href="#backup">Backups &amp; deletion</a><a href="#terms">Pilot use</a><a href="#processing">Customer data agreement</a><a href="#subscription">Paid services</a></nav>
+-<section id="operator"><h2>Who operates Quenvira?</h2><p><strong>Charles Buckton trading as CCS Creative Technologies</strong>, a UK sole trader.</p><address>78 Seaton Way<br>Southport<br>PR9 9GP<br>United Kingdom</address><p>Business, privacy and security contact: <a href="mailto:ccscreativetech@gmail.com">ccscreativetech@gmail.com</a>.</p><p>Quenvira is created by CCS Creative Technologies. This is a trading name, not a statement that a limited company has been incorporated. No company registration number or VAT registration is represented on this page.</p></section>
++<section id="operator"><h2>Who operates Quenvira?</h2><p><strong>Charles Buckton trading as CCS Creative Technologies</strong>, a UK sole trader.</p><address>78 Seaton Way<br>Southport<br>PR9 9GP<br>United Kingdom</address><p>Website: <a href="https://ccscreativetech.co.uk">ccscreativetech.co.uk</a>. Business, privacy and security contact: <a href="mailto:ccscreativetech@gmail.com">ccscreativetech@gmail.com</a>.</p><p>Quenvira is created by CCS Creative Technologies. This is a trading name, not a statement that a limited company has been incorporated. No company registration number or VAT registration is represented on this page.</p></section>
+ <section id="privacy"><h2>Privacy notice</h2><h3>Our role and your business’s role</h3><p>Charles Buckton is responsible for information used to administer Quenvira accounts, respond to enquiries and protect the service. For customer and staff records entered by a business, that business decides why the information is needed and who may use it. The intended production arrangement is for CCS Creative Technologies to process those records on that business’s documented instructions, under a customer data-processing agreement.</p>
+ <h3>Information used and purposes</h3><ul><li>Sign-in identity, account email, workspace membership and access invitations: to identify authorised users, connect them to their business and manage access.</li><li>Business-entered names, customer contact/service addresses, staff roles, daily capacity, job schedules, notes and checklists: to organise and deliver the business’s work.</li><li>Optional staff portraits: to help identify assigned team members. Quenvira does not perform face recognition. The upload is resized and re-encoded to a small JPEG; the original file is not uploaded by the app.</li><li>Supplier details, invoice/credit records and manually recorded payment status: to prepare and manage the business’s documents. Recording payment does not move money.</li><li>Command identifiers, revision records and activity information: to prevent conflicting updates, diagnose faults and investigate misuse. The hosting/sign-in provider also processes service and device information under its own terms.</li></ul>
+ <h3>Lawful basis</h3><p>We use account and business-contact information where needed to provide the requested service or take requested steps towards it. Service security, account administration and support rely on legitimate interests, balanced against individuals’ rights. Legal obligations apply where required. A customer business must identify its own lawful basis, provide its staff and customers with appropriate information and give us lawful processing instructions. Uploading a photo is optional; a photo must not be uploaded without the appropriate authority and lawful basis.</p>
+@@ -13,6 +13,6 @@
+ <h3>Rights and complaints</h3><p>Contact <a href="mailto:ccscreativetech@gmail.com">ccscreativetech@gmail.com</a> to request access, correction, deletion, restriction, objection or portability where applicable, or to raise a privacy concern. We may need proportionate identity checks. For records held on behalf of your employer or a customer business, contact that business first; we will help it handle the request. Rights are subject to applicable conditions. You can complain to the <a href="https://ico.org.uk/make-a-complaint/">Information Commissioner’s Office</a>. Contact us if you require this information in another accessible format.</p></section>
+ <section><h2>Visit photos, availability and notifications</h2><p>Workspaces can store weekly staff availability, logistical time-off requests, private before/after visit photos and itemised quotes. Staff can access their own availability, requests, notifications and assigned visits/photos; managers can manage workspace records. Do not enter medical information in time-off notes or photograph people, private documents or unnecessary personal details. Images are resized and re-encoded before upload. Removed current photos can remain in private recovery storage until the workspace is deleted. Notifications retain up to the latest 100 workspace updates and are in-app only. Managers should apply their own documented retention policy and contact CCS for record-level erasure assistance.</p></section><section id="backup"><h2>Retention, backups and deletion</h2><p>Current workspace records remain while the workspace exists or until removed through the available controls. The app retains up to twenty prior database revisions and up to two hundred entries in the in-record activity list. Command/security metadata is retained with the workspace. These are not fixed time-based deletion schedules, and archiving a customer is not erasure: managers should request help with an individual erasure request where record-level deletion is required.</p><p>Managers can download an encrypted business backup containing current records and staff and visit photo files. It excludes sign-in permissions, invitations, previous revisions and provider logs. Encryption is performed on the manager’s device; the password is not sent to the app server. We cannot recover a lost backup password. Keep the file separately from this service and keep the password separately from the file. Downloaded backups are managed by the person who keeps them; workspace deletion cannot erase copies already downloaded.</p><p>Backups are manual. No automatic backup schedule or guaranteed recovery time is currently offered. Restoration is restricted to an empty workspace; it restores business records/photos and keeps the destination business name. Staff access must be granted again. A records-only JSON export omits photo files and is not a complete backup.</p><p>Deleting a workspace removes active application records, memberships, invitations, in-database recovery history and its stored photo objects. If object cleanup fails, operator follow-up is required. Provider security, backup or legally retained copies are governed by provider terms; immediate erasure of every infrastructure copy is not promised. We will assist with any required provider deletion request.</p></section>
+ <section id="terms"><h2>Private pilot use</h2><p>The public fictional demonstration is available without signing in. Server-backed workspaces are for invited adults testing business-service workflows. Signing in or visiting this page does not grant a business workspace. Access does not buy the software or transfer ownership of the platform. Customer businesses retain rights to their own information; the operator retains applicable rights in Quenvira and its documentation, subject to third-party/open-source licences.</p><p>Use only accounts and information you are authorised to use. Protect your account and do not share sign-in links, bypass permissions, upload malicious content or probe other businesses. Do not enter payment-card details, passwords, health/safeguarding records or other special-category information into this pilot. The service is not currently offered for medical, safeguarding or childcare-record processing.</p><p>Pilot access is not a paid subscription or an uptime guarantee. Stop using it at any time; managers can export and delete their workspace. Report faults or access concerns to the business contact above. No 24-hour support or guaranteed resolution time is offered. These descriptions do not exclude rights that cannot lawfully be excluded.</p></section>
+-<section id="processing"><h2>Customer data-processing agreement</h2><p>The <a href="/subscription-terms.html#processing">business terms and processing schedule dated 28 October 2026</a> set out the standard service instructions, people/data covered, duration, confidentiality, security, rights and incident assistance, provider authorisation, transfer disclosures, return/deletion and audit arrangements. Customer identity, authority and any variations are recorded in the onboarding order.</p><p>Visiting this page does not accept a contract. Live customer onboarding remains closed pending activation. An authorised manager must expressly accept the current terms before a live trial permits editing; accepting them starts no paid subscription.</p></section>
+-<section id="subscription"><h2>Paid services</h2><p>Live checkout, recurring charges and automatic renewal remain disabled. The proposed UK business subscription is £19 total per business per month; sandbox billing is available for verification only. CCS Creative Technologies is not registered for UK VAT, so no VAT is added to that proposed price. Any paid offer must state the actual scope, total price, VAT treatment, billing/start date, renewal and cancellation terms before the customer agrees. The operator will provide a copy of the agreed order and terms. Banking readiness, tax administration and ICO fee-assessment status must be checked before paid onboarding. VAT status was confirmed by the owner on 23 October 2026.</p></section>
+-<section><h2>Prepared subscription integration</h2><p>Live subscription billing remains inactive; sandbox billing is used for testing only. Managers can inspect its status in Settings. The <a href="/subscription-terms.html">standard business terms and processing schedule</a> describe the prepared £19 plan. Publishing these terms does not activate live checkout or a paid order. Once activated with agreed terms, minimum trial/billing mappings and acceptance records are retained separately from workspace content so deletion cannot silently detach a subscription or restart a trial. Payment details are handled by Stripe; payment-provider records follow its retention arrangements.</p></section></main><footer>Quenvira · Created by CCS Creative Technologies · Privacy notice updated 28 October 2026</footer></body></html>
++<section id="processing"><h2>Customer data-processing agreement</h2><p>The <a href="/subscription-terms-solo-team.html#processing">prepared Solo and Team business terms and processing schedule dated 30 October 2026</a> set out the standard service instructions, people/data covered, duration, confidentiality, security, rights and incident assistance, provider authorisation, transfer disclosures, return/deletion and audit arrangements. Customer identity, authority and any variations are recorded in the onboarding order.</p><p>Visiting this page does not accept a contract. Live customer onboarding remains closed pending activation. An authorised manager must expressly accept the current terms before a live trial permits editing; accepting them starts no paid subscription.</p></section>
++<section id="subscription"><h2>Paid services</h2><p>Live checkout, recurring charges and automatic renewal remain disabled. The prepared UK launch offer is Solo £7.99 total monthly for one owner-operator, or Team 5 £14.99 total monthly for five people including the owner (up to four independent staff sign-ins). Prepared larger bands are Team 10 £24.99, Team 15 £32.99 and Team 20 £39.99 monthly, with the owner included and up to nine, fourteen or nineteen staff sign-ins respectively. Active staff-profile allowances match each band; inactive historical profiles are retained without consuming that allowance. Above twenty people requires a tailored quote. Business, Pro and Enterprise features are not available to order. Sandbox billing is for verification only; the historical £19 sandbox plan is not the launch offer. CCS Creative Technologies is not registered for UK VAT, so no VAT is added to that proposed price. Any paid offer must state the actual scope, total price, VAT treatment, billing/start date, renewal and cancellation terms before the customer agrees. The operator will provide a copy of the agreed order and terms. Banking readiness, tax administration and ICO fee-assessment status must be checked before paid onboarding. VAT status was confirmed by the owner on 23 October 2026.</p></section>
++<section><h2>Prepared subscription integration</h2><p>Live subscription billing remains inactive; sandbox billing is used for testing only. Managers can inspect its status in Settings. The <a href="/subscription-terms-solo-team.html">prepared Solo and Team terms and processing schedule</a> describe the proposed launch catalogue. The once-only 14-day app trial requires no card and does not automatically convert to paid service. A manager must deliberately agree and complete Stripe Checkout to subscribe. Final commercial approval and hosted acceptance remain outstanding. The older <a href="/subscription-terms.html">pilot terms</a> remain historical sandbox documentation. Publishing these terms does not activate live checkout or a paid order. Once activated with agreed terms, minimum trial/billing mappings and acceptance records are retained separately from workspace content so deletion cannot silently detach a subscription or restart a trial. Payment details are handled by Stripe; payment-provider records follow its retention arrangements.</p></section></main><footer>Quenvira · Created by CCS Creative Technologies · Prepared privacy notice update 4 November 2026</footer></body></html>
 diff --git a/public/subscription-terms-solo-team.html b/public/subscription-terms-solo-team.html
 index a82760c..e7d595b 100644
 --- a/public/subscription-terms-solo-team.html
@@ -750,9 +875,18 @@ index c40f4e3..d5e6a23 100644
    else if(key==='hours'){const p=staff(id);if(!p)throw Error('Staff member not found.');const week=(s().availability||[]).find(a=>a.staffId===id)?.week||days.map(()=>({available:true,start:'09:00',end:'17:00'}));modal('Weekly hours · '+p.name,form('hours',id,days.map((day,i)=>`<fieldset><legend>${day}</legend><label><input type="checkbox" name="available${i}" ${week[i].available?'checked':''}> Available</label><div class="form-grid">${field('From','start'+i,week[i].start,'time','required')}${field('Until','end'+i,week[i].end,'time','required')}</div></fieldset>`).join('')+'<p>Hours apply to future bookings. Reassign conflicting future visits before reducing availability.</p>','Save weekly hours'));}
    else if(key==='leave')modal('Request time off',form('leave',id,select('Type','type',[['Holiday','Holiday'],['Unavailable','Unavailable']],'Holiday')+field('First day','from',d().today,'date','required min="'+d().today+'"')+field('Last day','to',d().today,'date','required min="'+d().today+'"')+textarea('Logistical note (optional)','note','','maxlength="300"')+'<p>Do not enter medical information. Your manager must approve the request.</p>','Submit request'));
 diff --git a/public/workspace.js b/public/workspace.js
-index 0aa4049..6d2c194 100644
+index 0aa4049..69f2719 100644
 --- a/public/workspace.js
 +++ b/public/workspace.js
+@@ -20,7 +20,7 @@ const badge=s=>`<span class="badge ${esc(s.toLowerCase().replaceAll(' ','-'))}">
+ function setSaveState(text){saveState=text;const el=$('#save-status');if(el){el.textContent=text;el.dataset.error=String(['Check your last update','Changes not saved'].includes(text))}}
+ const matches=(...fields)=>fields.join(' ').toLowerCase().includes(query.trim().toLowerCase());
+ const dateLabel=value=>new Intl.DateTimeFormat('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric',timeZone:'Europe/London'}).format(new Date(value+'T12:00:00Z'));
+-function closeModal(){if(dirtyForm&&!confirm('Discard your unsaved changes? Choose Cancel to keep editing.'))return false;dirtyForm=false;$('#modal').close();return true}
++function closeModal(){if(dirtyForm&&!confirm('Discard your unsaved changes? Choose Cancel to keep editing.'))return false;dirtyForm=false;$('#modal').close();if(saveState==='Changes not saved'&&!retryCommand)setSaveState('Up to date');return true}
+ function notice(text,error=false){const el=$('#toast'),generation=(notice.generation||0)+1;notice.generation=generation;el.dataset.error=String(error);el.setAttribute('role',error?'alert':'status');el.setAttribute('aria-live',error?'assertive':'polite');el.setAttribute('aria-atomic','true');if(error)el.innerHTML=`<span class="error-message">Error: ${esc(text)}</span><button type="button" class="dismiss-error" data-action="dismiss-error">Dismiss message</button>`;else el.textContent=text;el.classList.add('visible');if(!error)setTimeout(()=>{if(notice.generation===generation)el.classList.remove('visible')},5000)}
+ async function api(path,body){
+  let r;try{r=await fetch('/api/quenvira/'+path,{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined})}catch{const e=new Error('Connection lost. Your last change may have saved. Retry the same action or reload to check.');e.uncertain=true;throw e}
 @@ -55,7 +55,7 @@ function home(){
   if(stage<4)return heading('Let’s set up your working day.','One step at a time. Your progress is saved as you go.')+`<ol class="journey-steps" aria-label="Business setup progress">${titles.map((title,n)=>`<li class="${n<stage?'done':n===stage?'current':''}" ${n===stage?'aria-current="step"':''}><span>${n<stage?'✓':n+1}</span>${title}</li>`).join('')}</ol><section class="journey-panel"><p class="eyebrow">STEP ${stage+1} OF 4</p><h2>${titles[stage]}</h2><p>${descriptions[stage]}</p>${button(titles[stage],actions[stage],'','primary')}<p class="journey-note">${data.documentMode==='live'?'You can stop and return later.':'You can stop and return later. Use fictional details while testing.'}</p></section><p><a href="#dashboard">Open owner report</a></p>`;
   return heading('What would you like to do next?','Your first job is planned and assigned. Keep the day moving.')+`<div class="journey-actions"><section class="journey-panel"><h2>Plan the next job</h2><p>Book a visit and choose the person doing it.</p>${button('Book a job','new-job','','primary')}</section><section class="journey-panel"><h2>Keep your records up to date</h2><div class="stack">${button('Add a customer','new-customer')}${button('Add a team member','new-staff')}<a class="journey-link" href="#schedule">Open calendar</a><a class="journey-link" href="#dashboard">Owner report</a></div></section></div><h2>Today’s jobs</h2>${jobTable(data.state.jobs.filter(j=>j.date===data.today&&!['Cancelled','Paused'].includes(j.status)))}`;
@@ -807,38 +941,6 @@ index 0aa4049..6d2c194 100644
   case 'invitations':{const list=await api(`workspaces/${workspace}/invitations`);modal('Staff access',list.invitations.map(i=>`<div class="backup-row"><span>${esc(i.email)} · ${i.accepted_by?'Accepted':i.expires_at<new Date().toISOString()?'Expired':'Pending'}</span>${button('Revoke access','revoke',i.hash,'danger')}</div>`).join('')||'<p>No invitations.</p>');break}
   case 'revoke':if(confirm('Revoke every sign-in link for this staff member and account, and remove their access?')){await api(`workspaces/${workspace}/invitations`,{revoke:id});await act('invitations')}break;
   case 'backups':{const b=await api(`workspaces/${workspace}/backups`);modal('Recovery history',`<p>Restoring creates a new revision and keeps the current records in recovery history. Only this business is affected.</p>${b.backups.map(r=>`<div class="backup-row"><span>Revision ${r.revision} · ${esc(r.created_at)}</span>${button('Restore revision','restore',String(r.revision),'danger')}</div>`).join('')||'<p>No earlier revisions yet.</p>'}`);break}
-diff --git a/scripts/verify-business-backup.mjs b/scripts/verify-business-backup.mjs
-new file mode 100644
-index 0000000..f57e88f
---- /dev/null
-+++ b/scripts/verify-business-backup.mjs
-@@ -0,0 +1,26 @@
-+// Offline, read-only verification. Never connects to Quenvira or writes records.
-+import {open} from 'node:fs/promises';
-+import {createHash} from 'node:crypto';
-+import {pathToFileURL} from 'node:url';
-+import {decryptBusinessBackup,BACKUP_LIMIT} from '../public/backup-crypto.js';
-+import {prepareBusinessRestore} from '../server/business-backup.mjs';
-+const fileLimit=Math.ceil(BACKUP_LIMIT*1.4+1024);
-+export async function verifyBusinessBackup(bytes,password){
-+ if(!Buffer.isBuffer(bytes)||bytes.length>fileLimit)throw Error('Choose an encrypted business backup smaller than 29 MB.');
-+ const snapshot=await decryptBusinessBackup(bytes.toString('utf8'),password);
-+ let photos=0;
-+ // Exercise the application's complete restore validation against a sink, never
-+ // a real bucket or database. Photo bytes are checked and then discarded.
-+ const state=await prepareBusinessRestore({staff:[],customers:[],jobs:[],invoices:[],audit:[]},{role:'manager'},snapshot,'offline-verification',{put:async()=>{photos++}},async value=>createHash('sha256').update(value).digest('hex'));
-+ return {verified:true,sha256:createHash('sha256').update(bytes).digest('hex'),encryptedBytes:bytes.length,createdAt:snapshot.createdAt,records:Object.fromEntries(['customers','staff','jobs','invoices','quotes','availability','leaveRequests','notifications'].map(k=>[k,state[k]?.length||0])),photos,productionRestorePerformed:false};
-+}
-+async function main(){
-+ if(process.argv.length!==3||process.stdin.isTTY)throw Error('Usage: pipe a password on stdin to node platform/scripts/verify-business-backup.mjs /path/business.qvb. Never put passwords in arguments.');
-+ const file=await open(process.argv[2],'r');let bytes;
-+ try{const info=await file.stat();if(!info.isFile()||info.size>fileLimit)throw Error('Choose a regular backup file smaller than 29 MB.');bytes=await file.readFile();}finally{await file.close()}
-+ const chunks=[];let size=0;
-+ for await(const chunk of process.stdin){size+=chunk.length;if(size>1024)throw Error('Invalid password input.');chunks.push(chunk)}
-+ const passwordBytes=Buffer.concat(chunks);
-+ try{const password=passwordBytes.toString('utf8');console.log(JSON.stringify(await verifyBusinessBackup(bytes,password),null,2))}finally{passwordBytes.fill(0);for(const chunk of chunks)chunk.fill(0)}
-+}
-+if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)main().catch(()=>{console.error('Backup verification failed. Check the file, password and backup integrity. No records were restored.');process.exitCode=1});
 diff --git a/scripts/workspace-recovery.mjs b/scripts/workspace-recovery.mjs
 index 2bd8793..cd8618d 100644
 --- a/scripts/workspace-recovery.mjs
@@ -1043,43 +1145,6 @@ index 5ca6184..7fa5343 100644
 +export function fitsPlan(state,staffMemberships,plan){return state.staff.filter(s=>s.active!==false).length<=plan.maxStaff&&staffMemberships<=(plan.maxStaffAccounts??(plan.staffAccess?plan.maxStaff-1:0))}
  
  export const LARGE_TEAM_MESSAGE='Your current people allowance has been reached. Choose an approved larger Team band; above twenty people, contact ccscreativetech@gmail.com for a tailored quote. No extra charge has been made.';
-diff --git a/server/stripe-diagnostics.mjs b/server/stripe-diagnostics.mjs
-new file mode 100644
-index 0000000..a58e61b
---- /dev/null
-+++ b/server/stripe-diagnostics.mjs
-@@ -0,0 +1,31 @@
-+// Resource/operation labels only: never log provider messages, parameters, URLs,
-+// account identifiers, keys, customer data or payment details.
-+const permissions=Object.freeze({
-+ 'subscriptions.list':['subscription_read','invoice_read'], // expands latest_invoice
-+ 'subscriptions.retrieve':['subscription_read'],
-+ 'invoices.retrieve':['invoice_read'],
-+ 'invoices.list':['invoice_read'],
-+ 'invoicePayments.list':['invoice_read'],
-+ 'charges.retrieve':['charge_read'],
-+ 'prices.retrieve':['plan_read'],
-+ 'customers.create':['customer_write'],
-+ 'checkout.sessions.retrieve':['checkout_session_read'],
-+ 'checkout.sessions.create':['checkout_session_write'],
-+ 'checkout.sessions.expire':['checkout_session_write'],
-+ 'billingPortal.sessions.create':['customer_portal_session_write'],
-+});
-+const failures=new WeakMap();
-+export async function stripeOperation(operation,execute){
-+ if(!Object.hasOwn(permissions,operation))throw Error('Unknown billing operation.');
-+ try{return await execute()}catch(error){
-+  if(error&&typeof error==='object'&&!failures.has(error))failures.set(error,operation);
-+  throw error;
-+ }
-+}
-+export function stripeFailureDiagnostic(error){
-+ if(!error||typeof error!=='object'||typeof error.type!=='string'||!/^Stripe[A-Za-z]+Error$/.test(error.type))return null;
-+ const requestId=typeof error.requestId==='string'&&/^req_[A-Za-z0-9]{1,100}$/.test(error.requestId)?error.requestId:undefined;
-+ const status=Number.isInteger(error.statusCode)&&error.statusCode>=400&&error.statusCode<=599?error.statusCode:undefined;
-+ const operation=failures.get(error);
-+ return {type:error.type.slice(0,80),requestId,status,...(operation?{operation,expectedPermissions:[...permissions[operation]]}:{})};
-+}
 diff --git a/server/subscriptions.mjs b/server/subscriptions.mjs
 index a7740ce..4de5841 100644
 --- a/server/subscriptions.mjs
@@ -1285,49 +1350,6 @@ index a32b61c..2211196 100644
  test('successful mutation appends immutable event metadata without duplicating it on replay',async()=>{const db=database(),w=await setup(db);await command(db,w,'customer.save',customer,'alice','audit-once',0);await command(db,w,'customer.save',customer,'alice','audit-once',0);const rows=db.sqlite.prepare('SELECT * FROM events').all();assert.equal(rows.length,1);assert.equal(rows[0].action,'customer.save');assert.equal(rows[0].user_id,'alice');assert.ok(!JSON.stringify(rows).includes(customer.address))});
  test('recovery history is bounded to twenty previous revisions',async()=>{const db=database(),w=await setup(db);for(let n=0;n<25;n++)assert.equal((await command(db,w,'customer.save',{...customer,name:'Fictional '+n})).status,200);assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM history WHERE workspace_id=?').get(w).n,20)});
  test('rate limit rejects excessive updates but idempotent retries still work',async()=>{const db=database(),w=await setup(db);await command(db,w,'customer.save',customer,'alice','saved-once',0);const q=db.sqlite.prepare('INSERT INTO operations VALUES (?,?,?,?,?)');for(let n=0;n<119;n++)q.run(w,'limit-'+n,'alice','{}',fixed().toISOString());assert.equal((await command(db,w,'customer.save',customer)).status,429);assert.equal((await command(db,w,'customer.save',customer,'alice','saved-once',0)).status,200)});
-diff --git a/tests/backup-verifier.test.mjs b/tests/backup-verifier.test.mjs
-new file mode 100644
-index 0000000..26bbf1a
---- /dev/null
-+++ b/tests/backup-verifier.test.mjs
-@@ -0,0 +1,37 @@
-+import test from 'node:test';
-+import assert from 'node:assert/strict';
-+import {createHash} from 'node:crypto';
-+import {spawnSync} from 'node:child_process';
-+import {mkdtemp,writeFile,readFile,rm} from 'node:fs/promises';
-+import {tmpdir} from 'node:os';
-+import {join} from 'node:path';
-+import {fileURLToPath} from 'node:url';
-+import {verifyBusinessBackup} from '../scripts/verify-business-backup.mjs';
-+import {encryptBusinessBackup} from '../public/backup-crypto.js';
-+import {JPEG} from './support/photo-fixture.mjs';
-+const password='fictional-backup-password';
-+const photoId=createHash('sha256').update(JPEG).digest('hex');
-+const snapshot=()=>({format:'quenvira-business-backup-v1',createdAt:'2026-10-30T00:00:00.000Z',workspaceName:'Synthetic only',state:{version:1,customers:[],staff:[{id:'staff1',name:'Fictional',role:'Cleaner',capacity:480,colour:'green',photoId}],jobs:[],invoices:[],audit:[]},photos:[{staffId:'staff1',photoId,jpegBase64:JPEG}]});
-+test('offline verification authenticates file and validates photo references without restoring records',async()=>{
-+ const bytes=Buffer.from(await encryptBusinessBackup(snapshot(),password));
-+ const result=await verifyBusinessBackup(bytes,password);
-+ assert.equal(result.verified,true);assert.equal(result.records.staff,1);assert.equal(result.photos,1);assert.equal(result.productionRestorePerformed,false);assert.equal(result.sha256,createHash('sha256').update(bytes).digest('hex'));assert.ok(!JSON.stringify(result).includes('Fictional'));
-+ await assert.rejects(verifyBusinessBackup(bytes,'incorrect-password'));
-+ const missing=snapshot();missing.photos=[];await assert.rejects(verifyBusinessBackup(Buffer.from(await encryptBusinessBackup(missing,password)),password),/missing staff photos/);
-+ const corrupt=snapshot();corrupt.photos[0].photoId='wrong';await assert.rejects(verifyBusinessBackup(Buffer.from(await encryptBusinessBackup(corrupt,password)),password),/inconsistent photo/);
-+});
-+test('offline CLI preserves exact UTF-8 password bytes and handles spaced paths without exposing secrets',async()=>{
-+ const directory=await mkdtemp(join(tmpdir(),'quenvira offline verification '));
-+ const secret='Fictional Unicode 🔐 trailing space ';
-+ try{
-+  const file=join(directory,'business snapshot.qvb');
-+  await writeFile(file,await encryptBusinessBackup(snapshot(),secret),{mode:0o600});
-+  const script=fileURLToPath(new URL('../scripts/verify-business-backup.mjs',import.meta.url));
-+  const result=spawnSync(process.execPath,[script,file],{input:Buffer.from(secret,'utf8'),encoding:'utf8',timeout:15000});
-+  assert.ifError(result.error);assert.equal(result.status,0);assert.equal(result.stderr,'');
-+  const receipt=JSON.parse(result.stdout);assert.equal(receipt.verified,true);assert.equal(receipt.photos,1);assert.equal(receipt.productionRestorePerformed,false);
-+  assert.ok(!result.stdout.includes(secret));assert.equal(receipt.sha256,createHash('sha256').update(await readFile(file)).digest('hex'));
-+  const newline=spawnSync(process.execPath,[script,file],{input:Buffer.from(secret+'\r\n','utf8'),encoding:'utf8',timeout:15000});
-+  assert.ifError(newline.error);assert.equal(newline.status,1);assert.equal(newline.stdout,'');assert.match(newline.stderr,/Backup verification failed/);assert.ok(!newline.stderr.includes(secret));
-+ }finally{await rm(directory,{recursive:true,force:true})}
-+});
 diff --git a/tests/business-backup.test.mjs b/tests/business-backup.test.mjs
 index ce4d2ef..a7fae89 100644
 --- a/tests/business-backup.test.mjs
@@ -1469,123 +1491,6 @@ index 840f2a9..5d591fe 100644
 +  }
 + }finally{f.db.sqlite.close()}}
 +});
-diff --git a/tests/staff-lifecycle.test.mjs b/tests/staff-lifecycle.test.mjs
-new file mode 100644
-index 0000000..6cd07f6
---- /dev/null
-+++ b/tests/staff-lifecycle.test.mjs
-@@ -0,0 +1,46 @@
-+import test from 'node:test';
-+import assert from 'node:assert/strict';
-+import {database,setup,fixtures,request,command,job} from './support/database.mjs';
-+import {validateState,accessibleJobs} from '../server/domain.mjs';
-+import {dispatchAfterCommand} from '../server/email-background.mjs';
-+import {JPEG} from './support/photo-fixture.mjs';
-+const links=db=>({members:db.sqlite.prepare("SELECT * FROM memberships ORDER BY user_id").all(),invites:db.sqlite.prepare('SELECT * FROM invitations ORDER BY hash').all()});
-+async function fixture(){const db=database(),w=await setup(db),f=await fixtures(db,w);await command(db,w,'staff.photo',{id:f.staffId,jpegBase64:JPEG});const invite=await request(db,`workspaces/${w}/invitations`,{staffId:f.staffId,email:'worker@example.com'});assert.equal(invite.status,201);assert.equal((await request(db,'invitations/accept',{token:invite.body.token},'worker')).status,200);return {db,w,f,token:invite.body.token}}
-+test('deactivation preserves history and photos, atomically revokes links, blocks old tokens and supports explicit reactivation',async()=>{
-+ const {db,w,f,token}=await fixture();try{
-+  const booked=await command(db,w,'job.save',job(f)),id=booked.body.result[0].id;await command(db,w,'job.update',{id,action:'cancel'});
-+  const before=(await request(db,'workspaces/'+w)).body;
-+  const result=await command(db,w,'staff.active',{id:f.staffId,active:false});assert.equal(result.status,200);assert.equal(result.headers.get('x-quenvira-email-wake'),'skip');
-+  let woke=false;dispatchAfterCommand(new Request(`https://quenvira.test/api/quenvira/workspaces/${w}/commands`,{method:'POST'}),new Response(null,{headers:result.headers}),{DB:db},{waitUntil(){woke=true}});assert.equal(woke,false);
-+  const after=(await request(db,'workspaces/'+w)).body;assert.equal(after.state.staff[0].active,false);assert.equal(after.state.staff[0].photoId,before.state.staff[0].photoId);assert.deepEqual(after.state.jobs,before.state.jobs);assert.equal(links(db).members.length,1);assert.equal(links(db).invites.length,0);assert.equal(db.bucket.files.size,1);
-+  assert.equal((await request(db,'workspaces/'+w,undefined,'worker')).status,404);assert.equal((await request(db,'invitations/accept',{token},'worker')).status,403);
-+  assert.equal((await command(db,w,'job.save',{...job(f),time:'12:00'})).status,400);assert.equal((await request(db,`workspaces/${w}/invitations`,{staffId:f.staffId,email:'worker@example.com'})).status,400);
-+  assert.equal((await command(db,w,'staff.active',{id:f.staffId,active:true})).status,200);assert.equal(links(db).members.length,1);assert.equal(links(db).invites.length,0);
-+  assert.equal((await command(db,w,'job.save',{...job(f),time:'12:00'})).status,200);
-+  const fresh=await request(db,`workspaces/${w}/invitations`,{staffId:f.staffId,email:'worker@example.com'});assert.equal(fresh.status,201);assert.equal((await request(db,'invitations/accept',{token:fresh.body.token},'worker')).status,200);
-+ }finally{db.sqlite.close()}
-+});
-+test('open visits, staff callers, invalid status and cross-tenant attempts cannot change lifecycle or permissions',async()=>{
-+ const {db,w,f}=await fixture();try{
-+  await setup(db,'bob');await command(db,w,'job.save',job(f));const before=(await request(db,'workspaces/'+w)).body,access=links(db);
-+  assert.equal((await command(db,w,'staff.active',{id:f.staffId,active:false})).status,400);assert.deepEqual((await request(db,'workspaces/'+w)).body,before);assert.deepEqual(links(db),access);
-+  assert.equal((await command(db,w,'staff.active',{id:f.staffId,active:false},'worker')).status,403);assert.equal((await command(db,w,'staff.active',{id:f.staffId,active:false},'bob',crypto.randomUUID(),before.revision)).status,404);
-+  for(const active of [null,'false',0])assert.equal((await command(db,w,'staff.active',{id:f.staffId,active})).status,400);
-+  const corrupt=structuredClone(before.state);corrupt.staff[0].active='false';assert.equal(validateState(corrupt),false);corrupt.staff[0].active=false;assert.deepEqual(accessibleJobs(corrupt,{role:'staff',staffId:f.staffId}),[]);
-+ }finally{db.sqlite.close()}
-+});
-+test('deactivation rolls back with database failure and cannot revoke links on a losing revision',async()=>{
-+ for(const racing of [false,true]){const {db,w,f}=await fixture();try{
-+  const before=(await request(db,'workspaces/'+w)).body,access=links(db);
-+  if(racing)db.beforeBatch=()=>db.sqlite.prepare('UPDATE workspaces SET revision=revision+1 WHERE id=?').run(w);else db.failAt=6;
-+  const result=await command(db,w,'staff.active',{id:f.staffId,active:false});assert.equal(result.status,racing?409:503);db.failAt=null;
-+  const after=(await request(db,'workspaces/'+w)).body;assert.deepEqual(after.state,before.state);assert.deepEqual(links(db),access);
-+ }finally{db.sqlite.close()}}
-+});
-+test('inactive profile blocks residual memberships and racing creation cannot produce a new invitation',async()=>{
-+ const {db,w,f}=await fixture();try{
-+  const deactivate=()=>{const row=db.sqlite.prepare('SELECT document FROM workspaces WHERE id=?').get(w),s=JSON.parse(row.document);s.staff[0].active=false;db.sqlite.prepare('UPDATE workspaces SET document=? WHERE id=?').run(JSON.stringify(s),w)};
-+  db.beforeBatch=deactivate;const created=await request(db,`workspaces/${w}/invitations`,{staffId:f.staffId,email:'another@example.com'});assert.equal(created.status,409);
-+  for(const path of [`workspaces/${w}`,`workspaces/${w}/staff/${f.staffId}/photo`,`workspaces/${w}/backups`])assert.equal((await request(db,path,undefined,'worker')).status,403);
-+ }finally{db.sqlite.close()}
-+});
-diff --git a/tests/stripe-diagnostics.test.mjs b/tests/stripe-diagnostics.test.mjs
-new file mode 100644
-index 0000000..2a9a27f
---- /dev/null
-+++ b/tests/stripe-diagnostics.test.mjs
-@@ -0,0 +1,59 @@
-+import test from 'node:test';
-+import assert from 'node:assert/strict';
-+import Stripe from 'stripe';
-+import {stripeOperation,stripeFailureDiagnostic} from '../server/stripe-diagnostics.mjs';
-+import {handle} from '../server/api.mjs';
-+import {startTrial} from '../server/subscriptions.mjs';
-+import {database,setup,ORIGIN,customer} from './support/database.mjs';
-+const stamp='2026-10-30T03:00:00Z',time=Date.parse(stamp),secret='whsec_synthetic_local_diagnostics';
-+const env={QUENVIRA_BILLING_MODE:'test',STRIPE_RESTRICTED_KEY:'rk_test_synthetic_fixture',STRIPE_WEBHOOK_SECRET:secret,STRIPE_PRICE_ID:'price_fixture',STRIPE_PORTAL_CONFIGURATION:'bpc_fixture',QUENVIRA_SITE_ORIGIN:ORIGIN,QUENVIRA_TERMS_VERSION:'2026-10-28'};
-+const invoice=()=>({id:'in_fixture',object:'invoice',customer:'cus_fixture',subscription:'sub_fixture',livemode:false,status:'paid',amount_remaining:0});
-+const subscription=()=>({id:'sub_fixture',object:'subscription',customer:'cus_fixture',livemode:false,status:'active',latest_invoice:invoice(),items:{data:[{price:{id:'price_fixture'},quantity:1,current_period_end:time/1000+3600}]}});
-+async function fixture(){
-+ const db=database(),w=await setup(db),state={sub:subscription(),now:time,deny:null,requests:[]};await startTrial(db,w,'2026-01-01T00:00:00Z');db.sqlite.prepare('UPDATE subscription_accounts SET customer_id=? WHERE workspace_id=?').run('cus_fixture',w);
-+ const client=new Stripe(env.STRIPE_RESTRICTED_KEY,{apiVersion:'2026-09-30.endive',maxNetworkRetries:0,httpClient:Stripe.createFetchHttpClient(async(url)=>{
-+  const path=new URL(url).pathname;state.requests.push(path);assert.equal(new URL(url).hostname,'api.stripe.com');
-+  if(state.deny===path)return Response.json({error:{type:'invalid_request_error',message:'rk_live_private whsec_private personal@example.com'}},{status:403,headers:{'request-id':'req_SafeDiagnostic123'}});
-+  if(path==='/v1/subscriptions')return Response.json({object:'list',data:[state.sub],has_more:false});
-+  if(path==='/v1/invoices')return Response.json({object:'list',data:[],has_more:false});
-+  throw Error('Unexpected local SDK transport request');
-+ })});
-+ const call=async(path,body,user='alice')=>{const response=await handle(new Request(ORIGIN+'/api/quenvira/'+path,{method:body===undefined?'GET':'POST',headers:{origin:ORIGIN,'content-type':'application/json','oai-authenticated-user-id':user,'oai-authenticated-user-email':user+'@example.com'},...(body===undefined?{}:{body:JSON.stringify(body)})}),db,{billingEnv:env,billingClient:client,now:()=>new Date(state.now),bucket:db.bucket});return {status:response.status,body:await response.json()}};
-+ const event=async(id,type,object)=>{const payload=JSON.stringify({id,type,livemode:false,data:{object}}),signature=client.webhooks.generateTestHeaderString({payload,secret});const r=await handle(new Request(ORIGIN+'/api/quenvira/subscription-webhook',{method:'POST',headers:{'stripe-signature':signature},body:payload}),db,{billingEnv:env,billingClient:client});return {status:r.status,body:await r.json()}};
-+ const write=()=>call(`workspaces/${w}/commands`,{requestId:crypto.randomUUID(),revision:db.sqlite.prepare('SELECT revision FROM workspaces WHERE id=?').get(w).revision,action:'customer.save',data:customer});
-+ return {db,w,state,client,call,event,write};
-+}
-+test('real SDK 403s retain only safe operation, permission family and request ID; application still fails closed',async()=>{
-+ for(const [path,operation,permissions]of [['/v1/subscriptions','subscriptions.list',['subscription_read','invoice_read']],['/v1/invoices','invoices.list',['invoice_read']]]){
-+  const f=await fixture(),logs=[],original=console.error;f.state.deny=path;console.error=(...args)=>logs.push(args.join(' '));
-+  try{const r=await f.call(`workspaces/${f.w}/subscription`);assert.equal(r.status,503);assert.equal(r.body.error,'Service temporarily unavailable.');assert.equal(logs.length,1);
-+   const diagnostic=JSON.parse(logs[0].slice(logs[0].indexOf('{')));assert.equal(diagnostic.type,'StripePermissionError');assert.equal(diagnostic.status,403);assert.equal(diagnostic.requestId,'req_SafeDiagnostic123');assert.equal(diagnostic.operation,operation);assert.deepEqual(diagnostic.expectedPermissions,permissions);
-+   for(const value of ['rk_live_private','whsec_private','personal@example.com','cus_fixture'])assert.ok(!logs[0].includes(value));
-+  }finally{console.error=original;f.db.sqlite.close()}
-+ }
-+});
-+test('diagnostics reject unknown operation labels and untrusted free-form diagnostic fields',async()=>{
-+ let executed=false;await assert.rejects(stripeOperation('secret-operation',async()=>{executed=true}));assert.equal(executed,false);
-+ assert.equal(stripeFailureDiagnostic(null),null);assert.equal(stripeFailureDiagnostic('secret'),null);
-+ const err=Object.assign(Error('private'),{type:'StripePermissionError',requestId:'req_bad?email=private',statusCode:700,operation:'private',expectedPermissions:['private']});
-+ assert.deepEqual(stripeFailureDiagnostic(err),{type:'StripePermissionError',requestId:undefined,status:undefined});
-+});
-+test('real SDK with local transport covers signed receipt replay, failed payment, settlement, renewal boundary and cancellation',async()=>{
-+ const f=await fixture();try{
-+  assert.equal((await f.call(`workspaces/${f.w}/subscription`)).body.canWrite,true);assert.equal((await f.write()).status,200);
-+  assert.equal((await f.event('evt_cycle','invoice.paid',invoice())).status,200);
-+  assert.equal((await f.event('evt_cycle','invoice.paid',invoice())).body.replayed,true);
-+  f.state.sub.status='past_due';f.state.sub.latest_invoice={...invoice(),status:'open',amount_remaining:1499};
-+  assert.equal((await f.event('evt_failed','invoice.payment_failed',f.state.sub.latest_invoice)).status,200);assert.equal((await f.write()).status,402);
-+  assert.equal((await f.call(`workspaces/${f.w}/backup-file`)).status,200);
-+  f.state.sub.status='active';assert.equal((await f.call(`workspaces/${f.w}/subscription`)).body.status,'payment_pending');assert.equal((await f.write()).status,402);
-+  f.state.sub.latest_invoice=invoice();assert.equal((await f.event('evt_recovered','invoice.paid',invoice())).status,200);assert.equal((await f.write()).status,200);
-+  f.state.sub.cancel_at_period_end=true;assert.equal((await f.call(`workspaces/${f.w}/subscription`)).body.canWrite,true);
-+  f.state.now+=3600001;assert.equal((await f.write()).status,402);f.state.sub.items.data[0].current_period_end=f.state.now/1000+86400;
-+  // Provider periods must be integer seconds, independent of millisecond clocks.
-+  f.state.sub.items.data[0].current_period_end=Math.ceil(f.state.sub.items.data[0].current_period_end);assert.equal((await f.write()).status,200);
-+  f.state.sub.status='canceled';assert.equal((await f.event('evt_cancel','customer.subscription.deleted',f.state.sub)).status,200);assert.equal((await f.write()).status,402);
-+  assert.equal((await f.event('evt_cycle','invoice.paid',invoice())).body.replayed,true);assert.equal((await f.call(`workspaces/${f.w}/subscription`)).body.canWrite,false);
-+  await setup(f.db,'bob');assert.equal((await f.call(`workspaces/${f.w}/subscription`,undefined,'bob')).status,404);assert.equal(f.db.sqlite.prepare('PRAGMA foreign_key_check').all().length,0);
-+ }finally{f.db.sqlite.close()}
-+});
 diff --git a/tests/subscriptions.test.mjs b/tests/subscriptions.test.mjs
 index ccfb127..e545fc9 100644
 --- a/tests/subscriptions.test.mjs
@@ -1655,7 +1560,7 @@ index 075eae2..0c45b71 100644
 + await Promise.all([1,2].map(()=>websiteEnquiry(req(same),other,options)));assert.equal(calls,2);
 +});
 diff --git a/tests/workspace.test.mjs b/tests/workspace.test.mjs
-index b209840..003fd68 100644
+index b209840..a1e5e7e 100644
 --- a/tests/workspace.test.mjs
 +++ b/tests/workspace.test.mjs
 @@ -10,7 +10,7 @@ import {prepareInvoiceEmail,copyInvoiceText} from '../public/invoice-email.js';
@@ -1667,16 +1572,30 @@ index b209840..003fd68 100644
    const data=h.ui.data();data.documentMode='live';
    const invoice={id:'local-mode-preview',number:'QV-9999',customerName:'Fictional QA',address:'Fictional Road',description:'Fictional service',issued:'2026-10-20',due:'2026-11-03',net:0,tax:0,total:0,vat:0,status:'Issued',issue:{supplier:{legalName:'Fictional QA',address:'Fictional Road',contact:'qa@example.com',vatRegistered:false},supplyDate:'2026-10-20',line:{description:'Fictional service',unitPrice:0}}};
    data.state.invoices.push(invoice);h.ui.invoiceDetail(invoice.id);
-@@ -134,7 +134,7 @@ test('unsaved changes can be kept when closing or navigating, then discarded exp
+@@ -133,8 +133,21 @@ test('unsaved changes can be kept when closing or navigating, then discarded exp
+  h.context.confirm=()=>false;await h.ui.act('close');assert.equal(h.elements.get('#modal').open,true);h.navigate('#team');assert.equal(h.elements.get('#modal').open,true);assert.match(h.elements.get('#app').innerHTML,/Let’s set up your working day/);
   h.context.confirm=()=>true;await h.ui.act('close');assert.equal(h.elements.get('#modal').open,false);warned=false;h.emit('beforeunload',{preventDefault(){warned=true}});assert.equal(warned,false);db.sqlite.close();
  });
++test('discarding a rejected booking clears its warning without hiding an uncertain saved change',async()=>{
++ const db=database();try{
++  const w=await setup(db),f=await fixtures(db,w);await command(db,w,'job.save',job(f));const h=await browserAdapter(db);
++  h.ui.formJob();h.emit('input',{target:{readOnly:false,closest:()=>({dataset:{form:'job'}})}});
++  await assert.rejects(()=>h.ui.command('job.save',job(f)),/overlapping/);assert.equal(h.elements.get('#save-status').textContent,'Changes not saved');
++  h.context.confirm=()=>false;await h.ui.act('close');assert.equal(h.elements.get('#modal').open,true);assert.equal(h.elements.get('#save-status').textContent,'Changes not saved');
++  h.context.confirm=()=>true;await h.ui.act('close');assert.equal(h.elements.get('#save-status').textContent,'Up to date');assert.equal(h.ui.data().state.jobs.length,1);
++  h.ui.formCustomer();h.control.dropNextResponse=true;const values={...customer,name:'Fictional uncertain save'};
++  await assert.rejects(()=>h.ui.command('customer.save',values),/Connection lost/);await h.ui.act('close');assert.equal(h.elements.get('#save-status').textContent,'Check your last update');
++  await assert.rejects(()=>h.ui.command('staff.add',{name:'Blocked',role:'Cleaner',capacity:480}),/unconfirmed/);
++  await h.ui.command('customer.save',values);assert.equal(h.ui.data().state.customers.filter(c=>c.name===values.name).length,1);assert.equal(h.elements.get('#save-status').textContent,'All changes saved');
++ }finally{db.sqlite.close()}
++});
  test('save feedback identifies an uncertain update and resolves after replay without duplicating records',async()=>{
 - const db=database(),w=await setup(db),h=await browserAdapter(db);h.control.dropNextResponse=true;
 + const db=database();await setup(db);const h=await browserAdapter(db);h.control.dropNextResponse=true;
   await assert.rejects(()=>h.ui.command('staff.add',{name:'Saved once',role:'Cleaner',capacity:480}),/Connection lost/);assert.equal(h.elements.get('#save-status').textContent,'Check your last update');
   await h.ui.command('staff.add',{name:'Saved once',role:'Cleaner',capacity:480});assert.equal(h.elements.get('#save-status').textContent,'All changes saved');assert.equal(h.ui.data().state.staff.length,1);db.sqlite.close();
  });
-@@ -250,5 +250,14 @@ test('staff UI saves own availability, requests leave and reads only their notif
+@@ -250,5 +263,14 @@ test('staff UI saves own availability, requests leave and reads only their notif
  });
  
  test('staged Solo/Team chooser shows exact prices and sends elected plan and current terms without old price',async()=>{

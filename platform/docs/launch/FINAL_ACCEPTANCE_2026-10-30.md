@@ -37,3 +37,18 @@ Supersedes the managed candidate test count above: 288 tests passed, zero failed
 The rebuilt managed candidate passed production build, syntax and git diff --check; full ESLint exited zero with two pre-existing image warnings. The regenerated patch applies cleanly to pristine managed baseline 9738e6ce02eb68c3d3795e08617c332be8683d24, SHA-256 49d1b4b69dbfc9632aabf8180b36d7bf334f6bc72c37a1a89187892f40172981. This patch preserves managed identity/storage configuration and contains the pending hardening plus recovery correction. Fresh GitHub CI on the new head must finish; earlier-head results are historical. Full managed D1/R2 export and isolated restore acceptance remain unverified.
 
 Independent review request #56 remains open and unassigned. No human approval, merge, deployment, secret/permission change, production/customer email or live billing is authorised by this correction.
+
+
+## 4 November prelaunch correction (supersedes older candidate details)
+
+The hosted clash check reproduced a misleading status: discarding a rejected booking left “Changes not saved” visible. Closing a definitely rejected form now resets the status, while uncertain writes keep their warning and idempotent retry requirement. A regression tests rejected overlap, cancelled discard, confirmed discard, lost-response protection and replay without duplicate records.
+
+Prepared public/privacy and business schedule copy now matches Solo £7.99 / Team 5 £14.99 / Team 10 £24.99 / Team 15 £32.99 / Team 20 £39.99, includes the owner in allowances and uses https://ccscreativetech.co.uk. The old £19 mapping is identified as historical sandbox configuration. No commercial policy has been approved by these edits.
+
+Managed candidate source: a6d1c6b3ea978db320c6aea9843b412355501b78. Complete 289-test suite passed with zero failures/skips/cancellations; focused UI suite 43 passed; lint, type checks, syntax and production build passed. Two pre-existing image lint warnings remain. The patch above applies cleanly to exact managed baseline 9738e6ce02eb68c3d3795e08617c332be8683d24, preserving its hosting identity and bindings. Patch SHA-256: 47ffb7d28da9140231bb7ed59a5a724a62e145e10dfe54535c94898f948ca611.
+
+The managed candidate is saved without deployment. Actual hosted acceptance still runs 4b669f3fe0dfaecede6e50b4a819205c2d54a6cb, environment revision 3. Fresh hosted evidence: recurring fictional zero-value visits persisted; overlapping booking rejected without revision advance. This is single-owner testing, not independent staff acceptance or hosted verification of the new status correction.
+
+Historical GitHub CI on predecessor a024bf1 passed 298 platform tests and 144 browser cases. Those are retained evidence for unchanged paths; new-head CI must be inspected separately, and fresh actual hosted smoke is required after any later approved deployment. The dependency audit result is dated 31 October, not a fresh full/development audit.
+
+Independent review of this updated head, independent authenticated testing, hosted five-band provider/email failure acceptance, full consistent D1/R2 recovery and final commercial particulars remain open. The isolated host lacks a dedicated Stripe webhook signing secret/endpoint and email credentials; do not enable billing/email with partial configuration or make it public to obtain callbacks. No merge, deployment, registration, live billing, real-customer email or final owner encrypted download is authorised by this note.
