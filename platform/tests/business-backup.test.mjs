@@ -40,3 +40,18 @@ test('restore refuses existing work, missing or substituted photos and storage f
 
 
 test('backup failures do not expose internal storage messages',async()=>{const source=await sourceBackup();source.db.bucket.get=async()=>{throw Error('SECRET internal storage details')};const result=await request(source.db,`workspaces/${source.w}/backup-file`);assert.equal(result.status,503);assert.ok(!JSON.stringify(result.body).includes('SECRET'));assert.match(result.body.error,/could not be created/);source.db.sqlite.close();});
+
+test('encrypted recovery preserves deactivated staff history/photos without restoring former sign-in permissions',async()=>{
+ const source=await sourceBackup(),target=database();try{
+  const link=await request(source.db,`workspaces/${source.w}/invitations`,{email:'worker@example.com',staffId:source.f.staffId});assert.equal(link.status,201);
+  assert.equal((await request(source.db,'invitations/accept',{token:link.body.token},'worker')).status,200);
+  assert.equal((await command(source.db,source.w,'staff.active',{id:source.f.staffId,active:false})).status,200);
+  const exported=await request(source.db,`workspaces/${source.w}/backup-file`);assert.equal(exported.status,200);assert.equal(exported.body.state.staff[0].active,false);
+  const saved=await encryptBusinessBackup(exported.body,password),decoded=await decryptBusinessBackup(saved,password),w=await setup(target);
+  assert.equal((await restore(target,w,decoded)).status,200);const recovered=(await request(target,'workspaces/'+w)).body.state;
+  assert.deepEqual(recovered,exported.body.state);assert.equal(recovered.staff[0].active,false);assert.equal(recovered.invoices[0].status,'Credited');assert.equal(target.bucket.files.size,1);
+  assert.equal(target.sqlite.prepare('SELECT COUNT(*) n FROM memberships').get().n,1);assert.equal(target.sqlite.prepare('SELECT COUNT(*) n FROM invitations').get().n,0);
+  assert.equal((await request(target,'workspaces/'+w,undefined,'worker')).status,404);assert.equal((await request(source.db,'invitations/accept',{token:link.body.token},'worker')).status,403);
+  assert.equal(target.sqlite.prepare('PRAGMA foreign_key_check').all().length,0);
+ }finally{source.db.sqlite.close();target.sqlite.close()}
+});

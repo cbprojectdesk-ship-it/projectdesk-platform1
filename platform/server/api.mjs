@@ -1,3 +1,4 @@
+import {stripeFailureDiagnostic} from './stripe-diagnostics.mjs';
 import {publicPlans,selectPlan,fitsPlan,LARGE_TEAM_MESSAGE} from './plans.mjs';
 import * as F from './team-features.mjs';
 import {websiteEnquiry} from './website-enquiries.mjs';
@@ -78,7 +79,7 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
    if(!invitation||invitation.email!==email.toLowerCase()||invitation.expires_at<=timestamp||(invitation.accepted_by&&invitation.accepted_by!==user))problem(403,'Invitation is unavailable for this account.');
    let staffSeatLimit=2147483647;
    if(config?.plans){const access=await entitlement(db,invitation.workspace_id,config,await getClient(),Date.parse(timestamp));if(!access.canWrite||!access.staffAccess)problem(403,'This plan does not allow staff sign-in. Ask the manager to review the subscription.');staffSeatLimit=selectPlan(config,access.plan).maxStaffAccounts;}
-   const {state}=await load(db,invitation.workspace_id);if(!state.staff.some(s=>s.id===invitation.staff_id))problem(409,'This staff record is no longer available.');
+   const {state}=await load(db,invitation.workspace_id);if(!state.staff.some(s=>s.id===invitation.staff_id&&s.active!==false))problem(409,'This staff record is no longer available.');
    const existing=await db.prepare('SELECT * FROM memberships WHERE workspace_id = ? AND user_id = ?').bind(invitation.workspace_id,user).first();
    if(existing&&(existing.role!=='staff'||existing.staff_id!==invitation.staff_id))problem(409,'This account already has a different membership.');
    const seats=await db.prepare("SELECT COUNT(*) AS n FROM memberships WHERE workspace_id=? AND role='staff'").bind(invitation.workspace_id).first();
@@ -104,6 +105,7 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
   if(path.length<2||path[0]!=='workspaces')problem(404,'Route not found.');
   const workspace=path[1],m=await membership(db,workspace,user);
   const {row,state}=await load(db,workspace);
+  if(m.role==='staff'&&!state.staff.some(s=>s.id===m.staff_id&&s.active!==false))problem(403,'This staff profile is inactive. Ask your manager for access.');
   let planAccess;
   const access=async()=>planAccess||(planAccess=await entitlement(db,workspace,config,await getClient(),Date.parse(timestamp)));
   if(config?.plans&&m.role==='staff'&&!(await access()).staffAccess)problem(403,'Staff access is unavailable on this plan. Ask your manager to review the subscription.');
@@ -121,7 +123,8 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
   // Paid workflow mutations require a fresh authoritative provider check.
   const needsEntitlement=request.method==='POST'&&(path[2]==='commands'||path[2]==='invitations'||path[2]==='email-dispatch');
   if(config&&needsEntitlement){
-   const permittedMaintenance=path[2]==='invitations'&&(await readBody(request.clone())).revoke;
+   const maintenanceBody=(path[2]==='invitations'||path.length===3&&path[2]==='commands')?await readBody(request.clone()):null;
+   const permittedMaintenance=path[2]==='invitations'&&maintenanceBody?.revoke||path.length===3&&path[2]==='commands'&&maintenanceBody?.action==='staff.active'&&maintenanceBody?.data?.active===false;
    const recovery=path[2]==='commands'&&path[3]==='backup';
    if(config.mode==='live'&&!permittedMaintenance&&!recovery&&!await serviceTermsAccepted(db,workspace,config.termsVersion))problem(403,'A manager must accept the current business terms in Settings before editing. Viewing and exports remain available.');
    if(!permittedMaintenance&&!recovery&&!(await access()).canWrite)problem(402,planAccess.overLimit?(planAccess.staffAccess?LARGE_TEAM_MESSAGE:'Existing staff records or access exceed the current plan. Records and exports remain available; contact support before changing the plan.'):'Your trial or subscription has ended. A manager can manage the subscription in Settings. Records and exports remain available.');
@@ -165,13 +168,13 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
     ]);if(!revoked[2].results?.length)problem(403,'Manager access changed. Reload before editing.');return json({revoked:true});
    }
    if(config?.plans&&!(await access()).staffAccess)problem(403,'Solo is for the owner only. Choose Team before inviting staff.');
-   if(typeof body.email!=='string'||body.email.length>150||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)||!state.staff.some(s=>s.id===body.staffId))problem(400,'Choose a staff member and valid account email.');
+   if(typeof body.email!=='string'||body.email.length>150||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)||!state.staff.some(s=>s.id===body.staffId&&s.active!==false))problem(400,'Choose a staff member and valid account email.');
    const pending=await db.prepare('SELECT COUNT(*) AS n FROM invitations WHERE workspace_id = ? AND expires_at > ? AND accepted_by IS NULL').bind(workspace,timestamp).first();if(pending.n>=20)problem(429,'Revoke unused invitations before creating more.');
    const token=id()+id(),hash=await hashToken(token),expiresAt=new Date(new Date(timestamp).getTime()+7*86400000).toISOString();
    const invited=await db.batch([
-    db.prepare("INSERT INTO invitations (hash,workspace_id,email,staff_id,expires_at,created_at) SELECT ?,?,?,?,?,? WHERE EXISTS (SELECT 1 FROM memberships WHERE workspace_id = ? AND user_id = ? AND role = 'manager') AND (SELECT COUNT(*) FROM invitations WHERE workspace_id = ? AND expires_at > ? AND accepted_by IS NULL) < 20 RETURNING hash").bind(hash,workspace,body.email.toLowerCase(),body.staffId,expiresAt,timestamp,workspace,user,workspace,timestamp),
+    db.prepare("INSERT INTO invitations (hash,workspace_id,email,staff_id,expires_at,created_at) SELECT ?,?,?,?,?,? WHERE EXISTS (SELECT 1 FROM memberships WHERE workspace_id = ? AND user_id = ? AND role = 'manager') AND (SELECT COUNT(*) FROM invitations WHERE workspace_id = ? AND expires_at > ? AND accepted_by IS NULL) < 20 AND EXISTS (SELECT 1 FROM workspaces w,json_each(w.document,'$.staff') s WHERE w.id=? AND json_extract(s.value,'$.id')=? AND COALESCE(json_extract(s.value,'$.active'),1)=1) RETURNING hash").bind(hash,workspace,body.email.toLowerCase(),body.staffId,expiresAt,timestamp,workspace,user,workspace,timestamp,workspace,body.staffId),
     db.prepare('INSERT INTO events (workspace_id,id,user_id,action,created_at) SELECT ?,?,?,?,? WHERE EXISTS (SELECT 1 FROM invitations WHERE workspace_id = ? AND hash = ?)').bind(workspace,id(),user,'member.invite',timestamp,workspace,hash)
-   ]);if(!invited[0].results?.length){manager(await membership(db,workspace,user));problem(429,'Revoke unused invitations before creating more.');}return json({token,expiresAt},201);
+   ]);if(!invited[0].results?.length){manager(await membership(db,workspace,user));const fresh=await load(db,workspace);if(!fresh.state.staff.some(s=>s.id===body.staffId&&s.active!==false))problem(409,'This staff profile is no longer active. Reload before creating a link.');problem(429,'Revoke unused invitations before creating more.');}return json({token,expiresAt},201);
   }
   if(path.length===3&&path[2]==='backups'&&request.method==='GET'){
    manager(m);const result=await db.prepare('SELECT revision, created_at FROM history WHERE workspace_id = ? ORDER BY revision DESC LIMIT 20').bind(workspace).all();return json({backups:result.results});
@@ -216,6 +219,7 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
     }
     case 'staff.add':result=D.addStaff(state,actor,data);break;
     case 'staff.update':result=D.updateStaff(state,actor,data,asOf);break;
+    case 'staff.active':result=D.setStaffActive(state,actor,data.id,data.active);break;
     case 'job.save':result=D.saveJob(state,actor,data,data.id);break;
     case 'job.series':result=D.updateSeries(state,actor,data,asOf);break;
     case 'job.update':{
@@ -255,7 +259,7 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
    }
   }catch(e){if(e instanceof Problem||e instanceof EmailProblem)throw e;if(e.backupStorage)problem(503,e.message);problem(/Manager|not assigned/.test(e.message)?403:400,e.message)}
   if(['job.save','job.series','job.update','quote.action'].includes(body.action))F.assignmentNotifications(state,before);
-  if(config?.plans){const a=await access(),plan=selectPlan(config,a.plan);const members=await db.prepare("SELECT COUNT(*) AS n FROM memberships WHERE workspace_id=? AND role='staff'").bind(workspace).first();if(!plan||!fitsPlan(state,members.n,plan))problem(409,plan?.staffAccess?LARGE_TEAM_MESSAGE:'Solo includes one owner-operator. Choose Team before adding more people. No records were changed.');}
+  if(config?.plans&&!(body.action==='staff.active'&&data.active===false)){const a=await access(),plan=selectPlan(config,a.plan);const members=await db.prepare("SELECT COUNT(*) AS n FROM memberships WHERE workspace_id=? AND role='staff'").bind(workspace).first();if(!plan||!fitsPlan(state,members.n,plan))problem(409,plan?.staffAccess?LARGE_TEAM_MESSAGE:'Solo includes one owner-operator. Choose Team before adding more people. No records were changed.');}
   if(!D.validateState(state))problem(400,'Operation would create invalid records.');
   const document=JSON.stringify(state);if(new TextEncoder().encode(document).byteLength>524288)problem(413,'Workspace storage limit reached. Export your records and contact support.');
   const reply={revision:row.revision+1,result};
@@ -266,19 +270,25 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
    db.prepare('INSERT INTO events (workspace_id,id,user_id,action,created_at) SELECT id,?,?,?,? FROM workspaces WHERE id = ? AND last_operation = ?').bind(body.requestId,user,body.action,timestamp,workspace,body.requestId),
    db.prepare('DELETE FROM history WHERE workspace_id = ? AND revision < ?').bind(workspace,Math.max(0,row.revision-19))
   ];
+  if(body.action==='staff.active'&&data.active===false){
+   // Only the winning revision may revoke links. A competing/stale command or
+   // database failure must not partially deactivate a person or remove access.
+   statements.push(
+    db.prepare("DELETE FROM invitations WHERE workspace_id=? AND staff_id=? AND EXISTS(SELECT 1 FROM workspaces WHERE id=? AND last_operation=?)").bind(workspace,data.id,workspace,body.requestId),
+    db.prepare("DELETE FROM memberships WHERE workspace_id=? AND role='staff' AND staff_id=? AND EXISTS(SELECT 1 FROM workspaces WHERE id=? AND last_operation=?)").bind(workspace,data.id,workspace,body.requestId)
+   );
+  }
   if(emailDelivery)statements.push(enqueueStatement(db,workspace,body.requestId,emailInvoiceId,emailDelivery,timestamp));
   const committed=await db.batch(statements);
   if(!committed[1].results?.length){const current=await membership(db,workspace,user);if(current.role!==m.role||current.staff_id!==m.staff_id)problem(403,'Your access changed. Reload before editing.');problem(409,'Workspace changed. Reload and try again.');}
-  return json(reply);
+  const response=json(reply);
+  // Access-removal maintenance must never wake billing-gated queued email.
+  if(body.action==='staff.active'&&data.active===false)response.headers.set('x-quenvira-email-wake','skip');
+  return response;
  }catch(e){
   // Record bounded provider diagnostics, never the request, headers or key.
-  if(typeof e.type==='string'&&/^Stripe[A-Za-z]+Error$/.test(e.type)){
-   // Provider messages/parameters can echo customer input, signing secrets or
-   // payment tokens. Log only bounded diagnostic fields, never free-form text.
-   const requestId=typeof e.requestId==='string'&&/^req_[A-Za-z0-9]{1,100}$/.test(e.requestId)?e.requestId:undefined;
-   const status=Number.isInteger(e.statusCode)&&e.statusCode>=400&&e.statusCode<=599?e.statusCode:undefined;
-   console.error('Quenvira Stripe request failed',JSON.stringify({type:e.type.slice(0,80),requestId,status}));
-  }
+  const diagnostic=stripeFailureDiagnostic(e);
+  if(diagnostic)console.error('Quenvira Stripe request failed',JSON.stringify(diagnostic));
   return json({error:e instanceof Problem||e instanceof SubscriptionProblem||e instanceof EmailProblem?e.message:'Service temporarily unavailable.',code:e instanceof Problem||e instanceof SubscriptionProblem||e instanceof EmailProblem?e.status:503},e instanceof Problem||e instanceof SubscriptionProblem||e instanceof EmailProblem?e.status:503)
  }
 }

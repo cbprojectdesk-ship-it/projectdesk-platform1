@@ -20,6 +20,7 @@ declare namespace Cloudflare {
     STRIPE_LIVE_WEBHOOK_SECRET?: string;
     QUENVIRA_LIVE_WEBHOOK_VERIFY?: string;
     CCS_WEBSITE_ENQUIRIES?: string;
+    CCS_WEBSITE_CONFIRMATIONS?: string;
     QUENVIRA_PLAN_CATALOG?: string;
     QUENVIRA_PLAN_TERMS_APPROVED?: string;
     QUENVIRA_TEAM_STAFF_LIMIT?: string;

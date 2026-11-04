@@ -24,7 +24,9 @@ optimisticRepeatInstall: false
 overrides:
   sharp: 0.35.5
   ws: 8.21.0
-  undici: 7.29.1
+  undici: 7.30.1
+  # Security fix for SVG escaping in Vinext's transitive Open Graph renderer.
+  satori: 0.33.5
   js-yaml: 4.3.2
   '@babel/core': 7.29.6
   brace-expansion@1: 1.1.21
