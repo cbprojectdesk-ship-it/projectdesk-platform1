@@ -1,0 +1,7 @@
+{
+  "name": "quenvira-isolated-stripe-receiver",
+  "private": true,
+  "type": "module",
+  "scripts": {"test": "node --test tests/relay.test.mjs"},
+  "engines": {"node": ">=22"}
+}
