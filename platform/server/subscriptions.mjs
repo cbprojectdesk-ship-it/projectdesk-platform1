@@ -80,7 +80,9 @@ async function paid(subscription,config,client,now){
 const terminal=subscription=>['canceled','incomplete_expired'].includes(subscription.status);
 export async function entitlement(db,workspace,config,client,now=Date.now()){
  const account=await row(db,workspace);
- if(!account)return {status:'not_enrolled',canWrite:false,trialEnd:null,canManage:false,canCheckout:false};
+ // Existing workspaces may predate billing configuration. Offer guarded manager checkout
+ // without granting access or starting a trial on read.
+ if(!account)return {status:'not_enrolled',canWrite:false,trialEnd:null,canManage:false,canCheckout:true};
  const current=account.customer_id?await subscriptions(client,account.customer_id):[];
  const ongoing=current.filter(s=>!terminal(s));
  if(config.plans&&ongoing.length>1)fail(503,'Multiple subscriptions require support before plan access can be determined.');

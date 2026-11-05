@@ -29,6 +29,30 @@ test('14-day card-free trial is persistent, retry safe and cannot restart on wor
  const f=await fixture();const before=await entitlement(f.db,f.workspace,config,f.client,now);assert.equal(before.status,'trial');assert.equal(before.trialEnd,'2026-11-05T12:00:00.000Z');await startTrial(f.db,f.workspace,'2027-01-01T00:00:00Z');assert.equal((await entitlement(f.db,f.workspace,config,f.client,now)).trialEnd,before.trialEnd);
  f.db.sqlite.prepare('DELETE FROM workspaces WHERE id=?').run(f.workspace);await setup(f.db);await startTrial(f.db,f.workspace,'2027-01-01T00:00:00Z');assert.equal((await entitlement(f.db,f.workspace,config,f.client,now)).trialEnd,before.trialEnd);f.db.sqlite.close();
 });
+test('workspace created before billing can reach guarded checkout without access or trial on read',async()=>{
+ const db=database(),workspace=await setup(db),client=provider(),f={db,workspace,client};
+ try{
+  const status=await call(f,`workspaces/${workspace}/subscription`);
+  assert.equal(status.status,200);assert.equal(status.body.status,'not_enrolled');
+  assert.equal(status.body.canCheckout,true);assert.equal(status.body.canWrite,false);
+  assert.equal(status.body.canManage,false);assert.equal(status.body.trialEnd,null);
+  assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM subscription_accounts').get().n,0);
+  assert.equal(client.calls.length,0);
+  const refused=await call(f,`workspaces/${workspace}/subscription`,{action:'checkout'});
+  assert.equal(refused.status,400);
+  assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM subscription_accounts').get().n,0);
+  const outsider=await call(f,`workspaces/${workspace}/subscription`,{action:'checkout',...terms},'bob');
+  assert.equal(outsider.status,404);
+  const person=await fixtures(db,workspace);
+  db.sqlite.prepare("INSERT INTO memberships VALUES (?,?,'staff',?)").run(workspace,'worker',person.staffId);
+  const staff=await call(f,`workspaces/${workspace}/subscription`,{action:'checkout',...terms},'worker');
+  assert.equal(staff.status,403);assert.equal(client.calls.length,0);
+  const accepted=await call(f,`workspaces/${workspace}/subscription`,{action:'checkout',...terms});
+  assert.equal(accepted.status,200);assert.equal(accepted.body.url,'https://checkout.stripe.com/c/pay/test');
+  assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM subscription_accounts').get().n,1);
+  assert.equal(client.calls.filter(c=>c[0]==='checkout').length,1);
+ }finally{db.sqlite.close()}
+});
 test('checkout uses fixed price, tenant-owned customer, anchored trial and identical idempotency parameters',async()=>{
  const f=await fixture();await assert.rejects(checkout(f.db,f.workspace,'alice@example.com',{},config,f.client,timestamp));
  const result=await checkout(f.db,f.workspace,'alice@example.com',{...terms,price:'price_evil',customer:'cus_evil'},config,f.client,timestamp);
