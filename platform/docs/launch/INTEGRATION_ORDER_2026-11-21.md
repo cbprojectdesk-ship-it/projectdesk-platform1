@@ -7,7 +7,7 @@ This document is an AI-prepared handoff. It is not independent human approval.
 | PR | Branch | Head | State |
 | --- | --- | --- | --- |
 | #52 | `pr52` | `822e69f` | Open, not draft, `CLEAN`, 7/7 checks green, 299 platform tests |
-| #60 | `fix/recovery-and-command-defaults-20261121` | `3980bc9` (code head `340f016`) | Open, not draft, `CLEAN`, 7/7 checks green, 286 platform tests, 138 browser tests |
+| #60 | `fix/recovery-and-command-defaults-20261121` | `3f694cd` (code head `340f016`) | Open, not draft, checks green, 286 platform tests, 138 browser tests, dependency audit gates |
 
 #60 contains the critical React Server Components correction (GHSA-xqc2-xf4c-x3h3, `react-server-dom-webpack` 19.2.8 → 19.2.9) and the Next.js 16.4.6 correction. It is the isolated security patch for any deployment built from `main` or #52.
 
@@ -18,7 +18,7 @@ This document is an AI-prepared handoff. It is not independent human approval.
 Reasons:
 
 - #52 is the larger, older change (63 files, ~3,044 insertions, 16 commits). Re-reviewing it after #60 would be substantially more expensive.
-- #60 is small (11 files, 3 commits) and its 11 targeted tests directly exercise the combined recovery/command semantics.
+- #60 is small (13 files, 4 commits) and its 11 targeted tests directly exercise the combined recovery/command semantics.
 - A scratch merge of both heads produced **310/310 platform tests**, TypeScript, production build and a clean production audit.
 
 If a deployment must receive the critical RSC/Next patch before #52 is approved, use the isolated patch procedure below and merge #60 first; the final combined resolution is the same.

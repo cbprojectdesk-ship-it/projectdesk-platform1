@@ -175,7 +175,7 @@ Both PRs are individually `MERGEABLE` and green. They both edit `platform/server
 **Recommended order: merge #52 first, then rebase #60.**
 
 - #52 is the larger, older change (63 files, ~3,044 insertions, 16 commits). Rebasing it after #60 would require re-reviewing a large diff.
-- #60 is small (11 files, 3 commits) and its 11 targeted regression tests directly exercise the combined recovery and command-default semantics.
+- #60 is small (13 files, 4 commits) and its 11 targeted regression tests directly exercise the combined recovery and command-default semantics.
 - The final tree was verified: **310/310 platform tests, TypeScript, production build, production audit clean**, with the combined resolution below.
 
 Resolution if #52 lands first:
