@@ -6,10 +6,21 @@ This document is an AI-prepared handoff. It is not independent human approval.
 
 | PR | Branch | Head | State |
 | --- | --- | --- | --- |
-| #52 | `pr52` | `822e69f` | Open, not draft, `CLEAN`, 7/7 checks green, 299 platform tests |
-| #60 | `fix/recovery-and-command-defaults-20261121` | `3f694cd` (code head `340f016`) | Open, not draft, checks green, 286 platform tests, 138 browser tests, dependency audit gates |
+| #52 | `quenvira-final-verification-20261030` | `38164d6` | Open, not draft, `CLEAN`, 7/7 checks green, 300 platform tests, browser tests green |
+| #60 | `fix/recovery-and-command-defaults-20261121` | `f1a3821` (code head `340f016`) | Open, not draft, `CLEAN`, 7/7 checks green, 286 platform tests, 138 browser tests, dependency audit gates |
+| #61 | `security/isolated-rsc-next-20261121` | `5571ceb` | Open, not draft, `CLEAN`, all checks green, 276 platform tests, security-only fallback for `main` |
 
-#60 contains the critical React Server Components correction (GHSA-xqc2-xf4c-x3h3, `react-server-dom-webpack` 19.2.8 → 19.2.9) and the Next.js 16.4.6 correction. It is the isolated security patch for any deployment built from `main` or #52.
+#52 and #60 both contain the critical React Server Components correction (GHSA-xqc2-xf4c-x3h3, `react-server-dom-webpack` 19.2.8 → 19.2.9) and the Next.js 16.4.6 correction. #61 is the isolated security-only patch for a deployment still built from `main`.
+
+## Integration candidate
+
+The exact post-#52/#60 tree was built and tested on branch `integration/pr52-pr60-verified-20261121` at merge commit `b011f96`:
+
+- **310/310** platform tests (CI 44956494386).
+- **144/144** browser tests across Chromium, Firefox and WebKit at desktop, 360px, 390px and 768px (CI 44956492561).
+- TypeScript, syntax, production build and production audit clean.
+- Full audit: one moderate development-only `minimatch`; no high or critical.
+- `dist` contains 0 × `19.2.8` and 14 × `19.2.9`.
 
 ## Recommended order
 
@@ -21,7 +32,7 @@ Reasons:
 - #60 is small (13 files, 4 commits) and its 11 targeted tests directly exercise the combined recovery/command semantics.
 - A scratch merge of both heads produced **310/310 platform tests**, TypeScript, production build and a clean production audit.
 
-If a deployment must receive the critical RSC/Next patch before #52 is approved, use the isolated patch procedure below and merge #60 first; the final combined resolution is the same.
+If a deployment must receive the critical RSC/Next patch before #52 is approved, merge #61, or apply the isolated patch procedure below; #52 at `38164d6` already includes the same patch.
 
 ## Conflicts and exact resolutions
 
@@ -99,7 +110,7 @@ Expected final audit: one moderate development-only `minimatch` finding, no high
 
 ## Isolated security patch for an affected deployment
 
-Any build from `main` (`47d4eda`) or `pr52` (`822e69f`) still contains `react-server-dom-webpack@19.2.8` and Next.js 16.4.1. Because the RSC package is a devDependency but is bundled into the production Worker, `pnpm audit --prod` does not report it. **An isolated patch is required if such a build is or will be serving traffic before #60 is merged.**
+`main` (`47d4eda`) still contains `react-server-dom-webpack@19.2.8` and Next.js 16.4.1. #52 before `38164d6` was also affected; #52 at `38164d6` is fixed. Because the RSC package is a devDependency but is bundled into the production Worker, `pnpm audit --prod` does not report it. **#61 is required if a build from `main` is or will be serving traffic before #52 merges.**
 
 Apply the security changes without taking #60's recovery changes:
 
@@ -132,6 +143,7 @@ Commit `340f016` in #60 contains the RSC package.json and test changes; its pare
 - #54: 4/4 Python tests independently re-run.
 - #55: 3/3 packaging tests independently re-run.
 - #58: 39/39 relay tests independently re-run.
+- #61: security-only RSC/Next and toolchain patch for `main`; 276/276 tests, production audit clean.
 
 ## Human approval still required
 

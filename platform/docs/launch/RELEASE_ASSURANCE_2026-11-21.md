@@ -1,6 +1,6 @@
 # Quenvira release assurance — 21 November 2026
 
-Independent technical review of `cbprojectdesk-ship-it/projectdesk-platform1` at `main` (`47d4eda`), PR #52 (`822e69f`) and PR #60 (`340f016`). This is an AI-assisted engineering review, not independent human approval, legal advice, a DPO opinion or formal compliance certification.
+Independent technical review of `cbprojectdesk-ship-it/projectdesk-platform1` at `main` (`47d4eda`), PR #52 (`38164d6`) and PR #60 (`f1a3821`, code head `340f016`). This is an AI-assisted engineering review, not independent human approval, legal advice, a DPO opinion or formal compliance certification.
 
 ## Scope and method
 
@@ -19,7 +19,17 @@ It does **not** contain the managed hosting configuration, live credentials, pro
 
 ## Release verdict
 
-**Not ready for real paying customers.** The server candidate is suitable for a continued invitation-only fictional-data pilot after human review and merge of #52/#60. Public paid launch requires the external approvals and infrastructure in section D. The previously reported “green CI” was not sufficient: this review found a **critical React Server Components advisory** that the production-only audit missed, and fixed it in #60.
+**Not ready for real paying customers.** The server candidate is suitable for a continued invitation-only fictional-data pilot after human review and merge of #52/#60. Public paid launch requires the external approvals and infrastructure in section D. The previously reported “green CI” was not sufficient: this review found a **critical React Server Components advisory** that the production-only audit missed. It is fixed in #60 and back-ported to #52 at `38164d6`; #61 is the security-only fallback for `main`.
+
+---
+
+## Integration update — 21 November 2026
+
+- #52 now carries the RSC/Next security patch at `38164d6`: 300/300 platform tests, 7/7 checks green, browser suite green, production audit clean, full audit one moderate development-only finding.
+- #60 is at `f1a3821` (code head `340f016`): 286/286 platform tests, 138/138 browser tests, 7/7 checks green.
+- The exact combined tree is on `integration/pr52-pr60-verified-20261121` at `b011f96`: **310/310 platform tests and 144/144 browser tests**, TypeScript, build and production audit clean.
+- #61 is the security-only fallback for `main`: 276/276 tests, production audit clean, no recovery or feature changes.
+- No merge, deployment, live billing, customer email or credential change was performed.
 
 ---
 
@@ -29,8 +39,10 @@ It does **not** contain the managed hosting configuration, live credentials, pro
 | --- | --- | --- |
 | Root demo suite | CI run 44953403283: 59/59 | Pass |
 | Platform suite on #60 | Local and CI 44953403228: 286/286 | Pass |
-| Platform suite with #52 + #60 | Scratch merge `/tmp/q60b`: 310/310 | Pass |
+| Platform suite on #52 after security patch | CI 44956693251: 300/300 | Pass |
+| Platform suite with #52 + #60 | Integration branch `b011f96`, CI 44956494386: 310/310 | Pass |
 | Browser acceptance on #60 | CI 44953403311: 138/138, Chromium/Firefox/WebKit, desktop/360/390/768 | Pass |
+| Browser acceptance on #52 + #60 | Integration branch `b011f96`, CI 44956492561: 144/144 | Pass |
 | TypeScript, syntax, build | `tsc --noEmit`, `npm run check`, `npm run build` on #60 and combined tree | Pass |
 | Production dependency audit | `pnpm audit --prod --audit-level high` on #60: no known vulnerabilities | Pass |
 | Full dependency audit, combined | #52 + #60: 1 moderate (dev-only `minimatch`), 0 high/critical | Pass |
@@ -156,7 +168,7 @@ No regression was found in #60 or #52 beyond the above. The combined merge resol
 | Item | Status | Evidence / reason |
 | --- | --- | --- |
 | #52 source correction (consistent snapshot, empty-target lock, four regressions) | **Pass on current head** | `workspace-recovery.mjs`, `disaster-recovery.test.mjs`; combined 310/310 |
-| New-head server CI 298 tests | **Pass (historical)** | Current #52 CI: 299 platform tests, all 7 checks green |
+| New-head server CI 298 tests | **Pass (historical)** | Current #52 CI at `38164d6`: 300 platform tests, all 7 checks green |
 | Managed candidate patch/hash | **Unverified** | Artifact and SHA not present in the repository |
 | Staging D1 migration 0003 and packaging dry-run | **Partially verified** | Migration file and #55 preparer exist; hosted staging state not independently checked |
 | Independent reviewer approval #52/#54/#55 | **External approval required** | Issue #56 still unassigned |
@@ -184,7 +196,7 @@ Resolution if #52 lands first:
 - `domain.mjs`: keep #60's `staffId` default and `round` default, plus #52's `s.id===staffId && s.active!==false` check.
 - `pnpm-lock.yaml`: take either side and run `pnpm install`.
 
-If the critical RSC/Next security patch is urgent, merge #60 first and accept the same resolution while rebasing #52; the final tree and test evidence are identical.
+If the critical RSC/Next security patch is urgent, merge #61, or merge #52 first: #52 at `38164d6` already contains the same patch. The combined tree and test evidence are identical.
 
 ---
 
