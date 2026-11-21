@@ -130,10 +130,11 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
   // An expired subscription keeps read/export, revocation and deletion paths.
   // Paid workflow mutations require a fresh authoritative provider check.
   const needsEntitlement=request.method==='POST'&&(path[2]==='commands'||path[2]==='invitations'||path[2]==='email-dispatch');
+  let recovery=false;
   if(config&&needsEntitlement){
-   const maintenanceBody=(path[2]==='invitations'||path.length===3&&path[2]==='commands')?await readBody(request.clone()):null;
-   const permittedMaintenance=path[2]==='invitations'&&maintenanceBody?.revoke||path.length===3&&path[2]==='commands'&&maintenanceBody?.action==='staff.active'&&maintenanceBody?.data?.active===false;
-   const recovery=path[2]==='commands'&&path[3]==='backup';
+   const maintenanceBody=(path[2]==='invitations'||path[2]==='commands'&&path.length===3)?await readBody(request.clone()):null;
+   const permittedMaintenance=path[2]==='invitations'&&maintenanceBody?.revoke||path[2]==='commands'&&maintenanceBody?.action==='staff.active'&&maintenanceBody?.data?.active===false;
+   recovery=path[2]==='commands'&&(path[3]==='backup'||maintenanceBody?.action==='backup.restore');
    if(config.mode==='live'&&!permittedMaintenance&&!recovery&&!await serviceTermsAccepted(db,workspace,config.termsVersion))problem(403,'A manager must accept the current business terms in Settings before editing. Viewing and exports remain available.');
    if(!permittedMaintenance&&!recovery&&!(await access()).canWrite)problem(402,planAccess.overLimit?(planAccess.staffAccess?LARGE_TEAM_MESSAGE:'Existing staff records or access exceed the current plan. Records and exports remain available; contact support before changing the plan.'):'Your trial or subscription has ended. A manager can manage the subscription in Settings. Records and exports remain available.');
   }
@@ -268,7 +269,7 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
    }
   }catch(e){if(e instanceof Problem||e instanceof EmailProblem)throw e;if(e.backupStorage)problem(503,e.message);problem(/Manager|not assigned/.test(e.message)?403:400,e.message)}
   if(['job.save','job.series','job.update','quote.action'].includes(body.action))F.assignmentNotifications(state,before);
-  if(config?.plans&&!(body.action==='staff.active'&&data.active===false)){const a=await access(),plan=selectPlan(config,a.plan);const members=await db.prepare("SELECT COUNT(*) AS n FROM memberships WHERE workspace_id=? AND role='staff'").bind(workspace).first();if(!plan||!fitsPlan(state,members.n,plan))problem(409,plan?.staffAccess?LARGE_TEAM_MESSAGE:'Solo includes one owner-operator. Choose Team before adding more people. No records were changed.');}
+  if(config?.plans&&!recovery&&!(body.action==='staff.active'&&data.active===false)){const a=await access(),plan=selectPlan(config,a.plan);const members=await db.prepare("SELECT COUNT(*) AS n FROM memberships WHERE workspace_id=? AND role='staff'").bind(workspace).first();if(!plan||!fitsPlan(state,members.n,plan))problem(409,plan?.staffAccess?LARGE_TEAM_MESSAGE:'Solo includes one owner-operator. Choose Team before adding more people. No records were changed.');}
   if(!D.validateState(state))problem(400,'Operation would create invalid records.');
   const document=JSON.stringify(state);if(new TextEncoder().encode(document).byteLength>524288)problem(413,'Workspace storage limit reached. Export your records and contact support.');
   const reply={revision:row.revision+1,result};
