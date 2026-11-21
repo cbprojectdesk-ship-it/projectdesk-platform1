@@ -16,6 +16,14 @@ const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers}
 class Problem extends Error{constructor(status,message){super(message);this.status=status}}
 const problem=(status,message)=>{throw new Problem(status,message)};
 const empty=()=>({version:1,customers:[],staff:[],jobs:[],invoices:[],audit:[]});
+const COMMAND_LIMIT=120;
+async function throttleCommand(db,workspace,user,timestamp,recovery){
+ const windowStart=Math.floor(Date.parse(timestamp)/60000);
+ const row=await db.prepare(`INSERT INTO command_rate_limits (workspace_id,user_id,window_start,attempts) VALUES (?,?,?,1)
+  ON CONFLICT(workspace_id,user_id) DO UPDATE SET attempts=CASE WHEN command_rate_limits.window_start=excluded.window_start THEN command_rate_limits.attempts+1 ELSE 1 END,window_start=excluded.window_start
+  RETURNING attempts`).bind(workspace,user,windowStart).first();
+ if(!recovery&&Number(row?.attempts)>COMMAND_LIMIT)problem(429,'Too many updates. Wait a minute and try again.');
+}
 const id=()=>crypto.randomUUID();
 const today=now=>new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);
 const hashToken=async token=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token)))).map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -189,7 +197,8 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
   const requestHash=await hashToken(JSON.stringify({revision:body.revision,action:body.action,data:body.data}));
   const prior=await db.prepare('SELECT user_id, response FROM operations WHERE workspace_id = ? AND id = ?').bind(workspace,body.requestId).first();
   if(prior){if(prior.user_id!==user)problem(409,'Request ID already used.');const {_requestHash,...replay}=JSON.parse(prior.response);if(_requestHash&&_requestHash!==requestHash)problem(409,'Request ID was already used for a different command.');return json({...replay,result:m.role==='manager'?replay.result:null,replayed:true})}
-  const recent=await db.prepare('SELECT COUNT(*) AS n FROM operations WHERE workspace_id = ? AND user_id = ? AND created_at >= ?').bind(workspace,user,new Date(new Date(timestamp).getTime()-60000).toISOString()).first();if(recent.n>=120)problem(429,'Too many updates. Wait a minute and try again.');
+  const recoveryAction=importCommand||body.action==='backup.restore'||body.action==='staff.active'&&body.data.active===false;
+  await throttleCommand(db,workspace,user,timestamp,recoveryAction);
   if(body.revision!==row.revision)problem(409,'Workspace changed. Reload and try again.');
   const before=structuredClone(state);const data=body.data,actor={role:m.role,staffId:m.staff_id};let result=null,emailDelivery=null,emailInvoiceId=null;
   try{
