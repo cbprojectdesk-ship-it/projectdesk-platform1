@@ -1,56 +1,11 @@
-# Quenvira readiness follow-up — 28 October 2026
+# Historical readiness evidence — 28 October 2026
 
-Live billing, public paid self-service and live customer invoice sending remain off. No purchase or real charge was made. Owner laptop backup remains the last task.
+Historical summary only. Current status and open gates are in `QUENVIRA_FINAL_COMPLETION_TRACKER.md`; do not use this file to infer present deployment configuration.
 
-## Access verification
+Invoice dispatch uses existing authenticated manager membership, entitlement, approved-recipient, suppression, lease, idempotency and daily-limit controls. Durable due work survives missed runs; uncertain provider acceptance requires reconciliation rather than a new send. Source simulations do not establish provider outage recovery or an operational unattended schedule.
 
-The full SQLite/server/client suite passes 228 cases, including manager/staff boundaries, assigned visits, removal of prices/customer email from staff responses, invitation email binding/expiry/revocation, cross-business isolation and authority rechecks on writes. New MCP tests check anonymous/staff/unrelated manager denial, private queue summaries, missed-run retry, stable provider idempotency, disabled/live gates and expired-subscription blocking. These are automated acceptance, not a new second-person physical-device sign-in exercise.
+A specifically approved fictional zero-value invoice reached the business test inbox with delivery evidence. That approval was consumed; do not resend it. Subsequent sender configuration and notification changes require their own acceptance evidence. No customer communication or paid launch is approved by that historical receipt.
 
-## Restricted background retry implementation
+Open verification includes independent staff/device acceptance, automatic payment recovery and hosted entitlement transitions, notification coverage, complete recovery evidence and final customer/provider particulars. The owner's actual encrypted backup remains separate from synthetic recovery tests.
 
-The Site exposes two MCP tools: a read-only count and a bounded due-email processor. Both require the caller's current manager membership; processing delegates to the existing authenticated manager API and its entitlement/recipient/lease/suppression/daily-limit controls. Each call processes at most one due email per workspace, in at most three managed workspaces. It does not create or issue invoices, choose recipients, configure email or enable live mode. No invoice content, customer address or credential is returned. Missed runs leave durable due entries; provider uncertainty reuses the original idempotency key. Rows requiring reconciliation are not automatically resent.
-
-The server implementation and simulated missed-run tests do not prove a cloud schedule is connected. The published MCP connection and an actual unattended invocation must be verified before scheduling is claimed operational. Hosted outcome: Sites version 47/source 23fbcfc7eed6021f90290f3928cd7d2e9c849853 deployed successfully with has_mcp=true. get_site(include_mcp_connection=true) returns the hosted /mcp URL and OAuth resource but no plugin ID; no Quenvira tools appeared in the session and plugin discovery returned no matching plugin. There is no verified unattended caller connection. No retry schedule was created. The manager Process due email path remains available; a configured timer is not claimed. Revisit the supported personal Site plugin connection before scheduling. No credentials were placed in a task prompt or exposed to create a workaround.
-
-## Sandbox billing evidence and cleanup
-
-The existing release record confirms owner hosted Checkout completion, recorded terms acceptance and mapped webhook receipts, plus separate sandbox cancellation and an initial declined-charge fixture. That is historical evidence, not a fresh checkout performed on 28 October.
-
-The two real-time cycle fixtures from 23 October have both now paid a £19 sandbox subscription_cycle invoice in one attempt:
-- sub_1UTfsiJMLR8T7SStOr9DRNgq / in_1UTfwBJMLR8T7SStBgVFhfPW
-- sub_1UTfsmJMLR8T7SStNZfKWADJ / in_1UTfvqJMLR8T7SStqHRPYN4C
-
-The current paid status alone is not failure evidence. The separately retained GitHub record docs/MANUAL_PAYMENT_RECOVERY_2026-10-23.md confirms that Charles submitted an insufficient-funds card, observed a decline, and native reads then recorded invoice open/amount_paid=0 and subscription past_due. Charles subsequently completed payment with the success card; the same cycle invoice became paid and the subscription active. InvoicePayment inpay_1UTfwiJMLR8T7SStnngyoMWm records 1900 GBP paid at 1792753402. Thus provider cycle-payment success and owner-submitted decline/manual recovery are evidenced. Automatic payment retry and hosted business entitlement transitions across that cycle remain unverified. Do not repeat the completed owner payment test. The prior approval-review requirement for owner-only payment submission remains in force. The available connector search exposes no invoice-pay or PaymentMethod attach operation; clock advancement was unavailable in earlier acceptance. Do not weaken API restrictions or use obsolete card tokens to manufacture a pass.
-
-Both above fixtures were rechecked as fictional=yes, quenvira_qa=timed-cycle-20261023 and livemode=false, then cancelled through the sandbox API with invoice_now=false and prorate=false. Both returned canceled. The owner's trial/cancellation arrangement was untouched.
-
-## Supplier, support and customer notice review
-
-Supplier identity, contact, proposed £19 total monthly price and owner's non-VAT-registration statement are consistent across existing draft terms and business schedule. Support remains business email without an invented response-time or uptime promise. Trial/cancellation/exit and manual-backup limits remain explicit. The public privacy notice is corrected to describe the connected Resend restricted test instead of incorrectly saying no provider exists. Live invoice email is still outside the proposed paid service.
-
-The sender mail.ccscreativetech.co.uk was visibly Verified in the signed-in Resend dashboard on 28 October; its event history records Domain verified at 00:15. This proves sender verification, not customer sending approval or final processing agreement. Customer-specific order/DPA particulars, actual provider chain/location/retention, business administrative checks and final contract agreement remain launch requirements. This review does not accept any customer contract or certify legal compliance.
-
-## GitHub reconciliation — 28 October morning
-
-Hosted version 48 source 8bf69e172b1dd3f8c53a9c42a9194585754363d8 is reconciled into the existing platform tree. The separate standalone identity/Cloudflare build adapters and environment declarations are preserved. The platform manifest gains only the MCP capability; no Site identity or secrets are copied from hosted configuration.
-
-Fresh local acceptance: all 228 application tests pass, no failures/skips. The interactive hosted MCP read-only queue tool now connects and reports test mode, zero due and zero review; this supersedes the earlier missing-interactive-plugin finding. No linked schedule exists, and unattended cloud execution remains unverified.
-
-With the owner's specific one-email approval, QV-1005 automatically issued/queued/sent on fictional £0 visit completion, arrived only in ccscreativetech@gmail.com at 08:30:29 GMT, and is marked delivered with one attempt. Gmail SPF/DKIM/DMARC passed. That approval is consumed; do not repeat the test or resend existing invoices. No customer sending or paid launch is approved.
-
-Runtime remains billing=test, email=test, self-service=no; actual From remains onboarding@resend.dev. Owned-domain sender acceptance, unattended retries, real bounce/complaint and missed-run recovery, automatic payment-retry/hosted entitlement transitions, separate-person staff/device acceptance and final customer/provider particulars remain open. Owner-held encrypted laptop backup stays LAST, before separate explicit live launch approval.
-
-## Verified continuation — 28 October 2026
-
-This section supersedes the earlier missing-plugin and sender observations.
-
-- The Quenvira read-only queue tool is connected and works. Fresh reads report zero due and zero review entries. No periodic retry schedule is configured; unattended write invocation and real retry/bounce/complaint acceptance are still open. Do not repeat plugin installation investigations.
-- The one expressly approved £0 fictional invoice QV-1005 reached the business inbox and signed delivery status, one attempt, using onboarding@resend.dev. That approval is consumed; no resend or further test is authorised by it.
-- The owned sender is verified in Resend. Runtime revision 13 now uses invoices@mail.ccscreativetech.co.uk while retaining billing=test, email=test and self-service=no. New-sender inbox delivery has not been tested.
-- GitHub PR #41 merged as 549685abf8693cff9f90ca7f1661f7f0be267f5a. Hosted email MCP controls, API dispatch limit and customer notices are reconciled; independent standalone identity/build adapters were preserved.
-- Fresh local check/test/typecheck/build succeeded: all 228 tests pass, no failures or skipped tests. PR #41 browser, platform, server, verification and test checks succeeded.
-- Provider evidence is updated in docs/HOSTING_PROVIDER_REVIEW_2026-10-23.md, including Resend US storage, stated retention and European sending-region distinction. No UK-only claim is supported.
-- Stripe connector searches did not expose existing test-clock retrieval/advancement, so no unused clock was created. Historical owner decline/manual recovery remains valid; automatic retry and hosted entitlement transition acceptance are still open.
-- Two-person staff and physical-device acceptance, actual customer/order/DPA particulars and factual owner administration remain open. Encrypted independent laptop backup remains the final prelaunch technical task, followed by explicit owner commercial launch approval. Billing/customer sending remain disabled.
-
-No new email, charge, paid resource, customer contract or customer-data onboarding was performed by this continuation.
+Provider object identifiers, operational endpoint details and hosting inventory have been omitted from this public summary. No credential values belong here.

@@ -4,7 +4,7 @@ import {emailConfig,dispatchEmails} from './invoice-delivery.mjs';
 // Keep the response independent of provider latency and preserve queued work on
 // failure. One request per wake fits within the Worker's background lifetime.
 export function dispatchAfterCommand(request,response,env,context){
- if(request.method!=='POST'||!response.ok||!env.DB)return;
+ if(request.method!=='POST'||!response.ok||!env.DB||response.headers.get('x-quenvira-email-wake')==='skip')return;
  const match=new URL(request.url).pathname.match(/^\/api\/quenvira\/workspaces\/([a-zA-Z0-9_-]+)\/commands(?:\/photo)?$/);
  const config=emailConfig(env);
  if(!match||!config)return;

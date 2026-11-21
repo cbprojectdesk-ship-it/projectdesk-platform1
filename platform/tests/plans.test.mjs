@@ -12,7 +12,7 @@ function provider(){
 const paid=(plan,status='active')=>({id:'sub_plan',customer:'cus_plan',livemode:false,status,latest_invoice:{id:'in_confirmed',livemode:false,status:'paid',amount_remaining:0,customer:'cus_plan',subscription:'sub_plan'},items:{data:[{price:{id:'price_'+plan},quantity:1,current_period_end:Math.floor(time/1000)+86400}]}});
 async function fixture(){const db=database(),workspace=await setup(db);await startTrial(db,workspace,stamp);const client=provider(),config=billingConfig(env);return {db,workspace,client,config}}
 async function call(f,path,body,user='alice'){
- const r=await handle(new Request(ORIGIN+'/api/quenvira/'+path,{method:body===undefined?'GET':'POST',headers:{'oai-authenticated-user-id':user,'oai-authenticated-user-email':user+'@example.com',origin:ORIGIN,'content-type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})}),f.db,{billingEnv:env,billingClient:f.client,now:fixed,bucket:f.db.bucket});return {status:r.status,body:await r.json()};
+ const r=await handle(new Request(ORIGIN+'/api/quenvira/'+path,{method:body===undefined?'GET':'POST',headers:{'oai-authenticated-user-id':user,'oai-authenticated-user-email':user+'@example.com',origin:ORIGIN,'content-type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})}),f.db,{billingEnv:f.env||env,billingClient:f.client,now:fixed,bucket:f.db.bucket});return {status:r.status,body:await r.json()};
 }
 const command=(f,action,data)=>call(f,'workspaces/'+f.workspace+'/commands',{action,data,revision:f.db.sqlite.prepare('SELECT revision FROM workspaces WHERE id=?').get(f.workspace).revision,requestId:crypto.randomUUID()});
 test('catalogue is opt-in, requires distinct fixed prices and the agreed five-person Team allowance',()=>{
@@ -51,12 +51,48 @@ test('larger bands have fixed decreasing per-person rates, no enterprise checkou
  const v2={...env,QUENVIRA_PLAN_CATALOG:'solo-team-v2',STRIPE_TEAM10_PRICE_ID:'price_team10',STRIPE_TEAM15_PRICE_ID:'price_team15',STRIPE_TEAM20_PRICE_ID:'price_team20'},config=billingConfig(v2);
  assert.deepEqual(config.plans.map(p=>[p.id,p.amount,p.maxPeople,p.maxStaffAccounts]),[['solo',799,1,0],['team',1499,5,4],['team10',2499,10,9],['team15',3299,15,14],['team20',3999,20,19]]);
  assert.throws(()=>billingConfig({...v2,STRIPE_TEAM20_PRICE_ID:'price_team10'}));assert.throws(()=>billingConfig({...v2,STRIPE_TEAM15_PRICE_ID:undefined}));
- for(const plan of config.plans){const f=await fixture();try{f.client.prices.retrieve=async id=>({active:true,livemode:false,currency:'gbp',unit_amount:plan.amount,billing_scheme:'per_unit',tax_behavior:'inclusive',recurring:{interval:'month',interval_count:1,usage_type:'licensed'}});await checkout(f.db,f.workspace,'alice@example.com',{...terms,plan:plan.id,maxPeople:100},config,f.client,stamp);assert.equal(f.client.calls[0].line_items[0].price,plan.price);f.db.sqlite.prepare("UPDATE subscription_accounts SET trial_end='2026-01-01'").run();f.client.setSubs([paid(plan.id)]);const access=await entitlement(f.db,f.workspace,config,f.client,time);assert.equal(access.maxStaffAccounts,plan.maxPeople-1);assert.equal(access.canWrite,true)}finally{f.db.sqlite.close()}}
+ for(const plan of config.plans){const f=await fixture();try{f.client.prices.retrieve=async()=>({active:true,livemode:false,currency:'gbp',unit_amount:plan.amount,billing_scheme:'per_unit',tax_behavior:'inclusive',recurring:{interval:'month',interval_count:1,usage_type:'licensed'}});await checkout(f.db,f.workspace,'alice@example.com',{...terms,plan:plan.id,maxPeople:100},config,f.client,stamp);assert.equal(f.client.calls[0].line_items[0].price,plan.price);f.db.sqlite.prepare("UPDATE subscription_accounts SET trial_end='2026-01-01'").run();f.client.setSubs([paid(plan.id)]);const access=await entitlement(f.db,f.workspace,config,f.client,time);assert.equal(access.maxStaffAccounts,plan.maxPeople-1);assert.equal(access.canWrite,true)}finally{f.db.sqlite.close()}}
 });
 test('fifth independent staff sign-in is rejected and racing acceptance cannot exceed owner plus four',async()=>{
  for(const racing of [false,true]){const f=await fixture();try{const data=await fixtures(f.db,f.workspace);const invite=await call(f,'workspaces/'+f.workspace+'/invitations',{email:'worker@example.com',staffId:data.staffId});assert.equal(invite.status,201);
  for(let i=0;i<(racing?3:4);i++)f.db.sqlite.prepare("INSERT INTO memberships VALUES (?,?,'staff',?)").run(f.workspace,'member'+i,data.staffId);
  if(racing)f.db.beforeBatch=()=>f.db.sqlite.prepare("INSERT INTO memberships VALUES (?,?,'staff',?)").run(f.workspace,'racer',data.staffId);
  const result=await call(f,'invitations/accept',{token:invite.body.token},'worker');assert.notEqual(result.status,200);assert.equal(f.db.sqlite.prepare("SELECT COUNT(*) n FROM memberships WHERE role='staff'").get().n,4);assert.equal(f.db.sqlite.prepare("SELECT accepted_by FROM invitations").get().accepted_by,null);
+ }finally{f.db.sqlite.close()}}
+});
+
+test('inactive historical profiles release active people allowance and deactivation remains possible after expiry or provider outage',async()=>{
+ const f=await fixture();try{
+  const first=await fixtures(f.db,f.workspace);for(let i=0;i<4;i++)assert.equal((await command(f,'staff.add',{name:'Active '+i,role:'Cleaner',capacity:480})).status,200);
+  f.db.sqlite.prepare("INSERT INTO memberships VALUES (?,?,'staff',?)").run(f.workspace,'former-worker',first.staffId);
+  assert.equal((await command(f,'staff.add',{name:'Too many',role:'Cleaner',capacity:480})).status,409);
+  f.db.sqlite.prepare("UPDATE subscription_accounts SET trial_end='2026-01-01',customer_id='cus_plan'").run();f.client.subscriptions.list=async()=>{throw Error('Synthetic provider outage')};
+  const stopped=await command(f,'staff.active',{id:first.staffId,active:false});assert.equal(stopped.status,200);assert.equal(f.db.sqlite.prepare("SELECT COUNT(*) n FROM memberships WHERE role='staff'").get().n,0);
+  assert.notEqual((await command(f,'staff.active',{id:first.staffId,active:true})).status,200);
+  f.client.subscriptions.list=async()=>({data:[paid('team')],has_more:false});
+  assert.equal((await command(f,'staff.add',{name:'Replacement',role:'Cleaner',capacity:480})).status,200);
+  assert.equal((await command(f,'staff.active',{id:first.staffId,active:true})).status,409);
+  const state=JSON.parse(f.db.sqlite.prepare('SELECT document FROM workspaces WHERE id=?').get(f.workspace).document);assert.equal(state.staff.length,6);assert.equal(state.staff.filter(s=>s.active!==false).length,5);
+ }finally{f.db.sqlite.close()}
+});
+
+// Exercise server admission and downgrade recovery at each commercial boundary.
+test('all five bands reject an additional active profile atomically and recover an over-limit downgrade without losing history',async()=>{
+ const v2={...env,QUENVIRA_PLAN_CATALOG:'solo-team-v2',STRIPE_TEAM10_PRICE_ID:'price_team10',STRIPE_TEAM15_PRICE_ID:'price_team15',STRIPE_TEAM20_PRICE_ID:'price_team20'},config=billingConfig(v2);
+ for(const plan of config.plans){const f=await fixture();f.env=v2;f.config=config;try{
+  f.client.prices.retrieve=async()=>({active:true,livemode:false,currency:'gbp',unit_amount:plan.amount,billing_scheme:'per_unit',tax_behavior:'inclusive',recurring:{interval:'month',interval_count:1,usage_type:'licensed'}});
+  await checkout(f.db,f.workspace,'alice@example.com',{...terms,plan:plan.id},config,f.client,stamp);
+  f.db.sqlite.prepare("UPDATE subscription_accounts SET trial_end='2026-01-01'").run();f.client.setSubs([paid(plan.id)]);
+  for(let i=0;i<plan.maxPeople;i++)assert.equal((await command(f,'staff.add',{name:'Boundary '+i,role:'Cleaner',capacity:480})).status,200,plan.id);
+  const before=f.db.sqlite.prepare('SELECT document,revision FROM workspaces WHERE id=?').get(f.workspace);
+  assert.equal((await command(f,'staff.add',{name:'Above allowance',role:'Cleaner',capacity:480})).status,409,plan.id);
+  assert.deepEqual(f.db.sqlite.prepare('SELECT document,revision FROM workspaces WHERE id=?').get(f.workspace),before);
+  if(plan.id!=='solo'){
+   f.client.setSubs([paid('solo')]);assert.equal((await command(f,'customer.save',customer)).status,402,plan.id);
+   assert.equal((await call(f,'workspaces/'+f.workspace+'/backup-file')).status,200,plan.id);
+   const state=JSON.parse(before.document);for(const person of state.staff.slice(1))assert.equal((await command(f,'staff.active',{id:person.id,active:false})).status,200,plan.id);
+   assert.equal((await command(f,'customer.save',customer)).status,200,plan.id);
+   const final=JSON.parse(f.db.sqlite.prepare('SELECT document FROM workspaces WHERE id=?').get(f.workspace).document);assert.equal(final.staff.length,plan.maxPeople);assert.equal(final.staff.filter(s=>s.active!==false).length,1);
+  }
  }finally{f.db.sqlite.close()}}
 });

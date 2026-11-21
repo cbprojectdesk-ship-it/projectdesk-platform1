@@ -15,6 +15,10 @@ export const operations=sqliteTable('operations',{
  workspaceId:text('workspace_id').notNull().references(()=>workspaces.id,{onDelete:'cascade'}),
  id:text('id').notNull(),userId:text('user_id').notNull(),response:text('response').notNull(),createdAt:text('created_at').notNull()
 },t=>[primaryKey({columns:[t.workspaceId,t.id]})]);
+export const commandRateLimits=sqliteTable('command_rate_limits',{
+ workspaceId:text('workspace_id').notNull().references(()=>workspaces.id,{onDelete:'cascade'}),
+ userId:text('user_id').notNull(),windowStart:integer('window_start').notNull(),attempts:integer('attempts').notNull()
+},t=>[primaryKey({columns:[t.workspaceId,t.userId]})]);
 export const events=sqliteTable('events',{
  workspaceId:text('workspace_id').notNull().references(()=>workspaces.id,{onDelete:'cascade'}),
  id:text('id').notNull(),userId:text('user_id').notNull(),action:text('action').notNull(),createdAt:text('created_at').notNull()

@@ -26,3 +26,14 @@ test('tampered JWT cannot impersonate an account',async()=>{
 test('untrusted key endpoint configuration is rejected',async()=>{
  await assert.rejects(verifyAccessIdentity(req(jwt()),{...options,teamDomain:'evil.example'}));
 });
+
+test('malformed assertions are rejected before contacting the key service',async()=>{
+ let calls=0;const opts={...options,fetcher:async()=>{calls++;throw Error('Unexpected key request')}};
+ const valid=jwt().split('.');
+ const tokens=[jwt(null),jwt([]),jwt(claims,null),jwt(claims,[]),valid[0]+'.'+valid[1]+'.!',valid[0]+'.'+valid[1]+'.A','a'.repeat(16385),jwt({...claims,iat:claims.exp}),jwt({...claims,iat:claims.exp+1}),jwt({...claims,exp:Number.MAX_SAFE_INTEGER+1})];
+ for(const token of tokens)assert.equal(await verifyAccessIdentity(req(token),opts),null);
+ assert.equal(calls,0);
+});
+test('key service failure remains an availability error, not a valid identity',async()=>{
+ await assert.rejects(verifyAccessIdentity(req(jwt()),{...options,fetcher:async()=>({ok:false})}),/retrieval failed/);
+});
