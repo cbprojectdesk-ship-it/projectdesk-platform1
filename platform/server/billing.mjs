@@ -58,10 +58,12 @@ export function validBilling(state){
   return true;
  }catch{return false}
 }
+const protectedInvoice=i=>!!(i.issue||i.paidOn||i.status==='Paid'||i.status==='Credited');
 export function assertFinancialRestore(current,restored){
- // A historical workspace restore must not remove, alter, unpay or reuse an
- // issued invoice/credit. Independent disaster recovery is a separate process.
- for(const i of current.invoices.filter(i=>i.issue)){
-  if(JSON.stringify(restored.invoices.find(v=>v.id===i.id))!==JSON.stringify(i))fail('This revision would change issued financial records. Choose a later revision or use the operator recovery procedure.');
+ // A historical workspace restore must not remove, alter or unpay an issued
+ // document, credit or any recorded payment, including a payment recorded
+ // against a draft. Independent disaster recovery is a separate process.
+ for(const i of current.invoices.filter(protectedInvoice)){
+  if(JSON.stringify(restored.invoices.find(v=>v.id===i.id))!==JSON.stringify(i))fail('This revision would remove or change a recorded payment or issued financial record. Choose a later revision or use the operator recovery procedure.');
  }
 }
