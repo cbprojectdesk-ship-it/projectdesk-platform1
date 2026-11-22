@@ -41,6 +41,18 @@ recorded.
 - `raw_filter` is removed; repository, bot and sender clauses are mandatory.
 - The prompt runs the deterministic preflight when the gateway file is present.
 
+## Branch protection check (22 November 2026)
+
+| Repository | `main` protected | Evidence |
+| --- | --- | --- |
+| `cbprojectdesk-ship-it/Adverquay-launch` | **No** | `GET /repos/.../branches/main` → `protected=false`; rulesets `403` |
+| `cbprojectdesk-ship-it/projectdesk-platform1` | Yes | `GET /repos/.../branches/main` → `protected=true` |
+
+The automation runs as `cbprojectdesk-ship-it` with `push` permission. On
+Adverquay, the prompt's "never push to main" rule is therefore advisory. The owner
+must enable PR-only merges, required checks and force-push blocking on `main`
+before the gateway is treated as an enforced control plane for that repository.
+
 ## Live automations
 
 | Name | Id | Trigger | State |

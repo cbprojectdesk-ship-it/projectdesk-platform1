@@ -54,11 +54,14 @@ system, not a production deployment.
    one event per comment creation, and the automation service dispatches one run per
    event, so this is a narrow window. A duplicate run still converges on the same
    branch and pull request.
-4. **No server-side branch protection verified.** The token available to this
-   session cannot read branch protection (`403 Resource not accessible by
-   integration`). The owner should confirm that `main` requires a pull request and
-   that direct pushes and force pushes are blocked. This is the control that makes
-   "the agent must not push to main" enforceable rather than advisory.
+4. **Adverquay `main` is not protected.** The branch metadata for
+   `cbprojectdesk-ship-it/Adverquay-launch` reports `protected=false`, and the
+   rulesets endpoint returns `403`. The automation runs as
+   `cbprojectdesk-ship-it` with repository `push` permission. Prompt text alone
+   therefore cannot prevent a direct push to `main`; only server-side branch
+   protection can. `projectdesk-platform1` reports `protected=true`. Owner action:
+   enable PR-only merges, required status checks and force-push blocking on
+   Adverquay `main`, then re-run the check in `AUTOMATION_STATUS.md`.
 5. **The automation posts as the owner account.** The verified claim comment was
    authored by `cbprojectdesk-ship-it` (a User, `OWNER`), not a bot. GitHub's bot
    filter therefore does not stop the automation from triggering itself. The
