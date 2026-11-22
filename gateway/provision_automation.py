@@ -28,6 +28,7 @@ from typing import Any
 
 DEFAULT_HOST = "https://app.all-hands.dev"
 API = "/api/automation/v1"
+CREATE_API = "/api/automation/v1/preset/prompt"
 
 
 class ApiError(Exception):
@@ -89,9 +90,10 @@ def build_automation_payload(config: dict[str, Any]) -> dict[str, Any]:
     if senders:
         quoted = " || ".join(f"lower(sender.login) == '{name}'" for name in senders)
         sender_clause = f" && ({quoted})"
+    bot_clause = "" if config.get("allow_bot_senders") else " && sender.type != 'Bot'"
     trigger_filter = (
         f"repository.full_name == '{repo}'"
-        f" && sender.type != 'Bot'"
+        f"{bot_clause}"
         f" && icontains(comment.body, '{phrase}')"
         f"{sender_clause}"
     )
@@ -142,7 +144,7 @@ def cmd_apply(config: dict[str, Any], recreate: bool) -> int:
         request("DELETE", f"{API}/{existing['id']}")
         print(json.dumps({"deleted": existing["id"]}))
     payload = build_automation_payload(config)
-    created = request("POST", API, payload)
+    created = request("POST", CREATE_API, payload)
     print(json.dumps({"status": "created", "id": created.get("id"), "trigger": created.get("trigger")}, indent=2))
     return 0
 
