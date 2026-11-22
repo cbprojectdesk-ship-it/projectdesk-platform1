@@ -46,9 +46,12 @@ Those actions are refused by policy and are outside the automation's instruction
 | `ccs_gateway.py` | Deterministic gate and CLI: preflight, report, recover, poll, doctor |
 | `automation_prompt.md` | The prompt the OpenHands automation runs. Placeholders are filled per project |
 | `provision_automation.py` | Creates or inspects the OpenHands event automation for one repository |
-| `automation.adverquay.json` | Live configuration for `cbprojectdesk-ship-it/Adverquay-launch` |
+| `automation.adverquay.json` | Live configuration for `cbprojectdesk-ship-it/Adverquay-launch` (webhook trigger) |
+| `automation.adverquay.poller.json` | Live configuration for the hourly polling fallback |
+| `automation.probe.example.json` | Diagnostic automation used to verify event delivery for a new project |
+| `AUTOMATION_STATUS.md` | Verified status, evidence log, exact missing dependency, owner actions |
 | `config.example.json` | Configuration for the deterministic gate |
-| `tests/test_ccs_gateway.py` | 36 tests over real gateway code paths with an in-process GitHub emulator |
+| `tests/test_ccs_gateway.py` | 42 tests over real gateway code paths with an in-process GitHub emulator |
 
 ## Quick start (deterministic gate)
 
@@ -136,6 +139,30 @@ To stop a task, post a comment containing `stop` and no trigger phrase.
 - The instruction is scanned for forbidden actions. A request to merge, deploy,
   email customers, read credentials or touch production data is refused before any
   write.
+
+## Unattended operation status
+
+Webhook-triggered runs are configured but **not delivering** on this account: GitHub
+events do not reach the automation service even with no trigger filter, for both
+`issue_comment` and `push`. See `AUTOMATION_STATUS.md` for the evidence and the exact
+owner action.
+
+Until that is fixed, the working unattended path is the **hourly cron automation**
+(`automation.adverquay.poller.json`). It uses the prompt's discovery section: scan
+open issues for a `/ccs-task` comment without a claim marker, take the oldest one,
+apply the same gates, and do the work. When there is nothing to do it stops without
+writing.
+
+```sh
+python3 gateway/provision_automation.py apply \
+  --config gateway/automation.adverquay.poller.json
+python3 gateway/provision_automation.py dispatch \
+  --config gateway/automation.adverquay.poller.json   # run now
+```
+
+Cost: one short LLM run per interval. Change the schedule in the config, then
+re-apply with `--recreate`. Disable with `PATCH /api/automation/v1/{id}`
+`{"enabled": false}`.
 
 ## Running the tests
 

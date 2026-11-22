@@ -480,6 +480,30 @@ class AutomationPayloadTests(unittest.TestCase):
         self.assertEqual(payload["timeout"], 1800)
         self.assertEqual(payload["repos"][0]["url"], "https://github.com/cbprojectdesk-ship-it/example")
 
+    def test_cron_config_produces_cron_trigger_without_filter(self):
+        import provision_automation as pa
+
+        config = self.config()
+        config["cron"] = {"schedule": "0 * * * *", "timezone": "UTC"}
+        trigger = pa.build_automation_payload(config)["trigger"]
+        self.assertEqual(trigger, {"type": "cron", "schedule": "0 * * * *", "timezone": "UTC"})
+
+    def test_raw_filter_empty_omits_filter(self):
+        import provision_automation as pa
+
+        config = self.config()
+        config["raw_filter"] = ""
+        self.assertNotIn("filter", pa.build_automation_payload(config)["trigger"])
+
+    def test_bot_exclusion_can_be_disabled_for_a_probe(self):
+        import provision_automation as pa
+
+        config = self.config()
+        config["allow_bot_senders"] = True
+        trigger_filter = pa.build_automation_payload(config)["trigger"]["filter"]
+        self.assertNotIn("sender.type", trigger_filter)
+        self.assertIn("icontains(comment.body, '/ccs-task')", trigger_filter)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

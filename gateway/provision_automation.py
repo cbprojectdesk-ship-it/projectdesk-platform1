@@ -97,12 +97,19 @@ def build_automation_payload(config: dict[str, Any]) -> dict[str, Any]:
         f" && icontains(comment.body, '{phrase}')"
         f"{sender_clause}"
     )
-    trigger: dict[str, Any] = {
-        "type": "event",
-        "source": "github",
-        "on": config.get("event_key", "issue_comment.created"),
-    }
-    if config.get("raw_filter") != "":
+    if config.get("cron"):
+        trigger: dict[str, Any] = {
+            "type": "cron",
+            "schedule": config["cron"]["schedule"],
+            "timezone": config["cron"].get("timezone", "UTC"),
+        }
+    else:
+        trigger = {
+            "type": "event",
+            "source": "github",
+            "on": config.get("event_key", "issue_comment.created"),
+        }
+    if trigger["type"] == "event" and config.get("raw_filter") != "":
         trigger["filter"] = config.get("raw_filter", trigger_filter)
     return {
         "name": config["name"],
