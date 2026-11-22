@@ -1,0 +1,7 @@
+{
+  "allowed_repos": ["cbprojectdesk-ship-it/*"],
+  "allowed_senders": ["cbprojectdesk-ship-it"],
+  "trigger_phrase": "/ccs-task",
+  "claim_ttl_hours": 24,
+  "state_path": ".ccs-gateway-state.json"
+}

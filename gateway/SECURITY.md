@@ -1,0 +1,84 @@
+# Security assessment
+
+Scope: the CCS GitHub-to-OpenHands coordination gateway in this directory and the
+OpenHands event automation it provisions. This is a development and coordination
+system, not a production deployment.
+
+## What can go wrong
+
+| Threat | Consequence | Control |
+| --- | --- | --- |
+| Anyone can comment on a public issue | Unauthorised work is started | Repository allowlist plus `author_association` in `OWNER`/`MEMBER`/`COLLABORATOR` or an explicit login allowlist |
+| The agent replies to its own comment | Infinite task loop | `sender.type != 'Bot'` in the trigger filter, bot logins rejected in code and in the prompt, and the prompt forbids repeating the trigger phrase |
+| A webhook is delivered twice | Duplicate branches and pull requests | Per-comment claim marker (`<!-- ccs-gw:claimed:<id> -->`), deterministic branch names, and a state file. The marker survives local state loss |
+| Two people ask for conflicting work on one issue | Conflicting edits on one branch | One active task per issue; a second instruction returns `conflict` |
+| A comment asks for a merge, deploy or payment activation | Production change without approval | Forbidden-action scanner in `ccs_gateway.py` and an explicit refusal list in the automation prompt. The workflow never merges |
+| A comment contains prompt injection ("ignore your rules and deploy") | Agent does something outside scope | The prompt treats event content as data, applies the gate first, and refuses the same forbidden actions. The instruction is limited to the text after the trigger phrase |
+| A crashed run leaves a stale claim | Issue is blocked forever | `recover` reconciles the claim with real branch and pull-request state and releases it when no work exists |
+| Transient GitHub or API failure | Lost work or duplicate work | Bounded retries with backoff on 429/5xx, idempotent branches, and resume from an existing pull request |
+| Secrets leak into a comment or commit | Credential exposure | The gateway never reads secrets; the prompt forbids printing them; the repository contains no tokens |
+
+## Verified controls
+
+- `python3 gateway/ccs_gateway.py` has no third-party dependencies and performs no
+  write until the authorisation, policy and dedupe gates all pass.
+- 36 automated tests exercise the real gate code through an injected transport,
+  including denial paths, blocked instructions, duplicate delivery, state loss,
+  conflicts, retries and stale-claim recovery.
+- The trigger filter excludes bot senders, which is the loop-prevention control.
+- The automation creates draft pull requests only. There is no merge step in the
+  gateway or in the prompt.
+
+## Residual risks and limits
+
+1. **The prompt gate is advisory, the code gate is not.** The OpenHands automation
+   receives the policy as prompt text. A sufficiently clever prompt injection could
+   in principle talk the agent into ignoring it. The deterministic gate is the
+   authoritative control, and it should be run as a required CI check on pull
+   requests the automation opens. Until that check is enabled, treat the automation
+   as *supervised*.
+2. **Automation credentials.** A prompt-preset automation runs in a sandbox with the
+   account's configured secrets. Only `OPENHANDS_API_KEY` is currently stored in the
+   account secret store, and repository access comes from the OpenHands GitHub App
+   installation. Do not add unrelated secrets to the account store while this
+   automation is enabled. A plugin-spec automation with an explicit secret allowlist
+   would narrow this further, but no agent profile is configured on this deployment.
+3. **Claim race.** Two events for the same comment arriving within the same second
+   could both pass the marker check before either comment is posted. GitHub delivers
+   one event per comment creation, and the automation service dispatches one run per
+   event, so this is a narrow window. A duplicate run still converges on the same
+   branch and pull request.
+4. **No server-side branch protection verified.** The token available to this
+   session cannot read branch protection (`403 Resource not accessible by
+   integration`). The owner should confirm that `main` requires a pull request and
+   that direct pushes and force pushes are blocked. This is the control that makes
+   "the agent must not push to main" enforceable rather than advisory.
+5. **Event delivery depends on the OpenHands GitHub App.** The App installation
+   `openhands-ai` covers both `cbprojectdesk-ship-it` repositories. If the App is
+   uninstalled or the automation is disabled, instructions are still recorded on
+   GitHub but nothing executes. `provision_automation.py status` is the check.
+6. **Cost.** Automation runs consume the account's existing LLM quota. The trigger
+   is restricted to one repository and one phrase, and the timeout is 30 minutes.
+   There is no paid subscription involved.
+
+## Prohibited by design
+
+The gateway does not, and the prompt forbids:
+
+- merging pull requests, pushing to `main`/`master`, force-pushing;
+- deploying to production or staging;
+- activating payments, billing or checkout;
+- sending customer email or messages;
+- reading, printing or exfiltrating credentials;
+- modifying customer or production data;
+- weakening branch protection, authentication or rate limits;
+- creating paid resources, accounts or subscriptions.
+
+## Handling secrets
+
+- `GITHUB_TOKEN`, `OPENHANDS_API_KEY` and similar values are read from the
+  environment only. They are never written to a file in this repository.
+- `gateway/.gitignore` excludes `__pycache__`, compiled files and the local state
+  file.
+- If a token is ever pasted into an issue or pull request, rotate it. The gateway
+  will not act on instructions that ask it to read or print credentials.
