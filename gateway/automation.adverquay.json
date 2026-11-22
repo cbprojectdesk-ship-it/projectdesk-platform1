@@ -1,0 +1,19 @@
+{
+  "name": "CCS Gateway - Adverquay-launch",
+  "repository": "cbprojectdesk-ship-it/Adverquay-launch",
+  "default_branch": "main",
+  "trigger_phrase": "/ccs-task",
+  "allowed_senders": ["cbprojectdesk-ship-it"],
+  "max_runtime_minutes": 30,
+  "forbidden_actions": [
+    "merge any pull request",
+    "push to main or master",
+    "deploy to production or staging",
+    "activate payments or billing",
+    "send customer email",
+    "read or print credentials",
+    "modify customer or production data",
+    "change branch protection or security settings",
+    "create paid resources or accounts"
+  ]
+}

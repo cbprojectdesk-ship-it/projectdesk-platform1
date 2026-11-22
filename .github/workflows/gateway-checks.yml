@@ -1,0 +1,33 @@
+name: CCS gateway checks
+
+on:
+  push:
+    paths: ['gateway/**', '.github/workflows/gateway-checks.yml']
+  pull_request:
+    paths: ['gateway/**', '.github/workflows/gateway-checks.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gateway:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: gateway
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntax validation
+        run: python3 -m py_compile ccs_gateway.py provision_automation.py
+      - name: Automated tests
+        run: python3 -m unittest discover -s tests -v
+      - name: CLI smoke test
+        run: |
+          python3 -c "import ccs_gateway as g; assert g.scan_instruction('do not deploy').verdict == 'accepted'"
+          python3 ccs_gateway.py --help >/dev/null
+          python3 provision_automation.py --help >/dev/null
