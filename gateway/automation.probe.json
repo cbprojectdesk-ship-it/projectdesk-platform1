@@ -6,5 +6,6 @@
   "allowed_senders": [],
   "max_runtime_minutes": 5,
   "prompt_template": "gateway/probe_prompt.md",
-  "allow_bot_senders": true
+  "allow_bot_senders": true,
+  "raw_filter": ""
 }

@@ -97,15 +97,17 @@ def build_automation_payload(config: dict[str, Any]) -> dict[str, Any]:
         f" && icontains(comment.body, '{phrase}')"
         f"{sender_clause}"
     )
+    trigger: dict[str, Any] = {
+        "type": "event",
+        "source": "github",
+        "on": config.get("event_key", "issue_comment.created"),
+    }
+    if config.get("raw_filter") != "":
+        trigger["filter"] = config.get("raw_filter", trigger_filter)
     return {
         "name": config["name"],
         "prompt": render_prompt(config),
-        "trigger": {
-            "type": "event",
-            "source": "github",
-            "on": "issue_comment.created",
-            "filter": trigger_filter,
-        },
+        "trigger": trigger,
         "timeout": int(config.get("max_runtime_minutes", 30)) * 60,
         "repos": [{"url": f"https://github.com/{repo}", "ref": config.get("default_branch", "main")}],
     }

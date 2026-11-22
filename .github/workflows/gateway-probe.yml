@@ -5,11 +5,11 @@ on:
     branches: [ccs/github-openhands-gateway]
 
 permissions:
-  contents: read
+  contents: write
   issues: write
 
 jobs:
-  probe:
+  comment-probe:
     if: contains(github.event.head_commit.message, '[probe]')
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -18,3 +18,19 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh issue comment 63 --repo "${{ github.repository }}" --body "/ccs-probe automated delivery probe from GitHub Actions"
+
+  push-probe:
+    if: contains(github.event.head_commit.message, '[probe-push]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ccs/github-openhands-gateway
+      - name: Push an empty commit from the Actions bot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B ccs-probe-push
+          git commit --allow-empty -m "probe push from actions"
+          git push -f origin ccs-probe-push

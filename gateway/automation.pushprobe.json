@@ -1,0 +1,12 @@
+{
+  "name": "CCS Gateway - push probe (temporary)",
+  "repository": "cbprojectdesk-ship-it/projectdesk-platform1",
+  "default_branch": "main",
+  "trigger_phrase": "/ccs-probe",
+  "allowed_senders": [],
+  "max_runtime_minutes": 5,
+  "prompt_template": "gateway/probe_prompt.md",
+  "allow_bot_senders": true,
+  "raw_filter": "",
+  "event_key": "push"
+}
