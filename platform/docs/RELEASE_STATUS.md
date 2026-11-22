@@ -29,3 +29,26 @@ The starter security versions were updated from Next 16.3.4 to 16.3.8 and React/
 ## Later verification update
 
 The earlier 81-test count above is historical. The platform suite now has 114 cases, including three added synthetic disaster-recovery cases. All passed locally on 20 October 2026. Thirty separate cross-browser cases passed on GitHub for PR #8 (five scenarios in six browser/viewport projects). A new encrypted operator recovery module and Help page are being checked as a follow-up; exact PR-head checks must pass before merging. Hosted identity, actual-device and independent D1 recovery gates remain open.
+
+## Development update — 22 November 2026
+
+Current verified development branch: `feature/quenvira-launch-preparation-2026-11-22`,
+based on the verified PR #52/#60 integration tree.
+
+- Platform suite: **313 passed, 0 failed**; root demonstration: **59 passed**.
+- Syntax, ESLint, TypeScript and production build pass.
+- Chromium browser acceptance: **96 passed** across desktop, 360px, 390px and 768px.
+- Added durable failed-command throttling (`drizzle/0004_command_attempts.sql`); the
+  121st authenticated command attempt in a minute returns `429`, including commands that
+  never commit.
+- Added baseline HTTP security headers via `server/security-headers.mjs` and
+  `next.config.ts`; verified on the local built Worker. CSP is baseline and still uses
+  `'unsafe-inline'` pending a nonce rollout.
+- Added strict validation of managed identity headers; malformed identities fail closed.
+- Production dependency audit is clean. Full audit retains one moderate development-only
+  `minimatch` advisory.
+- See `launch/LAUNCH_READINESS_REPORT_2026-11-22.md` for blockers and the recommended
+  launch sequence.
+
+This update does not prove hosted identity, D1/R2 recovery, Stripe, Resend, monitoring,
+legal readiness or production deployment.

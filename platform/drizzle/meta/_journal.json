@@ -29,6 +29,13 @@
       "when": 1792994400000,
       "tag": "0003_invoice_outbox",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1793600000000,
+      "tag": "0004_command_attempts",
+      "breakpoints": true
     }
   ]
 }

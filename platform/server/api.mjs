@@ -34,6 +34,14 @@ async function readBody(request,maximum=16384){
  while(true){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>maximum){await reader.cancel();problem(413,'Request too large.')}chunks.push(value)}
  try{const bytes=new Uint8Array(size);let n=0;for(const c of chunks){bytes.set(c,n);n+=c.length}const value=JSON.parse(new TextDecoder().decode(bytes));if(!value||typeof value!=='object'||Array.isArray(value))problem(400,'JSON object required.');return value}catch(e){if(e instanceof Problem)throw e;problem(400,'Invalid JSON.');}
 }
+async function consumeCommandAttempt(db,workspace,user,timestamp,limit=120){
+ const windowStart=new Date(Math.floor(Date.parse(timestamp)/60000)*60000).toISOString();
+ // Keep the counter bounded on a long-lived account. One day is sufficient
+ // because the active minute is all this limiter needs.
+ await db.prepare('DELETE FROM command_attempts WHERE workspace_id=? AND user_id=? AND window_start < ?').bind(workspace,user,new Date(Date.parse(timestamp)-24*60*60*1000).toISOString()).run();
+ const row=await db.prepare('INSERT INTO command_attempts (workspace_id,user_id,window_start,count) VALUES (?,?,?,1) ON CONFLICT(workspace_id,user_id,window_start) DO UPDATE SET count=count+1 RETURNING count').bind(workspace,user,windowStart).first();
+ if(Number(row?.count)>limit)problem(429,'Too many requests. Wait a minute and try again.');
+}
 async function membership(db,workspace,user){
  if(!validId(workspace))problem(404,'Workspace not found.');
  const m=await db.prepare('SELECT * FROM memberships WHERE workspace_id = ? AND user_id = ?').bind(workspace,user).first();
@@ -58,7 +66,10 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
   // Sites dispatch must overwrite identity headers and keep the Worker origin private.
   const user=request.headers.get('oai-authenticated-user-id');
   const email=request.headers.get('oai-authenticated-user-email');
-  if(!user||!email)problem(401,'Sign in with ChatGPT to continue.');
+  // Be strict about the identity the managed host supplies. A malformed or
+  // oversized identity is treated as unauthenticated rather than used as a
+  // user ID or returned to the browser.
+  if(!user||!email||user.length>100||email.length>200||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))problem(401,'Sign in with ChatGPT to continue.');
   if(!db)problem(503,'Persistent storage is not configured.');
   const url=new URL(request.url),path=url.pathname.replace(/^\/api\/quenvira\/?/,'').split('/').filter(Boolean);
   const timestamp=now().toISOString(),asOf=today(new Date(timestamp));
@@ -193,6 +204,9 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
   const requestHash=await hashToken(JSON.stringify({revision:body.revision,action:body.action,data:body.data}));
   const prior=await db.prepare('SELECT user_id, response FROM operations WHERE workspace_id = ? AND id = ?').bind(workspace,body.requestId).first();
   if(prior){if(prior.user_id!==user)problem(409,'Request ID already used.');const {_requestHash,...replay}=JSON.parse(prior.response);if(_requestHash&&_requestHash!==requestHash)problem(409,'Request ID was already used for a different command.');return json({...replay,result:m.role==='manager'?replay.result:null,replayed:true})}
+  // Count every authenticated command attempt, including invalid and failed
+  // commands. Operations alone cannot throttle an attacker who never commits.
+  await consumeCommandAttempt(db,workspace,user,timestamp);
   const recent=await db.prepare('SELECT COUNT(*) AS n FROM operations WHERE workspace_id = ? AND user_id = ? AND created_at >= ?').bind(workspace,user,new Date(new Date(timestamp).getTime()-60000).toISOString()).first();if(recent.n>=120)problem(429,'Too many updates. Wait a minute and try again.');
   if(body.revision!==row.revision)problem(409,'Workspace changed. Reload and try again.');
   const before=structuredClone(state);const data=body.data,actor={role:m.role,staffId:m.staff_id};let result=null,emailDelivery=null,emailInvoiceId=null;

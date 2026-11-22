@@ -6,4 +6,6 @@ Bind only the verified existing database to `DB` through the approved host confi
 
 Before migrations, compare account/database identity against the private inventory, review `platform/drizzle/` and obtain a complete verified recovery safeguard. Do not execute a remote migration against an unreviewed target. Current schema state must be inspected; this document does not assert that migrations are applied or unapplied.
 
-Required evidence: signed identity acceptance, unauthorized/cross-tenant denial, reviewed build/configuration, consistent schema and persistence, complete export and isolated restore, signed sandbox webhooks, subscriptions and operational/commercial review. Never restore fixtures into production or treat truncated table pages as a backup.
+Required evidence: signed identity acceptance, unauthorized/cross-tenant denial, reviewed build/configuration, consistent schema and persistence.
+
+Migration `0004_command_attempts.sql` adds the failed-command rate-limit counter used by the 22 November API hardening. Apply it only after the backup and schema review above; do not deploy the API change without the table., complete export and isolated restore, signed sandbox webhooks, subscriptions and operational/commercial review. Never restore fixtures into production or treat truncated table pages as a backup.
