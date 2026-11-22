@@ -11,6 +11,7 @@ import {photoKey,decodePhoto,setStaffPhoto} from './staff-photos.mjs';
 import {saveSupplier,issueInvoice,creditInvoice,assertFinancialRestore} from './billing.mjs';
 import * as D from './domain.mjs';
 import {mayCreateWorkspace} from './enrollment.mjs';
+import {verifyIdentityProof} from './identity-proof.mjs';
 const headers={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store, private','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'};
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers});
 class Problem extends Error{constructor(status,message){super(message);this.status=status}}
@@ -70,6 +71,8 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
   // oversized identity is treated as unauthenticated rather than used as a
   // user ID or returned to the browser.
   if(!user||!email||user.length>100||email.length>200||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))problem(401,'Sign in with ChatGPT to continue.');
+  const identityProofSecret=billingEnv.QUENVIRA_IDENTITY_PROOF_SECRET;
+  if(identityProofSecret&&!await verifyIdentityProof(request,user,email,identityProofSecret))problem(401,'Sign in with ChatGPT to continue.');
   if(!db)problem(503,'Persistent storage is not configured.');
   const url=new URL(request.url),path=url.pathname.replace(/^\/api\/quenvira\/?/,'').split('/').filter(Boolean);
   const timestamp=now().toISOString(),asOf=today(new Date(timestamp));
@@ -198,7 +201,14 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
   const photoCommand=path.length===4&&path[2]==='commands'&&path[3]==='photo';
   if(!(path.length===3&&path[2]==='commands'||photoCommand||importCommand)||request.method!=='POST')problem(404,'Route not found.');
   if(importCommand)manager(m);
-  const body=await readBody(request,importCommand?BACKUP_LIMIT+1024:photoCommand?360000:16384);
+  let body;
+  try{body=await readBody(request,importCommand?BACKUP_LIMIT+1024:photoCommand?360000:16384)}
+  catch(error){
+   // Malformed, wrong-type and oversized command bodies are still attempts.
+   // Count them before rethrowing so parsing cannot be used as a bypass.
+   if(error instanceof Problem&&[400,413,415].includes(error.status))await consumeCommandAttempt(db,workspace,user,timestamp);
+   throw error;
+  }
   if(photoCommand!==(['staff.photo','job.photo'].includes(body.action))||importCommand!==(body.action==='backup.import'))problem(400,'Use the correct command endpoint.');
   if(!validId(body.requestId)||!Number.isSafeInteger(body.revision)||body.revision<0||typeof body.action!=='string'||!body.data||typeof body.data!=='object'||Array.isArray(body.data))problem(400,'Invalid command.');
   const requestHash=await hashToken(JSON.stringify({revision:body.revision,action:body.action,data:body.data}));

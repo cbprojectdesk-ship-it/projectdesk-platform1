@@ -10,6 +10,7 @@ declare namespace Cloudflare {
     DB?: D1Database;
     BUCKET?: R2Bucket;
     QUENVIRA_PILOT_EMAILS?: string;
+    QUENVIRA_IDENTITY_PROOF_SECRET?: string;
     QUENVIRA_BILLING_MODE?: string;
     QUENVIRA_HOSTING_MODE?: string;
     QUENVIRA_ACCESS_TEAM_DOMAIN?: string;

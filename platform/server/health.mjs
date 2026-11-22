@@ -13,6 +13,7 @@ export async function health(request,db,{bucket,billingEnv={}}={}){
   await db.prepare('SELECT id, workspace_id, received_at FROM subscription_events LIMIT 0').all();
   await db.prepare('SELECT id,workspace_id,invoice_id,status FROM invoice_outbox LIMIT 0').all();
   await db.prepare('SELECT id,outbox_id,status FROM invoice_email_events LIMIT 0').all();
+  await db.prepare('SELECT workspace_id,user_id,window_start,count FROM command_attempts LIMIT 0').all();
   await bucket.list({prefix:'__quenvira_readiness__/',limit:1});
   billingConfig(billingEnv);
   return reply('ok',200);

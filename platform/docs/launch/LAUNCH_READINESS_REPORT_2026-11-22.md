@@ -41,9 +41,8 @@ wired its header entries into Next/Vinext:
 - CSP with `default-src 'self'`, `frame-ancestors 'none'`, `object-src 'none'`,
   `base-uri 'self'`, `form-action 'self'`, self-only connect/font/image sources.
 
-The CSP currently allows `'unsafe-inline'` for framework hydration markup. A nonce-based
-policy remains the next hardening step; the baseline is still materially better than no
-policy and was verified on the local built Worker.
+The script and style policy is nonce/self-only and was verified on the local built Worker:
+all 37 scripts carried the nonce and the entry page contained no inline style block.
 
 ### Managed-identity validation
 
@@ -64,7 +63,7 @@ Environment: Node 24.22.2, Linux container, fictional fixtures.
 | Check | Result |
 |---|---|
 | Root demo suite (`npm test`) | **59 passed, 0 failed** |
-| Platform suite (`npm test` in `platform/`) | **313 passed, 0 failed** |
+| Platform suite (`npm test` in `platform/`) | **316 passed, 0 failed** |
 | Syntax (`npm run check`) | passed |
 | ESLint (`npm run lint`) | passed |
 | TypeScript (`tsc --noEmit`) | passed |
@@ -72,8 +71,24 @@ Environment: Node 24.22.2, Linux container, fictional fixtures.
 | Production dependency audit (`pnpm audit --prod --audit-level high`) | no known vulnerabilities |
 | Full dependency audit | 1 moderate, dev-only `minimatch`; no high/critical |
 | Chromium browser acceptance (desktop, 360, 390, 768) | **96 passed, 0 failed** |
-| Local built-Worker header probe | all baseline headers present |
-| Failed-command probe | 120 invalid commands accepted/rejected as expected; 121st `429` |
+| Local built-Worker header probe | all baseline headers present; nonce CSP applied |
+| Failed-command probe | 120 invalid/malformed commands rejected; next attempt `429` |
+
+## 2a. Additional hardening completed after the first report
+
+- CSP is now nonce-based on the app entry route (`proxy.ts`); all 37 scripts in the local
+  built page carried the matching nonce; the entry page had no inline style block.
+- Malformed, wrong-content-type and oversized command bodies are counted by the failed
+  command limiter before parsing can be used as a bypass.
+- Optional HMAC identity proof (`QUENVIRA_IDENTITY_PROOF_SECRET`) fails closed when enabled;
+  it is not enabled until the hosting proxy contract is verified.
+- `command_attempts` is included in health checks and v3 operator snapshots; legacy v1/v2
+  snapshots remain readable.
+- Added `IDENTITY_BOUNDARY_AND_PROXY_CONTRACT_2026-11-22.md`,
+  `OPERATIONS_MONITORING_AND_ROLLBACK_2026-11-22.md`,
+  `PROVIDER_SANDBOX_TEST_MATRIX_2026-11-22.md`,
+  `LEGAL_COMMERCIAL_READINESS_2026-11-22.md` and
+  `INDEPENDENT_REVIEW_EVIDENCE_2026-11-22.md`.
 
 Firefox and WebKit were not run locally; CI is configured to run six browser projects. No
 physical-device, screen-reader, hosted-identity, hosted-D1, live Stripe or real Resend
@@ -88,11 +103,11 @@ acceptance was performed.
    Cloudflare Access assertion is required. Local tests cannot prove this.
 2. **Human/authorised review** — issue #56 requests an independent authorised reviewer.
    This AI report is not a substitute. Apply normal branch protection and review.
-3. **CSP hardening** — replace `'unsafe-inline'` with a nonce-based policy after checking
-   RSC/hydration output in the hosted build.
-4. **Malformed-body throttling** — the new counter covers authenticated command attempts
-   that reach command validation. Requests rejected before parsing (for example malformed
-   JSON or oversized bodies) still rely on edge/WAF limiting.
+3. **CSP hosting check** — scripts use a nonce and styles are self-only in the local
+   build; re-check generated styles and RSC hydration in the hosted build.
+4. **Pre-route request limiting** — malformed, wrong-content-type and oversized command
+   bodies are now counted. Requests rejected before the command route (missing/invalid
+   identity, unsupported method) still rely on edge/WAF limiting.
 5. **Monitoring and incident response** — health checks exist, but no paging, alerting,
    on-call ownership or tested production rollback drill is present.
 

@@ -35,15 +35,19 @@ The earlier 81-test count above is historical. The platform suite now has 114 ca
 Current verified development branch: `feature/quenvira-launch-preparation-2026-11-22`,
 based on the verified PR #52/#60 integration tree.
 
-- Platform suite: **313 passed, 0 failed**; root demonstration: **59 passed**.
+- Platform suite: **316 passed, 0 failed**; root demonstration: **59 passed**.
 - Syntax, ESLint, TypeScript and production build pass.
 - Chromium browser acceptance: **96 passed** across desktop, 360px, 390px and 768px.
 - Added durable failed-command throttling (`drizzle/0004_command_attempts.sql`); the
   121st authenticated command attempt in a minute returns `429`, including commands that
   never commit.
-- Added baseline HTTP security headers via `server/security-headers.mjs` and
-  `next.config.ts`; verified on the local built Worker. CSP is baseline and still uses
-  `'unsafe-inline'` pending a nonce rollout.
+- Added baseline HTTP security headers via `server/security-headers.mjs`, `next.config.ts`
+  and a nonce/self-only CSP in `proxy.ts`; verified on the local built Worker.
+- Malformed, wrong-content-type and oversized command bodies now count toward the
+  failed-command limit.
+- Optional HMAC identity proof (`QUENVIRA_IDENTITY_PROOF_SECRET`) is available but not
+  enabled until the hosting proxy contract is verified.
+- `command_attempts` is covered by readiness and operator recovery snapshots.
 - Added strict validation of managed identity headers; malformed identities fail closed.
 - Production dependency audit is clean. Full audit retains one moderate development-only
   `minimatch` advisory.

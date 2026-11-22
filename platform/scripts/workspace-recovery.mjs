@@ -12,11 +12,12 @@ export const tables={
  subscription_accounts:['workspace_id','trial_end','customer_id','checkout_id','checkout_generation','terms_version','terms_accepted_at'],
  subscription_events:['id','workspace_id','type','received_at'],
  invoice_outbox:['id','workspace_id','invoice_id','mode','payload','status','attempts','provider_id','first_attempt_at','next_attempt_at','lease_token','lease_until','last_error','created_at','updated_at'],
- invoice_email_events:['id','workspace_id','outbox_id','status','created_at']
+ invoice_email_events:['id','workspace_id','outbox_id','status','created_at'],
+ command_attempts:['workspace_id','user_id','window_start','count']
 };
 const maximum=20*1024*1024;
-const legacyTables=Object.fromEntries(Object.entries(tables).filter(([name])=>!name.startsWith('subscription_')&&!name.startsWith('invoice_')));
-const v2Tables=Object.fromEntries(Object.entries(tables).filter(([name])=>!name.startsWith('invoice_')));
+const legacyTables=Object.fromEntries(Object.entries(tables).filter(([name])=>!name.startsWith('subscription_')&&!name.startsWith('invoice_')&&name!=='command_attempts'));
+const v2Tables=Object.fromEntries(Object.entries(tables).filter(([name])=>!name.startsWith('invoice_')&&name!=='command_attempts'));
 const snapshotTables=snapshot=>snapshot?.format==='quenvira-logical-backup-v1'?legacyTables:snapshot?.format==='quenvira-logical-backup-v2'?v2Tables:tables;
 function validate(snapshot){
  if(!snapshot||!['quenvira-logical-backup-v1','quenvira-logical-backup-v2','quenvira-logical-backup-v3'].includes(snapshot.format)||typeof snapshot.createdAt!=='string'||!Number.isFinite(Date.parse(snapshot.createdAt))||!snapshot.tables||Object.keys(snapshot.tables).sort().join()!==Object.keys(snapshotTables(snapshot)).sort().join())throw Error('Unsupported or incomplete backup.');

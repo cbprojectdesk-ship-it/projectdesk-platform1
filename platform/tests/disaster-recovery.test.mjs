@@ -83,7 +83,7 @@ test('restore refuses nonempty targets and rolls back broken cross-table referen
 });
 
 test('legacy full-store backups restore business records without inventing billing mappings',async()=>{
- const source=database(),w=await setup(source),snapshot=snapshotDatabase(source.sqlite);snapshot.format='quenvira-logical-backup-v1';delete snapshot.tables.subscription_accounts;delete snapshot.tables.subscription_events;delete snapshot.tables.invoice_outbox;delete snapshot.tables.invoice_email_events;const target=database();restoreIntoEmptyDatabase(target.sqlite,snapshot);assert.equal((await request(target,'workspaces/'+w)).status,200);assert.equal(target.sqlite.prepare('SELECT COUNT(*) AS n FROM subscription_accounts').get().n,0);source.sqlite.close();target.sqlite.close();
+ const source=database(),w=await setup(source),snapshot=snapshotDatabase(source.sqlite);snapshot.format='quenvira-logical-backup-v1';delete snapshot.tables.subscription_accounts;delete snapshot.tables.subscription_events;delete snapshot.tables.invoice_outbox;delete snapshot.tables.invoice_email_events;delete snapshot.tables.command_attempts;const target=database();restoreIntoEmptyDatabase(target.sqlite,snapshot);assert.equal((await request(target,'workspaces/'+w)).status,200);assert.equal(target.sqlite.prepare('SELECT COUNT(*) AS n FROM subscription_accounts').get().n,0);source.sqlite.close();target.sqlite.close();
 });
 
 test('restored ambiguous email is held for reconciliation rather than automatically resent',async()=>{
@@ -92,5 +92,5 @@ test('restored ambiguous email is held for reconciliation rather than automatica
  assert.equal(target.sqlite.prepare('SELECT status FROM invoice_outbox').get().status,'review');source.sqlite.close();target.sqlite.close();
 });
 test('v2 backups remain restorable without inventing historical email delivery',async()=>{
- const source=database(),w=await setup(source),snapshot=snapshotDatabase(source.sqlite);snapshot.format='quenvira-logical-backup-v2';delete snapshot.tables.invoice_outbox;delete snapshot.tables.invoice_email_events;const target=database();restoreIntoEmptyDatabase(target.sqlite,snapshot);assert.equal((await request(target,'workspaces/'+w)).status,200);assert.equal(target.sqlite.prepare('SELECT COUNT(*) AS n FROM invoice_outbox').get().n,0);source.sqlite.close();target.sqlite.close();
+ const source=database(),w=await setup(source),snapshot=snapshotDatabase(source.sqlite);snapshot.format='quenvira-logical-backup-v2';delete snapshot.tables.invoice_outbox;delete snapshot.tables.invoice_email_events;delete snapshot.tables.command_attempts;const target=database();restoreIntoEmptyDatabase(target.sqlite,snapshot);assert.equal((await request(target,'workspaces/'+w)).status,200);assert.equal(target.sqlite.prepare('SELECT COUNT(*) AS n FROM invoice_outbox').get().n,0);source.sqlite.close();target.sqlite.close();
 });
