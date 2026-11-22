@@ -21,12 +21,27 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.request
 from typing import Any
 
 DEFAULT_HOST = "https://app.all-hands.dev"
+
+# The prompt always carries the canonical refusals, even if a config omits them.
+CANONICAL_FORBIDDEN_ACTIONS = (
+    "merge any pull request",
+    "push or commit to main, master or production",
+    "force-push",
+    "deploy, release or publish to production or staging",
+    "activate payments, billing, Stripe or checkout",
+    "send email, newsletters or messages to customers or advertisers",
+    "read, print or expose credentials, tokens or .env files",
+    "delete, drop, truncate or overwrite customer or production data",
+    "change branch protection, authentication, authorisation or rate limits",
+    "create paid resources or accounts",
+)
 API = "/api/automation/v1"
 CREATE_API = "/api/automation/v1/preset/prompt"
 
@@ -69,12 +84,13 @@ def render_prompt(config: dict[str, Any]) -> str:
     with open(template_path, encoding="utf-8") as handle:
         template = handle.read()
     senders = config.get("allowed_senders") or []
+    actions = list(dict.fromkeys([*CANONICAL_FORBIDDEN_ACTIONS, *(config.get("forbidden_actions") or [])]))
     replacements = {
         "{{REPO}}": config["repository"],
         "{{PHRASE}}": config.get("trigger_phrase", "/ccs-task"),
         "{{ALLOWED_SENDERS}}": ", ".join(f"@{name}" for name in senders) if senders else "(none: rely on author_association)",
         "{{AUTOMATION_NAME}}": config["name"],
-        "{{FORBIDDEN_ACTIONS}}": ", ".join(config.get("forbidden_actions") or []),
+        "{{FORBIDDEN_ACTIONS}}": ", ".join(actions),
         "{{MAX_RUNTIME_MINUTES}}": str(config.get("max_runtime_minutes", 30)),
     }
     for placeholder, value in replacements.items():
@@ -82,7 +98,30 @@ def render_prompt(config: dict[str, Any]) -> str:
     return template
 
 
+def validate_automation_config(config: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    repo = config.get("repository", "")
+    if not isinstance(repo, str) or not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
+        errors.append("repository must be owner/name")
+    phrase = config.get("trigger_phrase", "/ccs-task")
+    if not isinstance(phrase, str) or not phrase.startswith("/") or any(character.isspace() for character in phrase):
+        errors.append("trigger_phrase must start with / and contain no whitespace")
+    for sender in config.get("allowed_senders") or []:
+        if not isinstance(sender, str) or not re.fullmatch(r"[A-Za-z0-9-]+(?:\[bot\])?", sender):
+            errors.append(f"allowed sender {sender!r} is invalid")
+    if config.get("allow_bot_senders") and not config.get("acknowledge_loop_risk"):
+        errors.append("allow_bot_senders requires acknowledge_loop_risk=true")
+    if config.get("raw_filter"):
+        errors.append("raw_filter is not supported; the repository, bot and sender gates are mandatory")
+    if not config.get("name"):
+        errors.append("name is required")
+    return errors
+
+
 def build_automation_payload(config: dict[str, Any]) -> dict[str, Any]:
+    errors = validate_automation_config(config)
+    if errors:
+        raise ValueError("; ".join(errors))
     repo = config["repository"]
     phrase = config.get("trigger_phrase", "/ccs-task")
     senders = [name.lower() for name in (config.get("allowed_senders") or [])]
@@ -109,8 +148,8 @@ def build_automation_payload(config: dict[str, Any]) -> dict[str, Any]:
             "source": "github",
             "on": config.get("event_key", "issue_comment.created"),
         }
-    if trigger["type"] == "event" and config.get("raw_filter") != "":
-        trigger["filter"] = config.get("raw_filter", trigger_filter)
+    if trigger["type"] == "event":
+        trigger["filter"] = trigger_filter
     return {
         "name": config["name"],
         "prompt": render_prompt(config),
@@ -230,7 +269,7 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_dispatch(config)
         if args.command == "runs":
             return cmd_runs(config)
-    except ApiError as error:
+    except (ApiError, ValueError) as error:
         print(json.dumps({"error": str(error)}))
         return 1
     return 1

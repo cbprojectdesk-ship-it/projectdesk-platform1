@@ -1,6 +1,6 @@
 # Automation status and verification log
 
-Last updated: 2026-11-22T00:50Z
+Last updated: 2026-11-22T09:25Z
 
 This file separates what was **verified end to end** from what is **configured but
 not delivering**. Read the conclusion before relying on unattended operation.
@@ -9,7 +9,7 @@ not delivering**. Read the conclusion before relying on unattended operation.
 
 | Capability | Status |
 | --- | --- |
-| Deterministic gate (authorisation, policy, dedupe, reports) | Verified, 39 tests, plus live GitHub checks |
+| Deterministic gate (authorisation, policy, dedupe, reports) | Verified, 60 tests, plus live GitHub checks |
 | Agent execution (claim → branch → checks → draft PR → report) | Verified end to end on `Adverquay-launch` |
 | Manual dispatch from the CLI | Verified |
 | Cron polling automation (hourly) | Created and verified to start a run |
@@ -17,6 +17,29 @@ not delivering**. Read the conclusion before relying on unattended operation.
 
 The webhook path is blocked by event delivery, not by the gateway. Details and the
 exact owner action are below.
+
+## Hardening on this branch
+
+The gateway code and prompt were hardened on `ccs/github-openhands-gateway` after
+the live run above. These controls are tested locally and in CI but are **not yet
+deployed to the live automation**. Do not claim the live automation has them until
+`provision_automation.py apply --recreate` has been run and a new end-to-end run is
+recorded.
+
+- The trigger phrase must be the first non-whitespace text; quoted phrases are data.
+- Comments containing `<!-- ccs-gw:` are never task sources, preventing self-trigger
+  loops from owner-authored claim and report comments.
+- Pull request comments cannot start tasks.
+- Negation parsing no longer accepts a bare "no" or "without" as a whitelist.
+- Forbidden patterns cover merge #N, push origin main, ship to production, turn
+  payments on, newsletters, `.env`, drop table, turn off branch protection and
+  `push -f`.
+- `poll` applies authorisation and policy and returns only accepted tasks by default.
+- `recover` refuses to release a claim inside its TTL unless `--force` is passed.
+- Writes are not replayed after a 5xx or network error.
+- Repository wildcards and malformed configuration are rejected.
+- `raw_filter` is removed; repository, bot and sender clauses are mandatory.
+- The prompt runs the deterministic preflight when the gateway file is present.
 
 ## Live automations
 

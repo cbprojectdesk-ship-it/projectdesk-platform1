@@ -51,7 +51,7 @@ Those actions are refused by policy and are outside the automation's instruction
 | `automation.probe.example.json` | Diagnostic automation used to verify event delivery for a new project |
 | `AUTOMATION_STATUS.md` | Verified status, evidence log, exact missing dependency, owner actions |
 | `config.example.json` | Configuration for the deterministic gate |
-| `tests/test_ccs_gateway.py` | 42 tests over real gateway code paths with an in-process GitHub emulator |
+| `tests/test_ccs_gateway.py` | 60 tests over real gateway code paths with an in-process GitHub emulator |
 
 ## Quick start (deterministic gate)
 
@@ -74,6 +74,7 @@ python3 gateway/ccs_gateway.py report --repo OWNER/REPO --issue 9 \
   --comment-id 123 --status completed --body-file report.md
 
 python3 gateway/ccs_gateway.py recover --repo OWNER/REPO --issue 9 --comment-id 123
+# A claim inside its TTL is not released. Add --force only after confirming the run died.
 python3 gateway/ccs_gateway.py poll --repo OWNER/REPO --since 2026-11-22T00:00:00Z
 ```
 
@@ -172,7 +173,9 @@ cd gateway && python3 -m unittest discover -s tests -v
 
 The tests use an in-process emulation of the GitHub REST API. They cover
 authorisation, policy scanning, deduplication across state loss, conflict detection,
-retry and failure recovery, stale-claim reconciliation and report formatting.
+retry and failure recovery, stale-claim reconciliation, forged markers, quoted
+trigger phrases, self-trigger prevention, poll filtering, write-retry safety,
+configuration validation and report formatting.
 
 ## Limits and honest status
 

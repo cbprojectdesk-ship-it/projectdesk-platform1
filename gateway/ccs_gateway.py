@@ -54,15 +54,15 @@ ACTIVE_STATES = frozenset({"claimed", "running"})
 FORBIDDEN_ACTIONS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
     (name, re.compile(pattern, re.IGNORECASE))
     for name, pattern in (
-        ("merge_pull_request", r"\bmerge\b[^.\n]{0,40}\b(pull request|pr|branch|into main)\b"),
-        ("push_to_default_branch", r"\bpush\b[^.\n]{0,30}\b(directly\s+)?to\s+(main|master|production)\b"),
-        ("production_deploy", r"\bdeploy\b[^.\n]{0,40}\b(production|prod|live)\b"),
-        ("activate_payments", r"\b(activate|enable|turn on|switch on)\b[^.\n]{0,30}\b(payment|billing|stripe|checkout)\b"),
-        ("customer_email", r"\b(email|mail|message|contact)\b[^.\n]{0,30}\b(customers?|clients?|users?)\b"),
-        ("read_credentials", r"\b(read|print|dump|expose|reveal|cat|echo)\b[^.\n]{0,30}\b(secret|token|credential|api[ -]?key|password|private key)\b"),
-        ("modify_customer_data", r"\b(delete|drop|truncate|modify|overwrite)\b[^.\n]{0,30}\b(customer|production|live)\b[^.\n]{0,20}\b(data|records?|database|table)\b"),
-        ("weaken_security", r"\b(disable|remove|bypass|weaken)\b[^.\n]{0,30}\b(branch protection|security|authentication|authori[sz]ation|rate limit|2fa|mfa)\b"),
-        ("force_push", r"\bforce[ -]?push\b|\bpush\s+--force\b"),
+        ("merge_pull_request", r"\bmerge\b[^.\n]{0,40}(?:\bpull request\b|\bpr\b|\bbranch\b|\binto main\b|#\d+|\bit\b|\bthis\b|\bchanges?\b|\bcode\b)|\bmerge\b\s*$"),
+        ("push_to_default_branch", r"\b(push|commit|force[ -]?push)\b[^.\n]{0,30}\b(to\s+)?(main|master|production)\b"),
+        ("production_deploy", r"\b(deploy|release|ship|publish)\b[^.\n]{0,40}\b(production|prod|live)\b|\bgo\s+live\b"),
+        ("activate_payments", r"\b(?:activate|enable|turn\s+on|switch\s+on)\b[^.\n]{0,30}\b(payments?|billing|stripe|checkout|charging)\b|\b(?:turn|switch)\b[^.\n]{0,30}\b(payments?|billing|stripe|checkout|charging)\b[^.\n]{0,10}\bon\b"),
+        ("customer_email", r"\b(email|mail|message|newsletter)\b[^.\n]{0,30}\b(customers?|clients?|users?|advertisers?|subscribers?)\b|\bsend\b[^.\n]{0,20}\b(to\s+)?(customers?|clients?|users?|advertisers?|subscribers?)\b|\bcontact\b\s+(?:the\s+)?(?:customers?|clients?|users?|advertisers?|subscribers?)\b"),
+        ("read_credentials", r"\b(read|print|dump|expose|reveal|cat|echo|show)\b[^.\n]{0,30}(?:(?:secrets?|tokens?|credentials?|api[ -]?key|passwords?|private key)\b|\.env\b|environment variables?\b)"),
+        ("modify_customer_data", r"\b(delete|drop|truncate|wipe)\b[^.\n]{0,30}\b(database|table|records?|data|db)\b|\b(overwrite|modify)\b[^.\n]{0,30}\b(customer|production|live|user|advertiser)\b[^.\n]{0,20}\b(data|records?|database|table|db)\b"),
+        ("weaken_security", r"\b(disable|remove|bypass|weaken|turn\s+off|switch\s+off)\b[^.\n]{0,30}\b(branch protection|security|authentication|authori[sz]ation|rate limit|2fa|mfa)\b"),
+        ("force_push", r"\bforce[ -]?push\b|\bpush\b[^\n]{0,10}\s-f\b|\bpush\s+--force\b"),
         ("delete_repository", r"\bdelete\b[^.\n]{0,20}\b(repository|repo)\b"),
         ("rotate_credentials", r"\brotate\b[^.\n]{0,20}\b(secret|token|credential|key)s?\b"),
     )
@@ -79,12 +79,10 @@ APPROVAL_ACTIONS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
     )
 )
 
-_NEGATION = re.compile(
-    r"\b(do\s+not|don't|never|must\s+not|should\s+not|not\s+allowed|forbidden|prohibited|without|no)\b",
-    re.IGNORECASE,
-)
+GATEWAY_MARKER = re.compile(r"<!--\s*ccs-gw:", re.IGNORECASE)
 
-_CLAUSE_SPLIT = re.compile(r"[.;\n]|\bbut\b", re.IGNORECASE)
+# Split on sentence boundaries, but not on the dot in ".env".
+_CLAUSE_SPLIT = re.compile(r"[;\n]|\.(?=\s|$)|\bbut\b", re.IGNORECASE)
 
 
 # ---------------------------------------------------------------------------
@@ -143,9 +141,16 @@ def _clauses(text: str) -> list[str]:
     return [part.strip() for part in _CLAUSE_SPLIT.split(text) if part.strip()]
 
 
+_NEGATION_START = re.compile(
+    r"^(?:please\s+)?(do\s+not|don't|never|must\s+not|should\s+not|cannot|can't|not\s+allowed|forbidden|prohibited)\b",
+    re.IGNORECASE,
+)
+
+
 def _is_negated(clause: str, match_start: int) -> bool:
-    prefix = clause[:match_start]
-    return bool(_NEGATION.search(prefix))
+    # Only a prohibition that opens the clause counts. A negation buried later
+    # ("it is not true that you should not merge") must not whitelist the action.
+    return bool(_NEGATION_START.match(clause[:match_start].strip()))
 
 
 def scan_instruction(text: str) -> PolicyDecision:
@@ -179,11 +184,12 @@ def extract_instruction(body: str, phrase: str = TRIGGER_PHRASE) -> str | None:
     """Return the instruction text after the trigger phrase, or None."""
     if not body:
         return None
-    pattern = re.compile(re.escape(phrase) + r"(?:\s+|$)", re.IGNORECASE)
-    match = pattern.search(body)
+    text = body.lstrip("\ufeff \t\r\n")
+    pattern = re.compile(r"^" + re.escape(phrase) + r"(?:\s+|$)", re.IGNORECASE)
+    match = pattern.match(text)
     if not match:
         return None
-    instruction = body[match.end():].strip()
+    instruction = text[match.end():].strip()
     return instruction or None
 
 
@@ -209,6 +215,11 @@ def marker(kind: str, comment_id: int | str) -> str:
 
 def has_marker(text: str, kind: str, comment_id: int | str) -> bool:
     return marker(kind, comment_id) in (text or "")
+
+
+def marker_ids(text: str, kind: str) -> set[int]:
+    pattern = re.compile(r"<!--\s*ccs-gw:" + re.escape(kind) + r":(\d+)\s*-->")
+    return {int(match.group(1)) for match in pattern.finditer(text or "")}
 
 
 def task_key(repo: str, issue: int, comment_id: int) -> str:
@@ -295,7 +306,9 @@ class GitHubClient:
         self.retries = retries
         self.sleep = sleep
 
-    def request(self, method: str, path: str, payload: Any = None) -> Any:
+    def request(self, method: str, path: str, payload: Any = None, retry_safe: bool | None = None) -> Any:
+        if retry_safe is None:
+            retry_safe = method.upper() in {"GET", "HEAD"}
         url = path if path.startswith("http") else f"{self.api_url}{path}"
         headers = {
             "Accept": "application/vnd.github+json",
@@ -315,14 +328,16 @@ class GitHubClient:
                 status, response_headers, raw = self.transport(method, url, headers, body)
             except Exception as error:  # network layer
                 last_error = error
-                if attempt < self.retries:
+                if attempt < self.retries and retry_safe:
                     self.sleep(min(2 ** attempt, 8))
                     continue
                 raise GatewayError(f"network error for {method} {path}: {error}") from error
 
             if status == 429 or 500 <= status < 600:
                 last_error = RequestError(status, raw[:300].decode("utf-8", "replace"), url)
-                if attempt < self.retries:
+                # 429 means the request was not processed, so it is safe to retry.
+                # A 5xx on a write may already have taken effect; never replay it.
+                if attempt < self.retries and (retry_safe or status == 429):
                     retry_after = response_headers.get("Retry-After") or response_headers.get("retry-after")
                     delay = float(retry_after) if retry_after and str(retry_after).isdigit() else min(2 ** attempt, 8)
                     self.sleep(delay)
@@ -451,7 +466,10 @@ class Gateway:
         association = (comment.get("author_association") or "").upper()
         if user.get("type") == "Bot" or login in BOT_LOGINS:
             reasons.append("comments from bots are ignored to prevent loops")
-        if login and login in self.allowed_senders:
+        if not login:
+            reasons.append("comment author is missing")
+            return reasons
+        if login in self.allowed_senders:
             return reasons
         if association not in AUTHORIZED_ASSOCIATIONS:
             reasons.append(f"author_association {association or 'NONE'} is not authorised")
@@ -464,9 +482,18 @@ class Gateway:
         if issue is None:
             issue = _issue_number_from_comment(comment)
         result = PreflightResult(verdict="invalid", repo=repo, issue=issue or 0, comment_id=comment_id)
+        if not issue:
+            result.reasons.append("could not determine the issue number")
+            return result
 
         body = comment.get("body") or ""
         result.sender = ((comment.get("user") or {}).get("login") or "")
+        if GATEWAY_MARKER.search(body):
+            result.reasons.append("gateway claim and report comments cannot start a task")
+            return result
+        if "/pull/" in (comment.get("html_url") or ""):
+            result.reasons.append("pull request comments cannot start a task")
+            return result
         instruction = extract_instruction(body, self.phrase)
         if not instruction:
             result.reasons.append(f"comment does not start an instruction with {self.phrase}")
@@ -491,18 +518,30 @@ class Gateway:
             result.reasons = [f"human approval required for: {name}" for name in decision.reasons]
             return result
 
-        if issue:
-            existing = self.client.list_issue_comments(repo, issue)
-            for item in existing:
-                if has_marker(item.get("body") or "", CLAIM_STATE, comment_id):
-                    result.verdict = "duplicate"
-                    result.reasons.append(f"claim marker already present in comment {item.get('id')}")
-                    return result
-            for item in existing:
-                if has_marker(item.get("body") or "", "blocked", comment_id):
-                    result.verdict = "blocked"
-                    result.reasons.append(f"task previously blocked in comment {item.get('id')}")
-                    return result
+        existing = self.client.list_issue_comments(repo, issue)
+        claimed: set[int] = set()
+        stated: set[int] = set()
+        released: set[int] = set()
+        blocked: set[int] = set()
+        for item in existing:
+            item_body = item.get("body") or ""
+            claimed |= marker_ids(item_body, CLAIM_STATE)
+            stated |= marker_ids(item_body, "state")
+            released |= marker_ids(item_body, "released")
+            blocked |= marker_ids(item_body, "blocked")
+        if comment_id in claimed and comment_id not in released:
+            result.verdict = "duplicate"
+            result.reasons.append("claim marker already present for this comment")
+            return result
+        if comment_id in blocked:
+            result.verdict = "blocked"
+            result.reasons.append("task previously blocked")
+            return result
+        active = claimed - stated - released - {comment_id}
+        if active:
+            result.verdict = "conflict"
+            result.reasons.append(f"issue #{issue} already has an active task from comment {min(active)}")
+            return result
 
         conflict = self._active_conflict(repo, issue, comment_id)
         if conflict:
@@ -568,7 +607,7 @@ class Gateway:
         self.state.put(key, record)
         return comment
 
-    def recover(self, repo: str, issue: int, comment_id: int) -> dict[str, Any]:
+    def recover(self, repo: str, issue: int, comment_id: int, force: bool = False) -> dict[str, Any]:
         """Inspect real GitHub state and reconcile a stale claim.
 
         A claim left active after a crashed run is released only when the
@@ -581,18 +620,42 @@ class Gateway:
         branch_ref = self.client.get_branch(repo, branch)
         pull = self.client.find_open_pr(repo, branch) if branch_ref else None
 
+        now = datetime.now(timezone.utc)
+        fresh = False
+        try:
+            fresh = (now - datetime.fromisoformat(record.get("updated", ""))) <= self.claim_ttl
+        except (ValueError, TypeError):
+            fresh = False
         if pull:
-            record.update({"status": "running", "pr": pull.get("number"), "updated": datetime.now(timezone.utc).isoformat()})
+            record.update({"status": "running", "pr": pull.get("number"), "updated": now.isoformat()})
         elif branch_ref:
-            record.update({"status": "running", "branch_sha": (branch_ref.get("object") or {}).get("sha")})
+            record.update({"status": "running", "branch_sha": (branch_ref.get("object") or {}).get("sha"), "updated": now.isoformat()})
+        elif fresh and record.get("status") in ACTIVE_STATES and not force:
+            # The worker may still be running and simply has not created a branch yet.
+            return {
+                "key": key,
+                "branch": branch,
+                "branch_exists": False,
+                "open_pr": None,
+                "record": record,
+                "released": False,
+                "reason": "claim is still within its TTL; pass --force only after confirming the run died",
+            }
+        elif record.get("status") in ACTIVE_STATES:
+            self.client.create_comment(
+                repo,
+                issue,
+                release_body(repo, issue, comment_id, "The claim exceeded its TTL and has no branch or pull request."),
+            )
+            record.update({"status": "released", "updated": now.isoformat()})
         else:
-            record.update({"status": "released", "updated": datetime.now(timezone.utc).isoformat()})
+            record.update({"status": "released", "updated": now.isoformat()})
         self.state.put(key, record)
-        return {"key": key, "branch": branch, "branch_exists": bool(branch_ref), "open_pr": pull, "record": record}
+        return {"key": key, "branch": branch, "branch_exists": bool(branch_ref), "open_pr": pull, "record": record, "released": record.get("status") == "released"}
 
     # -- polling fallback --------------------------------------------------
 
-    def poll(self, repo: str, since: str, limit: int = 50) -> list[PreflightResult]:
+    def poll(self, repo: str, since: str, limit: int = 50, include_rejected: bool = False) -> list[PreflightResult]:
         """Find trigger comments newer than ``since`` across open issues.
 
         Used by the cron fallback when webhook delivery is unavailable. It is
@@ -613,19 +676,35 @@ class Gateway:
                     continue
                 if created_dt < since_dt:
                     continue
-                instruction = extract_instruction(comment.get("body") or "", self.phrase)
+                body = comment.get("body") or ""
+                if GATEWAY_MARKER.search(body):
+                    continue
+                if "/pull/" in (comment.get("html_url") or ""):
+                    continue
+                instruction = extract_instruction(body, self.phrase)
                 if not instruction:
                     continue
                 sender = ((comment.get("user") or {}).get("login") or "")
+                reasons = self.authorise(repo, comment)
+                if reasons:
+                    verdict = "unauthorized"
+                else:
+                    decision = scan_instruction(instruction)
+                    verdict = decision.verdict if decision.verdict in {"blocked", "needs_approval"} else "accepted"
+                    if decision.reasons:
+                        reasons = [f"forbidden action requested: {name}" for name in decision.reasons] if verdict == "blocked" else [f"human approval required for: {name}" for name in decision.reasons]
+                if verdict != "accepted" and not include_rejected:
+                    continue
                 found.append(
                     PreflightResult(
-                        verdict="candidate",
+                        verdict=verdict,
                         key=task_key(repo, number, comment.get("id", 0)),
                         repo=repo,
                         issue=number,
                         comment_id=comment.get("id", 0),
                         sender=sender,
                         instruction=instruction,
+                        reasons=reasons,
                         branch=f"ccs-task/{number}-{comment.get('id', 0)}",
                     )
                 )
@@ -660,6 +739,22 @@ def claim_body(result: PreflightResult) -> str:
             "",
             "Next: implement on the branch, run the checks, open a pull request and post the",
             "evidence here. Nothing is merged or deployed by this workflow.",
+        ]
+    )
+
+
+def release_body(repo: str, issue: int, comment_id: int, reason: str) -> str:
+    return "\n".join(
+        [
+            marker("released", comment_id),
+            AI_DISCLOSURE,
+            "",
+            f"## Claim released — `{repo}#{issue}` / comment `{comment_id}`",
+            "",
+            reason,
+            "",
+            "No branch or open pull request exists for this claim. The instruction may be",
+            "retried by posting it again; the released marker prevents a false duplicate.",
         ]
     )
 
@@ -705,6 +800,34 @@ DEFAULT_CONFIG: dict[str, Any] = {
 }
 
 
+def validate_config(config: dict[str, Any]) -> dict[str, list[str]]:
+    """Reject configuration that would silently disable the gate."""
+    errors: list[str] = []
+    warnings: list[str] = []
+    repos = config.get("allowed_repos") or []
+    if not isinstance(repos, list) or not repos:
+        errors.append("allowed_repos must contain at least one owner/repo pattern")
+    else:
+        for pattern in repos:
+            if not isinstance(pattern, str) or not pattern.strip():
+                errors.append("allowed_repos contains an empty pattern")
+            elif pattern.strip() in {"*", "*/*"}:
+                errors.append(f"repository pattern {pattern!r} is too broad")
+    if not config.get("allowed_senders"):
+        warnings.append("allowed_senders is empty; authorisation relies on author_association")
+    try:
+        ttl = int(config.get("claim_ttl_hours", 24))
+    except (TypeError, ValueError):
+        errors.append("claim_ttl_hours must be an integer")
+    else:
+        if not 1 <= ttl <= 168:
+            errors.append("claim_ttl_hours must be between 1 and 168")
+    phrase = config.get("trigger_phrase", TRIGGER_PHRASE)
+    if not isinstance(phrase, str) or not phrase.startswith("/") or any(character.isspace() for character in phrase):
+        errors.append("trigger_phrase must start with / and contain no whitespace")
+    return {"errors": errors, "warnings": warnings}
+
+
 def load_config(path: str | None) -> dict[str, Any]:
     config = dict(DEFAULT_CONFIG)
     if path and os.path.exists(path):
@@ -714,6 +837,9 @@ def load_config(path: str | None) -> dict[str, Any]:
 
 
 def build_gateway(config: dict[str, Any], client: GitHubClient | None = None) -> Gateway:
+    validation = validate_config(config)
+    if validation["errors"]:
+        raise GatewayError("; ".join(validation["errors"]))
     return Gateway(
         client=client or GitHubClient(),
         state=StateStore(config.get("state_path")),
@@ -758,6 +884,7 @@ def main(argv: list[str] | None = None) -> int:
     recover.add_argument("--repo", required=True)
     recover.add_argument("--issue", type=int, required=True)
     recover.add_argument("--comment-id", type=int, required=True)
+    recover.add_argument("--force", action="store_true", help="release a claim even inside its TTL")
 
     poll = sub.add_parser("poll", help="list trigger comments newer than --since")
     poll.add_argument("--repo", required=True)
@@ -768,7 +895,11 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
     config = load_config(args.config)
-    gateway = build_gateway(config)
+    try:
+        gateway = build_gateway(config)
+    except GatewayError as error:
+        _print({"error": str(error)})
+        return 1
 
     try:
         if args.command == "preflight":
@@ -782,7 +913,7 @@ def main(argv: list[str] | None = None) -> int:
             _print({"comment_url": created.get("html_url"), "comment_id": created.get("id")})
             return 0
         if args.command == "recover":
-            _print(gateway.recover(args.repo, args.issue, args.comment_id))
+            _print(gateway.recover(args.repo, args.issue, args.comment_id, force=args.force))
             return 0
         if args.command == "poll":
             _print([item.to_dict() for item in gateway.poll(args.repo, args.since)])
@@ -795,6 +926,7 @@ def main(argv: list[str] | None = None) -> int:
                 "allowed_senders": sorted(gateway.allowed_senders),
                 "trigger_phrase": gateway.phrase,
                 "state_path": gateway.state.path,
+                "validation": validate_config(config),
             }
             if args.repo:
                 repo = gateway.client.get_repository(args.repo)
