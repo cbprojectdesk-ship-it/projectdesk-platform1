@@ -3,9 +3,9 @@
 Status: **development candidate; not ready for real customers or live billing.**
 Base: `origin/integration/pr52-pr60-verified-20261121` (`526f0cf`) with the
 verified PR #52/#60 integration tree. Work branch:
-`feature/quenvira-launch-preparation-2026-11-22` at commit `2060888`.
-GitHub Actions `Server workspace checks` run `45072021216` and `Quenvira checks`
-run `45072021042` passed.
+`feature/quenvira-launch-preparation-2026-11-22` at commit `e647bd0`.
+GitHub Actions `Server workspace checks` and `Quenvira checks` are required on the
+exact head; check the latest branch run before relying on this report.
 
 This is an AI-assisted engineering report, not independent human review, legal advice,
 a DPO opinion or proof of a deployed service.

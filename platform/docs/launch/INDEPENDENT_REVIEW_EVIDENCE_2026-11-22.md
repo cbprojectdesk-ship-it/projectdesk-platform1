@@ -8,7 +8,7 @@ conclusion and record approval or requested changes.
 
 - Repository: `cbprojectdesk-ship-it/projectdesk-platform1`
 - Branch: `feature/quenvira-launch-preparation-2026-11-22`
-- Code head: `2060888` (security and launch-preparation changes)
+- Code head: `e647bd0` (security and launch-preparation changes)
 - Documentation head: `db3451c` and subsequent evidence commits
 - Base: `origin/integration/pr52-pr60-verified-20261121` (`526f0cf`)
 - CI: GitHub Actions `Server workspace checks` and `Quenvira checks` pass on the branch.
