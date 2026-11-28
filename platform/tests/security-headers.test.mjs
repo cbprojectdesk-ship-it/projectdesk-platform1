@@ -22,3 +22,18 @@ test('the hosted app emits the required baseline security headers',()=>{
   assert.equal(securityHeaderEntries().length,SECURITY_HEADERS.length);
   assert.ok(securityHeaderEntries().every(header=>typeof header.key==='string'&&typeof header.value==='string'));
 });
+
+test('the Worker response wrapper adds baseline headers to HTML responses without replacing route CSP', async () => {
+  const { secureResponse } = await import('../server/security-headers.mjs');
+  const html = secureResponse(new Response('<!doctype html><p>test</p>', { headers: { 'Content-Type': 'text/html; charset=utf-8' } }));
+  assert.match(html.headers.get('strict-transport-security'), /max-age=31536000/);
+  assert.equal(html.headers.get('x-content-type-options'), 'nosniff');
+  assert.equal(html.headers.get('x-frame-options'), 'DENY');
+  assert.match(html.headers.get('content-security-policy'), /script-src 'self'/);
+  const route = secureResponse(new Response('{}', { headers: { 'Content-Type': 'application/json', 'Content-Security-Policy': "default-src 'none'" } }));
+  assert.equal(route.headers.get('content-security-policy'), "default-src 'none'");
+  const redirect = secureResponse(new Response(null, { status: 307, headers: { Location: '/workspace' } }));
+  assert.equal(redirect.status, 307);
+  assert.equal(redirect.headers.get('location'), '/workspace');
+  assert.match(redirect.headers.get('strict-transport-security'), /max-age=31536000/);
+});

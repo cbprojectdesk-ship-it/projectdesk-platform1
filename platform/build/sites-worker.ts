@@ -4,6 +4,7 @@ import {guardStandaloneRequest} from "../server/standalone-identity.mjs";
 import { runWithConnectorBinding } from "../lib/connector-context";
 import type { ConnectorBinding } from "../lib/connector-contract.mjs";
 import { dispatchAfterCommand } from "../server/email-background.mjs";
+import { secureResponse } from "../server/security-headers.mjs";
 
 export default {
   async fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
@@ -50,7 +51,10 @@ export default {
     return runWithConnectorBinding(binding, async () => {
       const response = await handler.fetch(request, env, ctx);
       dispatchAfterCommand(request, response, env, ctx);
-      return response;
+      // Vinext returns static assets as a header hand-off with no body; wrapping
+      // that response would hide the asset. Those assets already receive the
+      // baseline rules from public/_headers.
+      return response.headers.has("x-vinext-static-file") ? response : secureResponse(response);
     });
   },
 };

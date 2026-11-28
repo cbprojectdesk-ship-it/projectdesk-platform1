@@ -32,3 +32,28 @@ export function nonceCsp(nonce) {
     "upgrade-insecure-requests",
   ].join('; ');
 }
+
+export const STATIC_HTML_CSP = [
+  "default-src 'self'",
+  "base-uri 'none'",
+  "frame-ancestors 'none'",
+  "object-src 'none'",
+  "form-action 'none'",
+  "script-src 'self'",
+  "style-src 'self'",
+  "img-src 'self' data: blob:",
+  "font-src 'self'",
+  "connect-src 'self'",
+].join('; ');
+
+export function secureResponse(response) {
+  const headers = new Headers(response.headers);
+  for (const { key, value } of SECURITY_HEADERS) {
+    if (!headers.has(key)) headers.set(key, value);
+  }
+  const contentType = headers.get('Content-Type') || '';
+  if (contentType.startsWith('text/html') && !headers.has('Content-Security-Policy')) {
+    headers.set('Content-Security-Policy', STATIC_HTML_CSP);
+  }
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}

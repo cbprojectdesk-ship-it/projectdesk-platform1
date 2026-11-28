@@ -84,7 +84,7 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
   }
   if(path.length===1&&path[0]==='session'&&request.method==='GET'){
    const result=await db.prepare('SELECT w.id, w.name, m.role FROM workspaces w JOIN memberships m ON m.workspace_id = w.id WHERE m.user_id = ? ORDER BY w.created_at').bind(user).all();
-   return json({user:{id:user,email},workspaces:result.results,today:asOf,documentMode:config?.mode==='live'?'live':'test',canCreateWorkspace:mayCreateWorkspace(email,pilotEmails)||!!config?.selfServe});
+   return json({user:{id:user,email},workspaces:result.results,today:asOf,documentMode:config?.mode==='live'?'live':'test',canCreateWorkspace:mayCreateWorkspace(email,pilotEmails)||!!config?.selfServe,...(config?{termsVersion:config.termsVersion||TERMS_VERSION,termsUrl:config.plans?'/subscription-terms-solo-team.html':'/subscription-terms.html'}:{})});
   }
   if(path.join('/')==='invitations/accept'&&request.method==='POST'){
    const body=await readBody(request);if(typeof body.token!=='string'||!/^[a-f0-9-]{72}$/.test(body.token))problem(400,'Invalid invitation.');

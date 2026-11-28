@@ -14,6 +14,11 @@ const json=(value,status=200)=>new Response(JSON.stringify(value),{status,header
  */
 export async function emailMcp(request,db,{billingEnv={},bucket,now=()=>new Date(),billingClient}={}){
  if(request.method!=='POST')return json({error:'Method not allowed.'},405);
+ // Browser callers must be same-origin. Non-browser MCP clients normally omit
+ // Origin; their authenticated identity headers are still required below.
+ const origin=request.headers.get('origin');
+ if(origin&&origin!==new URL(request.url).origin)return json({error:'Same-origin request required.'},403);
+ if(request.headers.get('sec-fetch-site')==='cross-site')return json({error:'Same-origin request required.'},403);
  if(!request.headers.get('content-type')?.startsWith('application/json'))return json({error:'Use JSON requests.'},415);
  let bytes=0,body='';
  const reader=request.body?.getReader();if(!reader)return json({error:'Request required.'},400);

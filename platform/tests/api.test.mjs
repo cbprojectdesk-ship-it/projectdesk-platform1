@@ -43,3 +43,13 @@ test('malformed managed identity is treated as unauthenticated',async()=>{
     assert.equal(r.status,401);
   }
 });
+test('session exposes the configured plan terms version and matching terms page',async()=>{
+ const db=database();await setup(db);
+ const billingEnv={QUENVIRA_BILLING_MODE:'test',STRIPE_RESTRICTED_KEY:'rk_test_fixture',STRIPE_WEBHOOK_SECRET:'whsec_fixture',STRIPE_PORTAL_CONFIGURATION:'bpc_fixture',QUENVIRA_TERMS_VERSION:'2026-10-30',QUENVIRA_SITE_ORIGIN:ORIGIN,QUENVIRA_PLAN_CATALOG:'solo-team-v2',STRIPE_SOLO_PRICE_ID:'price_solo',STRIPE_TEAM_PRICE_ID:'price_team',STRIPE_TEAM10_PRICE_ID:'price_team10',STRIPE_TEAM15_PRICE_ID:'price_team15',STRIPE_TEAM20_PRICE_ID:'price_team20'};
+ const response=await handle(new Request(ORIGIN+'/api/quenvira/session',{headers:{'oai-authenticated-user-id':'alice','oai-authenticated-user-email':'alice@example.com'}}),db,{billingEnv});
+ assert.equal(response.status,200);
+ const body=await response.json();
+ assert.equal(body.termsVersion,'2026-10-30');
+ assert.equal(body.termsUrl,'/subscription-terms-solo-team.html');
+ db.sqlite.close();
+});
