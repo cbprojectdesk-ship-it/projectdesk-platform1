@@ -56,3 +56,17 @@ test('a different manager cannot send another business queue',async()=>{
   assert.equal((await result(await invoke(db,'quenvira_process_due_invoice_emails','bob'))).processed,0);assert.equal(sends,0);assert.equal(db.sqlite.prepare('SELECT attempts FROM invoice_outbox').get().attempts,0);
  }finally{globalThis.fetch=original;db.sqlite.close()}
 });
+
+test('browser cross-origin MCP calls are rejected before identity or queue access',async()=>{
+ const request=new Request('https://app.example/mcp',{method:'POST',headers:{'content-type':'application/json',origin:'https://evil.example','oai-authenticated-user-id':'alice','oai-authenticated-user-email':'alice@example.com'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/list'})});
+ const response=await emailMcp(request,null,{});
+ assert.equal(response.status,403);
+ assert.match(await response.text(),/Same-origin/);
+});
+
+test('sec-fetch-site cross-site MCP requests are rejected without an Origin header',async()=>{
+ const request=new Request('https://app.example/mcp',{method:'POST',headers:{'content-type':'application/json','sec-fetch-site':'cross-site','oai-authenticated-user-id':'alice','oai-authenticated-user-email':'alice@example.com'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/list'})});
+ const response=await emailMcp(request,null,{});
+ assert.equal(response.status,403);
+ assert.match(await response.text(),/Same-origin/);
+});

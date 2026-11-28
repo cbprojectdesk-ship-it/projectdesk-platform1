@@ -1,19 +1,33 @@
 # Quenvira business and customer-data schedule — prepared for review
 
-Date: 21 October 2026. This schedule does not itself form a customer contract and is not an instruction to commence billing.
+Prepared catalogue update: 4 November 2026; supplier details retained from 21 October 2026. This schedule does not itself form a customer contract and is not an instruction to commence billing.
 
 ## Supplier identity
 
 Charles Buckton trading as CCS Creative Technologies, sole trader.
 78 Seaton Way, Southport, PR9 9GP, United Kingdom.
 ccscreativetech@gmail.com — business, privacy, security and contract notices.
-Owner/controller contact: Charles Buckton. No shares, ownership rights or spending authority have been allocated to anyone else. No limited-company incorporation or company number is asserted. The owner confirmed on 23 October 2026 that CCS is not UK VAT registered; do not add VAT to the proposed £19 total monthly subscription price.
+Owner/controller contact: Charles Buckton. No shares, ownership rights or spending authority have been allocated to anyone else. No limited-company incorporation or company number is asserted. The owner confirmed on 23 October 2026 that CCS is not UK VAT registered; do not add VAT to the prepared Solo and Team monthly subscription prices.
 
 Business address currently uses the home address at the owner's request. No paid virtual office, registered-office or mail-forwarding service is ordered. Revisit after reliable income. A later change needs updating on legal notices, orders, invoices, banking and supplier records as applicable.
 
 ## Current commercial position
 
-Invitation-only pilot with sandbox billing. No live recurring payment collection, automatic renewal or paid order acceptance is enabled. The prepared UK business offer is one plan at £19 total per business per month, with a once-only 14-day card-free app trial. CCS is not VAT registered, so no VAT is added. Earlier £29/£59/£99 tiers are retired proposals and must not be advertised as implemented plans. Complete the customer order and processing schedule before any paid start.
+Invitation-only pilot; live billing and paid onboarding remain closed. Prepared future orders use the approved catalogue below. The old £19 sandbox mapping is historical test configuration, not the launch offer. CCS is not VAT registered under the owner's existing declaration; no VAT is added. Confirm that factual status before a paid order.
+
+| Plan | Total monthly price | Total people, including owner | Maximum independent staff sign-ins |
+| --- | --- | --- | --- |
+| Solo | £7.99 | 1 | 0 |
+| Team 5 | £14.99 | 5 | 4 |
+| Team 10 | £24.99 | 10 | 9 |
+| Team 15 | £32.99 | 15 | 14 |
+| Team 20 | £39.99 | 20 | 19 |
+
+Active staff-profile allowances are 1/5/10/15/20 respectively, including the owner if recorded as a worker; retained inactive profiles do not consume this allowance. Sign-in limits are enforced separately. Above twenty people requires a tailored quote. Business/Pro/Enterprise functions are not an available plan or a promise of implemented functionality.
+
+The once-only 14-day app trial requires no card and does not automatically become paid. Paid service requires deliberate customer agreement and completed Stripe Checkout. Proposed immediate prorated upgrades, end-of-period cheaper plans and cancellation still require final commercial approval and hosted acceptance. Exceeding a limit never purchases an upgrade automatically. Complete the customer order and processing schedule before any paid start.
+
+Website: https://ccscreativetech.co.uk . Support: ccscreativetech@gmail.com.
 
 Paid-order fields to complete: customer legal/trading name and contact; adult authorised business decision-maker; actual workflow and capacity limits; hosted access arrangement; start and billing dates; total price and VAT treatment; payment method after bank approval; initial term/cancellation; export/exit window; support channel and realistic response arrangement; any separately agreed website work. Do not promise online payments, automatic email delivery, unlimited storage, accounting integration, native phone app distribution or 24-hour support.
 
@@ -58,7 +72,7 @@ Customer identity, instructions, provider details and the parties' agreement mus
 - HMRC: check existing Self Assessment registration and total gross trading income across all relevant business activities. Do not create a duplicate tax registration or assume Quenvira alone determines obligations. Use https://www.gov.uk/become-sole-trader/register-sole-trader .
 - ICO: complete the official fee self-assessment for actual controller activities and retain the outcome. Do not assume either automatic exemption or a fee requirement. No fee has been paid. https://ico.org.uk/for-organisations/data-protection-fee/data-protection-fee-self-assessment/ .
 - Banking: Charles reported opening Monzo Business Lite on 21 October. Live Stripe connection/payout mapping has not been verified; retain live billing off. No bank account is opened or changed by this work.
-- VAT: owner confirmed not VAT registered on 23 October 2026; reflect this in CCS invoices and the £19 total subscription offer. Do not add VAT just because the software can calculate it for a VAT-registered customer business.
+- VAT: owner confirmed not VAT registered on 23 October 2026; reflect this in CCS invoices and the prepared Solo and Team subscription offer. Do not add VAT just because the software can calculate it for a VAT-registered customer business.
 - Naming/IP: trading name chosen; registry/trademark clearance is not certified. No registration or trademark filing has been purchased.
 - Final order/terms: keep a dated copy of the agreed version and customer authority. Review any liability cap, renewal, support commitment and customer-specific risk before making them contractual.
 

@@ -10,6 +10,7 @@ declare namespace Cloudflare {
     DB?: D1Database;
     BUCKET?: R2Bucket;
     QUENVIRA_PILOT_EMAILS?: string;
+    QUENVIRA_IDENTITY_PROOF_SECRET?: string;
     QUENVIRA_BILLING_MODE?: string;
     QUENVIRA_HOSTING_MODE?: string;
     QUENVIRA_ACCESS_TEAM_DOMAIN?: string;
@@ -20,6 +21,7 @@ declare namespace Cloudflare {
     STRIPE_LIVE_WEBHOOK_SECRET?: string;
     QUENVIRA_LIVE_WEBHOOK_VERIFY?: string;
     CCS_WEBSITE_ENQUIRIES?: string;
+    CCS_WEBSITE_CONFIRMATIONS?: string;
     QUENVIRA_PLAN_CATALOG?: string;
     QUENVIRA_PLAN_TERMS_APPROVED?: string;
     QUENVIRA_TEAM_STAFF_LIMIT?: string;

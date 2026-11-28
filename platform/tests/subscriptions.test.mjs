@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import Stripe from 'stripe';
 import {billingConfig,startTrial,entitlement,checkout,webhook,billingReview,TERMS_VERSION} from '../server/subscriptions.mjs';
 import {handle} from '../server/api.mjs';
-import {database,setup,ORIGIN,customer} from './support/database.mjs';
+import {database,setup,fixtures,ORIGIN,customer} from './support/database.mjs';
 const timestamp='2026-10-22T12:00:00.000Z',now=Date.parse(timestamp);
 const env={QUENVIRA_BILLING_MODE:'test',STRIPE_RESTRICTED_KEY:'rk_test_fixture_only',STRIPE_WEBHOOK_SECRET:'whsec_fixture_only',STRIPE_PRICE_ID:'price_test',STRIPE_PORTAL_CONFIGURATION:'bpc_test',QUENVIRA_SITE_ORIGIN:ORIGIN,QUENVIRA_TERMS_VERSION:TERMS_VERSION,QUENVIRA_SELF_SERVE:'yes'};
 const config=billingConfig(env),terms={acceptTerms:true,termsVersion:TERMS_VERSION};
@@ -77,10 +77,10 @@ test('subscription lifecycle grants only current paid correct-plan access; perio
  s.items.data[0].current_period_end=Math.floor(now/1000);assert.equal((await entitlement(f.db,f.workspace,config,f.client,now)).canWrite,false);s.items.data[0].current_period_end+=1000;s.items.data[0].price.id='price_other';assert.equal((await entitlement(f.db,f.workspace,config,f.client,now)).canWrite,false);s.items.data[0].price.id='price_test';s.livemode=true;assert.equal((await entitlement(f.db,f.workspace,config,f.client,now)).canWrite,false);f.db.sqlite.close();
 });
 test('API enforces trial expiry for manager/staff writes, preserves read/backup, prevents paid deletion and isolates billing',async()=>{
- const f=await fixture();await setup(f.db,'bob');await expire(f);
- const command={action:'customer.save',data:customer,revision:0,requestId:crypto.randomUUID()};assert.equal((await call(f,'workspaces/'+f.workspace+'/commands',command)).status,402);assert.equal((await call(f,'workspaces/'+f.workspace)).status,200);assert.equal((await call(f,'workspaces/'+f.workspace+'/backup-file')).status,200);
+ const f=await fixture(),person=await fixtures(f.db,f.workspace);await setup(f.db,'bob');await expire(f);
+ const command={action:'customer.save',data:customer,revision:f.db.sqlite.prepare('SELECT revision FROM workspaces WHERE id=?').get(f.workspace).revision,requestId:crypto.randomUUID()};assert.equal((await call(f,'workspaces/'+f.workspace+'/commands',command)).status,402);assert.equal((await call(f,'workspaces/'+f.workspace)).status,200);assert.equal((await call(f,'workspaces/'+f.workspace+'/backup-file')).status,200);
  assert.equal((await call(f,'workspaces/'+f.workspace+'/subscription',undefined,'bob')).status,404);
- f.db.sqlite.prepare("INSERT INTO memberships VALUES (?,?,'staff','fictional')").run(f.workspace,'worker');assert.equal((await call(f,'workspaces/'+f.workspace+'/subscription',undefined,'worker')).status,403);assert.equal((await call(f,'workspaces/'+f.workspace+'/commands',command,'worker')).status,402);
+ f.db.sqlite.prepare("INSERT INTO memberships VALUES (?,?,'staff',?)").run(f.workspace,'worker',person.staffId);assert.equal((await call(f,'workspaces/'+f.workspace+'/subscription',undefined,'worker')).status,403);assert.equal((await call(f,'workspaces/'+f.workspace+'/commands',command,'worker')).status,402);
  f.client.setSubs([paid()]);assert.equal((await call(f,'workspaces/'+f.workspace+'/delete',{confirmName:'alice cleaning'})).status,409);assert.equal((await call(f,'workspaces/'+f.workspace+'/commands',command)).status,200);
  const portal=await call(f,'workspaces/'+f.workspace+'/subscription',{action:'portal',customer:'cus_evil'});assert.equal(portal.status,200);assert.equal(f.client.calls.at(-1)[1].customer,'cus_test');f.db.sqlite.close();
 });

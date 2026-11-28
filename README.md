@@ -22,7 +22,10 @@ Serve `dist/` over HTTP using a static server. JavaScript modules need an HTTP o
 - `dist/style.css`: responsive styles
 - `tests/`: domain and interface-module tests
 
-The suite contains 56 checks. Interface tests use DOM adapters; they do not replace real-browser acceptance testing.
+The demo suite contains 59 checks. Interface tests use DOM adapters; they do not replace
+real-browser acceptance testing. The separate `platform/` suite has 320 cases, and the
+browser workflow exercises 96 Chromium cases across four viewports plus configured
+Firefox and WebKit projects.
 
 ## Demo boundary
 
@@ -44,12 +47,19 @@ acceptance remains outstanding; automated UI tests run against DOM adapters.
 
 ## Server-backed workspace
 
-`platform/` now contains the private server-backed development candidate with
-managed sign-in, server-enforced business/worker access, transactional records,
-idempotent writes, staff invitation/revocation and revision recovery. It includes
-81 automated checks, preserving the original demo under `platform/public/demo/`.
-See `platform/README.md` and `platform/docs/RELEASE_STATUS.md` for setup, security
-boundaries and remaining production gates. This does not certify a paid launch.
+`platform/` contains the private server-backed release candidate with managed sign-in,
+server-enforced business/worker access, transactional records, idempotent writes, staff
+invitation/revocation, revision recovery, gated five-band subscription preparation and a
+durable invoice-email outbox. It includes 320 platform cases, preserving the original demo
+under `platform/public/demo/`; the demo itself remains browser-local and fictional.
+
+Invoice email is test-gated and customer sending is off. Live billing, public
+subscription signup and production customer onboarding remain disabled. Hosted identity,
+production D1/R2 recovery, independent human review, browser breadth, monitoring and legal
+approval remain open. See `platform/README.md`,
+`platform/docs/RELEASE_STATUS.md` and
+`platform/docs/launch/RELEASE_CANDIDATE_2026-11-28.md` for exact evidence, blockers and
+owner decisions. This does not certify a paid launch.
 
 ## CCS business contact
 

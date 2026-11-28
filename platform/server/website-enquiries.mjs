@@ -22,13 +22,13 @@ function clean(body){
  const tag=v=>str(v,100).replace(/[^a-zA-Z0-9 _.-]/g,'');
  return {name,email,service,message,business,website,source:tag(body.enquiry_source),medium:tag(body.enquiry_medium),campaign:tag(body.enquiry_campaign)};
 }
-async function reserveQuota(bucket,day,ip,requestId){
+async function reserveQuota(bucket,day,ip,units=1){
  const key='ccs-contact/quota/'+day+'.json';const ipHash=await digest(day+':'+ip);
  for(let attempt=0;attempt<5;attempt++){
   const prior=await bucket.get(key);const state=prior?await prior.json():{version:1,total:0,ips:{}};
   if(state.version!==1||!Number.isInteger(state.total)||!state.ips||typeof state.ips!=='object')fail(503,'Enquiry service needs attention. Please email us.');
-  if(state.total>=5||(state.ips[ipHash]||0)>=2)fail(429,'Our form limit has been reached. Please use Email us instead.');
-  state.total++;state.ips[ipHash]=(state.ips[ipHash]||0)+1;
+  if(state.total+units>5||(state.ips[ipHash]||0)>=2)fail(429,'Our form limit has been reached. Please use Email us instead.');
+  state.total+=units;state.ips[ipHash]=(state.ips[ipHash]||0)+1;
   const saved=await bucket.put(key,JSON.stringify(state),{onlyIf:prior?{etagMatches:prior.etag}:{etagDoesNotMatch:'*'},httpMetadata:{contentType:'application/json'}});
   if(saved)return;
  }
@@ -47,6 +47,7 @@ export async function websiteEnquiry(request,env,{fetcher=fetch,now=()=>new Date
  const headers={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Vary':'Origin','X-Content-Type-Options':'nosniff'};
  if(allowed){headers['Access-Control-Allow-Origin']=origin;headers['Access-Control-Allow-Methods']='POST, OPTIONS';headers['Access-Control-Allow-Headers']='Content-Type';headers['Access-Control-Max-Age']='600'}
  const reply=(data,status=200)=>new Response(JSON.stringify(data),{status,headers});
+ const receipt=(reference,record)=>reply({success:true,reference,...(record.confirmation?{confirmation:record.confirmation}:{})});
  try{
   if(!allowed)fail(403,'This enquiry must come from the CCS website.');
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers});
@@ -58,10 +59,14 @@ export async function websiteEnquiry(request,env,{fetcher=fetch,now=()=>new Date
   const createdDay=requestId.slice(0,10),createdTime=Date.parse(createdDay+'T00:00:00Z');
   if(!Number.isFinite(createdTime)||createdTime>timestamp||timestamp-createdTime>7*86400000)fail(400,'Please refresh the page before sending.');
   const key='ccs-contact/requests/'+requestId+'.json',bodyHash=await digest(JSON.stringify(fields)),prior=await env.BUCKET.get(key);
-  if(prior){const existing=await prior.json();if(existing.hash!==bodyHash)fail(409,'This enquiry reference was already used. Please refresh before sending a new enquiry.');if(existing.state==='accepted')return reply({success:true,reference:requestId});fail(409,'The earlier delivery is not confirmed. Please email us and mention the enquiry reference.');}
+  if(prior){const existing=await prior.json();if(existing.hash!==bodyHash)fail(409,'This enquiry reference was already used. Please refresh before sending a new enquiry.');if(existing.state==='accepted')return receipt(requestId,existing);fail(409,'The earlier delivery is not confirmed. Please email us and mention the enquiry reference.');}
   if(createdDay!==day)fail(400,'Please refresh the page before sending.');
   await prune(env.BUCKET,timestamp);
-  await reserveQuota(env.BUCKET,day,request.headers.get('cf-connecting-ip')||'unknown',requestId);
+  // Confirmations are staged only for the existing owner-approved test allowlist.
+  // Reserve both attempts up front: contact mail stays within five provider
+  // attempts per UTC day, including confirmations and uncertain responses.
+  const confirm=env.CCS_WEBSITE_CONFIRMATIONS==='test'&&allowlist.includes(fields.email.toLowerCase());
+  await reserveQuota(env.BUCKET,day,request.headers.get('cf-connecting-ip')||'unknown',confirm?2:1);
   const record={version:1,hash:bodyHash,state:'pending',createdAt:new Date(timestamp).toISOString()};
   const claimed=await env.BUCKET.put(key,JSON.stringify(record),{onlyIf:{etagDoesNotMatch:'*'},httpMetadata:{contentType:'application/json'}});
   if(!claimed)fail(409,'This enquiry is already being processed. Please wait.');
@@ -70,6 +75,21 @@ export async function websiteEnquiry(request,env,{fetcher=fetch,now=()=>new Date
   let result;
   try{const response=await fetcher('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+env.RESEND_API_KEY,'Content-Type':'application/json','Idempotency-Key':'ccs-contact/'+requestId},body:JSON.stringify(payload),signal:AbortSignal.timeout(12000)});if(!response.ok)throw Error('Provider unavailable');result=await response.json();if(typeof result.id!=='string'||!/^[a-zA-Z0-9_-]{1,100}$/.test(result.id))throw Error('Ambiguous response');}
   catch{record.state='unconfirmed';await env.BUCKET.put(key,JSON.stringify(record));fail(503,'Delivery could not be confirmed. Please email us and mention the enquiry reference.');}
-  record.state='accepted';record.providerId=result.id;await env.BUCKET.put(key,JSON.stringify(record));return reply({success:true,reference:requestId});
+  record.state='accepted';record.providerId=result.id;
+  if(confirm)record.confirmation='pending';
+  // Persist business acceptance before the separate acknowledgement. A crash or
+  // repeated submit must never resend either message or claim inbox delivery.
+  await env.BUCKET.put(key,JSON.stringify(record));
+  if(confirm){
+   const acknowledgement={from:env.QUENVIRA_EMAIL_FROM,to:[fields.email],reply_to:RECIPIENT,subject:'[CCS test] Enquiry received',text:`CCS Creative Technologies has received your enquiry.\nReference: ${requestId}\n\nThis confirms submission, not a quotation, contract or paid subscription. If you did not send an enquiry, you can ignore this message. Contact: ${RECIPIENT}`,tags:[{name:'source',value:'ccs-enquiry'}]};
+   try{
+    const response=await fetcher('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+env.RESEND_API_KEY,'Content-Type':'application/json','Idempotency-Key':'ccs-contact-confirmation/'+requestId},body:JSON.stringify(acknowledgement),signal:AbortSignal.timeout(12000)});
+    if(!response.ok)throw Error();const accepted=await response.json();
+    if(typeof accepted.id!=='string'||!/^[a-zA-Z0-9_-]{1,100}$/.test(accepted.id))throw Error();
+    record.confirmation='accepted';record.confirmationProviderId=accepted.id;
+   }catch{record.confirmation='unconfirmed'}
+   await env.BUCKET.put(key,JSON.stringify(record));
+  }
+  return receipt(requestId,record);
  }catch(error){if(error instanceof ContactProblem)return reply({success:false,message:error.message},error.status);return reply({success:false,message:'Delivery could not be confirmed. Please use Email us instead.'},503)}
 }

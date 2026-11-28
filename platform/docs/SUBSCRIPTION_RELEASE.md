@@ -17,7 +17,7 @@ Webhook event snapshots never grant access. Recognised events trigger authoritat
 Use Sites production environment settings to enter secrets; never paste credentials into chat, source, command arguments, browser code or a hosting manifest.
 
 - QUENVIRA_BILLING_MODE: disabled (default), test or live.
-- STRIPE_RESTRICTED_KEY: rk_test_… in an isolated Stripe sandbox, or rk_live_… only after live approval. Minimum scoped permissions for customers read/write, Checkout Sessions read/write, prices read, subscriptions read and Billing Portal Sessions write; validate the actual Stripe permission UI and API calls in the sandbox. No payout/transfer or bank-management access is needed.
+- STRIPE_RESTRICTED_KEY: rk_test_… in an isolated Stripe sandbox, or rk_live_… only after live approval. Minimum scoped permissions for customers read/write, Checkout Sessions read/write, prices read, subscriptions read, invoices read (including InvoicePayments), charges read for risk ownership, and Billing Portal Sessions write; validate the actual Stripe permission UI and API calls in the sandbox. No payout/transfer or bank-management access is needed.
 - STRIPE_WEBHOOK_SECRET: secret of the matching sandbox/live endpoint.
 - STRIPE_PRICE_ID: verified £19 total GBP monthly licensed Price with inclusive tax behavior.
 - STRIPE_PORTAL_CONFIGURATION: approved Customer Portal configuration; cancellation at period end and payment method updates enabled, plan changes disabled for this one-plan release.
@@ -51,3 +51,5 @@ Official references checked 22 October 2026:
 - https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/accountability-and-governance/contracts-and-liabilities-between-controllers-and-processors-multi/what-needs-to-be-included-in-the-contract/
 
 No legal/tax/hosted recovery or commercial acceptance certification is claimed.
+
+Current operation identifiers and the hosted 403 diagnosis are in [STRIPE_RESTRICTED_KEY_DIAGNOSIS.md](launch/STRIPE_RESTRICTED_KEY_DIAGNOSIS.md). The historical request does not yet prove which grant the runtime key lacks; inspect its exact Workbench entry before changing access.

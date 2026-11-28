@@ -12,11 +12,12 @@ export const tables={
  subscription_accounts:['workspace_id','trial_end','customer_id','checkout_id','checkout_generation','terms_version','terms_accepted_at'],
  subscription_events:['id','workspace_id','type','received_at'],
  invoice_outbox:['id','workspace_id','invoice_id','mode','payload','status','attempts','provider_id','first_attempt_at','next_attempt_at','lease_token','lease_until','last_error','created_at','updated_at'],
- invoice_email_events:['id','workspace_id','outbox_id','status','created_at']
+ invoice_email_events:['id','workspace_id','outbox_id','status','created_at'],
+ command_attempts:['workspace_id','user_id','window_start','count']
 };
 const maximum=20*1024*1024;
-const legacyTables=Object.fromEntries(Object.entries(tables).filter(([name])=>!name.startsWith('subscription_')&&!name.startsWith('invoice_')));
-const v2Tables=Object.fromEntries(Object.entries(tables).filter(([name])=>!name.startsWith('invoice_')));
+const legacyTables=Object.fromEntries(Object.entries(tables).filter(([name])=>!name.startsWith('subscription_')&&!name.startsWith('invoice_')&&name!=='command_attempts'));
+const v2Tables=Object.fromEntries(Object.entries(tables).filter(([name])=>!name.startsWith('invoice_')&&name!=='command_attempts'));
 const snapshotTables=snapshot=>snapshot?.format==='quenvira-logical-backup-v1'?legacyTables:snapshot?.format==='quenvira-logical-backup-v2'?v2Tables:tables;
 function validate(snapshot){
  if(!snapshot||!['quenvira-logical-backup-v1','quenvira-logical-backup-v2','quenvira-logical-backup-v3'].includes(snapshot.format)||typeof snapshot.createdAt!=='string'||!Number.isFinite(Date.parse(snapshot.createdAt))||!snapshot.tables||Object.keys(snapshot.tables).sort().join()!==Object.keys(snapshotTables(snapshot)).sort().join())throw Error('Unsupported or incomplete backup.');
@@ -30,7 +31,13 @@ function validate(snapshot){
  return snapshot;
 }
 export function snapshotDatabase(sqlite){
- return validate({format:'quenvira-logical-backup-v3',createdAt:new Date().toISOString(),tables:Object.fromEntries(Object.entries(tables).map(([table,columns])=>[table,sqlite.prepare(`SELECT ${columns.join(',')} FROM ${table}`).all().map(row=>({...row}))]))});
+ // A savepoint keeps every table read in one SQLite snapshot and preserves
+ // a caller's surrounding transaction. It does not make R2 exports atomic.
+ sqlite.exec('SAVEPOINT quenvira_snapshot');
+ try{
+  const snapshot=validate({format:'quenvira-logical-backup-v3',createdAt:new Date().toISOString(),tables:Object.fromEntries(Object.entries(tables).map(([table,columns])=>[table,sqlite.prepare(`SELECT ${columns.join(',')} FROM ${table}`).all().map(row=>({...row}))]))});
+  sqlite.exec('RELEASE quenvira_snapshot');return snapshot;
+ }catch(error){sqlite.exec('ROLLBACK TO quenvira_snapshot');sqlite.exec('RELEASE quenvira_snapshot');throw error}
 }
 function requireKey(key){if(!Buffer.isBuffer(key)||key.length!==32)throw Error('A separately protected 32-byte key is required.')}
 export function encryptBackup(snapshot,key){
@@ -48,9 +55,12 @@ export function decryptBackup(bytes,key){
  }catch{throw Error('Backup authentication or validation failed. No records restored.')}
 }
 export function restoreIntoEmptyDatabase(sqlite,snapshot){
- validate(snapshot);for(const table of Object.keys(tables))if(sqlite.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n!==0)throw Error('Restore requires an empty isolated database.');
- sqlite.exec('PRAGMA foreign_keys = ON');sqlite.exec('BEGIN');
+ validate(snapshot);
+ if(sqlite.isTransaction)throw Error('Restore requires an isolated connection outside a transaction.');
+ sqlite.exec('PRAGMA foreign_keys = ON');sqlite.exec('BEGIN IMMEDIATE');
  try{
+  // Lock out other writers before deciding that the restore target is empty.
+  for(const table of Object.keys(tables))if(sqlite.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n!==0)throw Error('Restore requires an empty isolated database.');
   for(const [table,columns]of Object.entries(snapshotTables(snapshot))){
    const insert=sqlite.prepare(`INSERT INTO ${table} (${columns.join(',')}) VALUES (${columns.map(()=>'?').join(',')})`);
    for(const row of snapshot.tables[table])insert.run(...columns.map(c=>row[c]));

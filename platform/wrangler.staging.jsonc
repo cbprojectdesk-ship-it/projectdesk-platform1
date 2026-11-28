@@ -1,9 +1,10 @@
-
 {
   "name": "quenvira-staging",
   "main": "./build/sites-worker.ts",
   "compatibility_date": "2026-10-22",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "workers_dev": false,
   "vars": {
     "QUENVIRA_HOSTING_MODE": "standalone",
@@ -16,6 +17,11 @@
       "database_name": "quenvira-staging",
       "database_id": "a91be5bb-6565-473e-98c2-40e83bc0e2d5"
     }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "BUCKET",
+      "bucket_name": "quenvira-staging"
+    }
   ]
 }
-  

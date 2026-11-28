@@ -19,6 +19,11 @@ export const events=sqliteTable('events',{
  workspaceId:text('workspace_id').notNull().references(()=>workspaces.id,{onDelete:'cascade'}),
  id:text('id').notNull(),userId:text('user_id').notNull(),action:text('action').notNull(),createdAt:text('created_at').notNull()
 },t=>[primaryKey({columns:[t.workspaceId,t.id]})]);
+export const commandAttempts=sqliteTable('command_attempts',{
+ workspaceId:text('workspace_id').notNull().references(()=>workspaces.id,{onDelete:'cascade'}),
+ userId:text('user_id').notNull(),windowStart:text('window_start').notNull(),count:integer('count').notNull().default(0),
+},t=>[primaryKey({columns:[t.workspaceId,t.userId,t.windowStart]}),index('command_attempts_window').on(t.windowStart)]);
+
 export const invitations=sqliteTable('invitations',{
  hash:text('hash').primaryKey(),workspaceId:text('workspace_id').notNull().references(()=>workspaces.id,{onDelete:'cascade'}),
  email:text('email').notNull(),staffId:text('staff_id').notNull(),expiresAt:text('expires_at').notNull(),acceptedBy:text('accepted_by'),createdAt:text('created_at').notNull()

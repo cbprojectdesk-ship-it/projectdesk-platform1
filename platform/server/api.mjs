@@ -1,3 +1,4 @@
+import {stripeFailureDiagnostic} from './stripe-diagnostics.mjs';
 import {publicPlans,selectPlan,fitsPlan,LARGE_TEAM_MESSAGE} from './plans.mjs';
 import * as F from './team-features.mjs';
 import {websiteEnquiry} from './website-enquiries.mjs';
@@ -10,6 +11,7 @@ import {photoKey,decodePhoto,setStaffPhoto} from './staff-photos.mjs';
 import {saveSupplier,issueInvoice,creditInvoice,assertFinancialRestore} from './billing.mjs';
 import * as D from './domain.mjs';
 import {mayCreateWorkspace} from './enrollment.mjs';
+import {verifyIdentityProof} from './identity-proof.mjs';
 const headers={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store, private','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'};
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers});
 class Problem extends Error{constructor(status,message){super(message);this.status=status}}
@@ -32,6 +34,14 @@ async function readBody(request,maximum=16384){
  const reader=request.body?.getReader();if(!reader)problem(400,'JSON body required.');let size=0,chunks=[];
  while(true){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>maximum){await reader.cancel();problem(413,'Request too large.')}chunks.push(value)}
  try{const bytes=new Uint8Array(size);let n=0;for(const c of chunks){bytes.set(c,n);n+=c.length}const value=JSON.parse(new TextDecoder().decode(bytes));if(!value||typeof value!=='object'||Array.isArray(value))problem(400,'JSON object required.');return value}catch(e){if(e instanceof Problem)throw e;problem(400,'Invalid JSON.');}
+}
+async function consumeCommandAttempt(db,workspace,user,timestamp,limit=120){
+ const windowStart=new Date(Math.floor(Date.parse(timestamp)/60000)*60000).toISOString();
+ // Keep the counter bounded on a long-lived account. One day is sufficient
+ // because the active minute is all this limiter needs.
+ await db.prepare('DELETE FROM command_attempts WHERE workspace_id=? AND user_id=? AND window_start < ?').bind(workspace,user,new Date(Date.parse(timestamp)-24*60*60*1000).toISOString()).run();
+ const row=await db.prepare('INSERT INTO command_attempts (workspace_id,user_id,window_start,count) VALUES (?,?,?,1) ON CONFLICT(workspace_id,user_id,window_start) DO UPDATE SET count=count+1 RETURNING count').bind(workspace,user,windowStart).first();
+ if(Number(row?.count)>limit)problem(429,'Too many requests. Wait a minute and try again.');
 }
 async function membership(db,workspace,user){
  if(!validId(workspace))problem(404,'Workspace not found.');
@@ -57,7 +67,12 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
   // Sites dispatch must overwrite identity headers and keep the Worker origin private.
   const user=request.headers.get('oai-authenticated-user-id');
   const email=request.headers.get('oai-authenticated-user-email');
-  if(!user||!email)problem(401,'Sign in with ChatGPT to continue.');
+  // Be strict about the identity the managed host supplies. A malformed or
+  // oversized identity is treated as unauthenticated rather than used as a
+  // user ID or returned to the browser.
+  if(!user||!email||user.length>100||email.length>200||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))problem(401,'Sign in with ChatGPT to continue.');
+  const identityProofSecret=billingEnv.QUENVIRA_IDENTITY_PROOF_SECRET;
+  if(identityProofSecret&&!await verifyIdentityProof(request,user,email,identityProofSecret))problem(401,'Sign in with ChatGPT to continue.');
   if(!db)problem(503,'Persistent storage is not configured.');
   const url=new URL(request.url),path=url.pathname.replace(/^\/api\/quenvira\/?/,'').split('/').filter(Boolean);
   const timestamp=now().toISOString(),asOf=today(new Date(timestamp));
@@ -69,7 +84,7 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
   }
   if(path.length===1&&path[0]==='session'&&request.method==='GET'){
    const result=await db.prepare('SELECT w.id, w.name, m.role FROM workspaces w JOIN memberships m ON m.workspace_id = w.id WHERE m.user_id = ? ORDER BY w.created_at').bind(user).all();
-   return json({user:{id:user,email},workspaces:result.results,today:asOf,documentMode:config?.mode==='live'?'live':'test',canCreateWorkspace:mayCreateWorkspace(email,pilotEmails)||!!config?.selfServe});
+   return json({user:{id:user,email},workspaces:result.results,today:asOf,documentMode:config?.mode==='live'?'live':'test',canCreateWorkspace:mayCreateWorkspace(email,pilotEmails)||!!config?.selfServe,...(config?{termsVersion:config.termsVersion||TERMS_VERSION,termsUrl:config.plans?'/subscription-terms-solo-team.html':'/subscription-terms.html'}:{})});
   }
   if(path.join('/')==='invitations/accept'&&request.method==='POST'){
    const body=await readBody(request);if(typeof body.token!=='string'||!/^[a-f0-9-]{72}$/.test(body.token))problem(400,'Invalid invitation.');
@@ -78,7 +93,7 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
    if(!invitation||invitation.email!==email.toLowerCase()||invitation.expires_at<=timestamp||(invitation.accepted_by&&invitation.accepted_by!==user))problem(403,'Invitation is unavailable for this account.');
    let staffSeatLimit=2147483647;
    if(config?.plans){const access=await entitlement(db,invitation.workspace_id,config,await getClient(),Date.parse(timestamp));if(!access.canWrite||!access.staffAccess)problem(403,'This plan does not allow staff sign-in. Ask the manager to review the subscription.');staffSeatLimit=selectPlan(config,access.plan).maxStaffAccounts;}
-   const {state}=await load(db,invitation.workspace_id);if(!state.staff.some(s=>s.id===invitation.staff_id))problem(409,'This staff record is no longer available.');
+   const {state}=await load(db,invitation.workspace_id);if(!state.staff.some(s=>s.id===invitation.staff_id&&s.active!==false))problem(409,'This staff record is no longer available.');
    const existing=await db.prepare('SELECT * FROM memberships WHERE workspace_id = ? AND user_id = ?').bind(invitation.workspace_id,user).first();
    if(existing&&(existing.role!=='staff'||existing.staff_id!==invitation.staff_id))problem(409,'This account already has a different membership.');
    const seats=await db.prepare("SELECT COUNT(*) AS n FROM memberships WHERE workspace_id=? AND role='staff'").bind(invitation.workspace_id).first();
@@ -104,6 +119,7 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
   if(path.length<2||path[0]!=='workspaces')problem(404,'Route not found.');
   const workspace=path[1],m=await membership(db,workspace,user);
   const {row,state}=await load(db,workspace);
+  if(m.role==='staff'&&!state.staff.some(s=>s.id===m.staff_id&&s.active!==false))problem(403,'This staff profile is inactive. Ask your manager for access.');
   let planAccess;
   const access=async()=>planAccess||(planAccess=await entitlement(db,workspace,config,await getClient(),Date.parse(timestamp)));
   if(config?.plans&&m.role==='staff'&&!(await access()).staffAccess)problem(403,'Staff access is unavailable on this plan. Ask your manager to review the subscription.');
@@ -120,9 +136,14 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
   // An expired subscription keeps read/export, revocation and deletion paths.
   // Paid workflow mutations require a fresh authoritative provider check.
   const needsEntitlement=request.method==='POST'&&(path[2]==='commands'||path[2]==='invitations'||path[2]==='email-dispatch');
+  let recovery=false;
   if(config&&needsEntitlement){
-   const permittedMaintenance=path[2]==='invitations'&&(await readBody(request.clone())).revoke;
-   const recovery=path[2]==='commands'&&path[3]==='backup';
+   // Recovery and access-removal maintenance must stay available after a trial
+   // or paid period lapses, or while the provider is unreachable, so records and
+   // access are never trapped behind billing. Normal commands remain gated.
+   const maintenanceBody=(path[2]==='invitations'||path[2]==='commands'&&path.length===3)?await readBody(request.clone()):null;
+   const permittedMaintenance=path[2]==='invitations'&&maintenanceBody?.revoke||path.length===3&&path[2]==='commands'&&maintenanceBody?.action==='staff.active'&&maintenanceBody?.data?.active===false;
+   recovery=path[2]==='commands'&&(path[3]==='backup'||maintenanceBody?.action==='backup.restore');
    if(config.mode==='live'&&!permittedMaintenance&&!recovery&&!await serviceTermsAccepted(db,workspace,config.termsVersion))problem(403,'A manager must accept the current business terms in Settings before editing. Viewing and exports remain available.');
    if(!permittedMaintenance&&!recovery&&!(await access()).canWrite)problem(402,planAccess.overLimit?(planAccess.staffAccess?LARGE_TEAM_MESSAGE:'Existing staff records or access exceed the current plan. Records and exports remain available; contact support before changing the plan.'):'Your trial or subscription has ended. A manager can manage the subscription in Settings. Records and exports remain available.');
   }
@@ -165,13 +186,13 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
     ]);if(!revoked[2].results?.length)problem(403,'Manager access changed. Reload before editing.');return json({revoked:true});
    }
    if(config?.plans&&!(await access()).staffAccess)problem(403,'Solo is for the owner only. Choose Team before inviting staff.');
-   if(typeof body.email!=='string'||body.email.length>150||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)||!state.staff.some(s=>s.id===body.staffId))problem(400,'Choose a staff member and valid account email.');
+   if(typeof body.email!=='string'||body.email.length>150||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)||!state.staff.some(s=>s.id===body.staffId&&s.active!==false))problem(400,'Choose a staff member and valid account email.');
    const pending=await db.prepare('SELECT COUNT(*) AS n FROM invitations WHERE workspace_id = ? AND expires_at > ? AND accepted_by IS NULL').bind(workspace,timestamp).first();if(pending.n>=20)problem(429,'Revoke unused invitations before creating more.');
    const token=id()+id(),hash=await hashToken(token),expiresAt=new Date(new Date(timestamp).getTime()+7*86400000).toISOString();
    const invited=await db.batch([
-    db.prepare("INSERT INTO invitations (hash,workspace_id,email,staff_id,expires_at,created_at) SELECT ?,?,?,?,?,? WHERE EXISTS (SELECT 1 FROM memberships WHERE workspace_id = ? AND user_id = ? AND role = 'manager') AND (SELECT COUNT(*) FROM invitations WHERE workspace_id = ? AND expires_at > ? AND accepted_by IS NULL) < 20 RETURNING hash").bind(hash,workspace,body.email.toLowerCase(),body.staffId,expiresAt,timestamp,workspace,user,workspace,timestamp),
+    db.prepare("INSERT INTO invitations (hash,workspace_id,email,staff_id,expires_at,created_at) SELECT ?,?,?,?,?,? WHERE EXISTS (SELECT 1 FROM memberships WHERE workspace_id = ? AND user_id = ? AND role = 'manager') AND (SELECT COUNT(*) FROM invitations WHERE workspace_id = ? AND expires_at > ? AND accepted_by IS NULL) < 20 AND EXISTS (SELECT 1 FROM workspaces w,json_each(w.document,'$.staff') s WHERE w.id=? AND json_extract(s.value,'$.id')=? AND COALESCE(json_extract(s.value,'$.active'),1)=1) RETURNING hash").bind(hash,workspace,body.email.toLowerCase(),body.staffId,expiresAt,timestamp,workspace,user,workspace,timestamp,workspace,body.staffId),
     db.prepare('INSERT INTO events (workspace_id,id,user_id,action,created_at) SELECT ?,?,?,?,? WHERE EXISTS (SELECT 1 FROM invitations WHERE workspace_id = ? AND hash = ?)').bind(workspace,id(),user,'member.invite',timestamp,workspace,hash)
-   ]);if(!invited[0].results?.length){manager(await membership(db,workspace,user));problem(429,'Revoke unused invitations before creating more.');}return json({token,expiresAt},201);
+   ]);if(!invited[0].results?.length){manager(await membership(db,workspace,user));const fresh=await load(db,workspace);if(!fresh.state.staff.some(s=>s.id===body.staffId&&s.active!==false))problem(409,'This staff profile is no longer active. Reload before creating a link.');problem(429,'Revoke unused invitations before creating more.');}return json({token,expiresAt},201);
   }
   if(path.length===3&&path[2]==='backups'&&request.method==='GET'){
    manager(m);const result=await db.prepare('SELECT revision, created_at FROM history WHERE workspace_id = ? ORDER BY revision DESC LIMIT 20').bind(workspace).all();return json({backups:result.results});
@@ -180,12 +201,22 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
   const photoCommand=path.length===4&&path[2]==='commands'&&path[3]==='photo';
   if(!(path.length===3&&path[2]==='commands'||photoCommand||importCommand)||request.method!=='POST')problem(404,'Route not found.');
   if(importCommand)manager(m);
-  const body=await readBody(request,importCommand?BACKUP_LIMIT+1024:photoCommand?360000:16384);
+  let body;
+  try{body=await readBody(request,importCommand?BACKUP_LIMIT+1024:photoCommand?360000:16384)}
+  catch(error){
+   // Malformed, wrong-type and oversized command bodies are still attempts.
+   // Count them before rethrowing so parsing cannot be used as a bypass.
+   if(error instanceof Problem&&[400,413,415].includes(error.status))await consumeCommandAttempt(db,workspace,user,timestamp);
+   throw error;
+  }
   if(photoCommand!==(['staff.photo','job.photo'].includes(body.action))||importCommand!==(body.action==='backup.import'))problem(400,'Use the correct command endpoint.');
   if(!validId(body.requestId)||!Number.isSafeInteger(body.revision)||body.revision<0||typeof body.action!=='string'||!body.data||typeof body.data!=='object'||Array.isArray(body.data))problem(400,'Invalid command.');
   const requestHash=await hashToken(JSON.stringify({revision:body.revision,action:body.action,data:body.data}));
   const prior=await db.prepare('SELECT user_id, response FROM operations WHERE workspace_id = ? AND id = ?').bind(workspace,body.requestId).first();
   if(prior){if(prior.user_id!==user)problem(409,'Request ID already used.');const {_requestHash,...replay}=JSON.parse(prior.response);if(_requestHash&&_requestHash!==requestHash)problem(409,'Request ID was already used for a different command.');return json({...replay,result:m.role==='manager'?replay.result:null,replayed:true})}
+  // Count every authenticated command attempt, including invalid and failed
+  // commands. Operations alone cannot throttle an attacker who never commits.
+  await consumeCommandAttempt(db,workspace,user,timestamp);
   const recent=await db.prepare('SELECT COUNT(*) AS n FROM operations WHERE workspace_id = ? AND user_id = ? AND created_at >= ?').bind(workspace,user,new Date(new Date(timestamp).getTime()-60000).toISOString()).first();if(recent.n>=120)problem(429,'Too many updates. Wait a minute and try again.');
   if(body.revision!==row.revision)problem(409,'Workspace changed. Reload and try again.');
   const before=structuredClone(state);const data=body.data,actor={role:m.role,staffId:m.staff_id};let result=null,emailDelivery=null,emailInvoiceId=null;
@@ -216,6 +247,7 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
     }
     case 'staff.add':result=D.addStaff(state,actor,data);break;
     case 'staff.update':result=D.updateStaff(state,actor,data,asOf);break;
+    case 'staff.active':result=D.setStaffActive(state,actor,data.id,data.active);break;
     case 'job.save':result=D.saveJob(state,actor,data,data.id);break;
     case 'job.series':result=D.updateSeries(state,actor,data,asOf);break;
     case 'job.update':{
@@ -255,7 +287,7 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
    }
   }catch(e){if(e instanceof Problem||e instanceof EmailProblem)throw e;if(e.backupStorage)problem(503,e.message);problem(/Manager|not assigned/.test(e.message)?403:400,e.message)}
   if(['job.save','job.series','job.update','quote.action'].includes(body.action))F.assignmentNotifications(state,before);
-  if(config?.plans){const a=await access(),plan=selectPlan(config,a.plan);const members=await db.prepare("SELECT COUNT(*) AS n FROM memberships WHERE workspace_id=? AND role='staff'").bind(workspace).first();if(!plan||!fitsPlan(state,members.n,plan))problem(409,plan?.staffAccess?LARGE_TEAM_MESSAGE:'Solo includes one owner-operator. Choose Team before adding more people. No records were changed.');}
+  if(config?.plans&&!recovery&&!(body.action==='staff.active'&&data.active===false)){const a=await access(),plan=selectPlan(config,a.plan);const members=await db.prepare("SELECT COUNT(*) AS n FROM memberships WHERE workspace_id=? AND role='staff'").bind(workspace).first();if(!plan||!fitsPlan(state,members.n,plan))problem(409,plan?.staffAccess?LARGE_TEAM_MESSAGE:'Solo includes one owner-operator. Choose Team before adding more people. No records were changed.');}
   if(!D.validateState(state))problem(400,'Operation would create invalid records.');
   const document=JSON.stringify(state);if(new TextEncoder().encode(document).byteLength>524288)problem(413,'Workspace storage limit reached. Export your records and contact support.');
   const reply={revision:row.revision+1,result};
@@ -266,19 +298,25 @@ export async function handle(request,db,{now=()=>new Date(),bucket,pilotEmails,b
    db.prepare('INSERT INTO events (workspace_id,id,user_id,action,created_at) SELECT id,?,?,?,? FROM workspaces WHERE id = ? AND last_operation = ?').bind(body.requestId,user,body.action,timestamp,workspace,body.requestId),
    db.prepare('DELETE FROM history WHERE workspace_id = ? AND revision < ?').bind(workspace,Math.max(0,row.revision-19))
   ];
+  if(body.action==='staff.active'&&data.active===false){
+   // Only the winning revision may revoke links. A competing/stale command or
+   // database failure must not partially deactivate a person or remove access.
+   statements.push(
+    db.prepare("DELETE FROM invitations WHERE workspace_id=? AND staff_id=? AND EXISTS(SELECT 1 FROM workspaces WHERE id=? AND last_operation=?)").bind(workspace,data.id,workspace,body.requestId),
+    db.prepare("DELETE FROM memberships WHERE workspace_id=? AND role='staff' AND staff_id=? AND EXISTS(SELECT 1 FROM workspaces WHERE id=? AND last_operation=?)").bind(workspace,data.id,workspace,body.requestId)
+   );
+  }
   if(emailDelivery)statements.push(enqueueStatement(db,workspace,body.requestId,emailInvoiceId,emailDelivery,timestamp));
   const committed=await db.batch(statements);
   if(!committed[1].results?.length){const current=await membership(db,workspace,user);if(current.role!==m.role||current.staff_id!==m.staff_id)problem(403,'Your access changed. Reload before editing.');problem(409,'Workspace changed. Reload and try again.');}
-  return json(reply);
+  const response=json(reply);
+  // Access-removal maintenance must never wake billing-gated queued email.
+  if(body.action==='staff.active'&&data.active===false)response.headers.set('x-quenvira-email-wake','skip');
+  return response;
  }catch(e){
   // Record bounded provider diagnostics, never the request, headers or key.
-  if(typeof e.type==='string'&&/^Stripe[A-Za-z]+Error$/.test(e.type)){
-   // Provider messages/parameters can echo customer input, signing secrets or
-   // payment tokens. Log only bounded diagnostic fields, never free-form text.
-   const requestId=typeof e.requestId==='string'&&/^req_[A-Za-z0-9]{1,100}$/.test(e.requestId)?e.requestId:undefined;
-   const status=Number.isInteger(e.statusCode)&&e.statusCode>=400&&e.statusCode<=599?e.statusCode:undefined;
-   console.error('Quenvira Stripe request failed',JSON.stringify({type:e.type.slice(0,80),requestId,status}));
-  }
+  const diagnostic=stripeFailureDiagnostic(e);
+  if(diagnostic)console.error('Quenvira Stripe request failed',JSON.stringify(diagnostic));
   return json({error:e instanceof Problem||e instanceof SubscriptionProblem||e instanceof EmailProblem?e.message:'Service temporarily unavailable.',code:e instanceof Problem||e instanceof SubscriptionProblem||e instanceof EmailProblem?e.status:503},e instanceof Problem||e instanceof SubscriptionProblem||e instanceof EmailProblem?e.status:503)
  }
 }

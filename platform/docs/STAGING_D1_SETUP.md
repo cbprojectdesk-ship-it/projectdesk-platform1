@@ -1,24 +1,22 @@
-# Quenvira staging D1 configuration (not a deployment)
+# Existing staging D1 — safe configuration procedure
 
-Database name: `quenvira-staging`
-Database ID: `a91be5bb-6565-473e-98c2-40e83bc0e2d5`
-Worker binding: `DB`
+This is a procedure, not a deployment or completed migration. Identify the already authorized staging database in the provider's secure configuration; the public placeholder is `CONFIGURE_IN_SECURE_ENVIRONMENT`. Do not provision a new or chargeable resource.
 
-This is a **staging-only** identifier, not a secret. Do not replace the placeholder in `vite.config.ts`: that placeholder supports the existing managed/local environment. Do not publish the Worker until verified Cloudflare Access and a staging deployment configuration are in place.
+Bind only the verified existing database to `DB` and the isolated staging object bucket to `BUCKET` through the approved host configuration. The checked-in staging configuration names `quenvira-staging`; it is not evidence that the bucket exists. A standalone deployment must use verified identity policies and the reviewed standalone configuration. Do not replace managed/local build placeholders or expose an unverified Worker. Keep billing in test mode and self-service disabled.
 
-## Dashboard binding
+Before migrations, compare account/database identity against the private inventory, review `platform/drizzle/` and obtain a complete verified recovery safeguard. Do not execute a remote migration against an unreviewed target. Current schema state and R2 bucket existence must be inspected; this document does not assert that migrations are applied or that the bucket is provisioned.
 
-Once a private staging Worker exists, open Workers & Pages → that Worker → Settings → Bindings → Add → D1 database. Set variable name `DB` and select `quenvira-staging`. The Worker must run with `QUENVIRA_HOSTING_MODE=standalone` and correctly configured `QUENVIRA_ACCESS_TEAM_DOMAIN` and `QUENVIRA_ACCESS_AUDIENCE`; these are not yet configured or verified. Keep `QUENVIRA_BILLING_MODE=test` and `QUENVIRA_SELF_SERVE=no`.
+Required evidence: signed identity acceptance, unauthorized/cross-tenant denial, reviewed build/configuration, consistent schema and persistence.
 
-## Migration safety
+Migration `0004_command_attempts.sql` adds the failed-command rate-limit counter used by the 22 November API hardening. Apply it only after the backup and schema review above; do not deploy the API change without the table., complete export and isolated restore, signed sandbox webhooks, subscriptions and operational/commercial review. Never restore fixtures into production or treat truncated table pages as a backup.
 
-The database exists but has not been migrated. Review the SQL migrations under `platform/drizzle/` and verify the target database ID before executing any `wrangler d1 migrations apply quenvira-staging --remote` command from the `platform/` workspace with an appropriate Wrangler configuration. Do not run this command against an unreviewed configuration. Capture migration results and a tested backup/restore before customer data.
+Local migration validation before any hosted apply:
 
-## Release gates
+```bash
+cd platform
+npm run db:verify
+```
 
-- [ ] Verify Access policy and real signed identity assertions; do not expose public Worker.
-- [ ] Produce reviewed standalone Worker build/config and bind this staging D1.
-- [ ] Apply and verify staging migrations, backup and restore.
-- [ ] Test cross-tenant isolation and unauthorized access.
-- [ ] Test hosted Stripe signed sandbox webhooks and subscriptions.
-- [ ] Complete security, operational and legal launch review.
+This uses an in-memory SQLite database, applies migrations `0000`–`0004`, and checks the
+required tables plus SQLite foreign-key and quick checks. It does not connect to D1, R2 or
+any hosted resource and is not a substitute for a reviewed staging migration and restore.
