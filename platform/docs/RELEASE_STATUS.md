@@ -1,4 +1,44 @@
-# Engineering release status — 20 October 2026
+# Quenvira engineering release status
+
+## Current release candidate — 28 November 2026
+
+Status: **engineering release candidate for isolated review and private staging; NO-GO
+for commercial launch or real customer data.** Reviewed code head
+`0fda90599177bce44bc05df6a538d21eec64e674` on
+`feature/quenvira-launch-preparation-2026-11-22`; base integration tree `526f0cf`.
+
+Verified on that tree:
+
+- Platform suite: **320 passed, 0 failed, 0 skipped**. Root demonstration: **59 passed**.
+- Syntax, ESLint and TypeScript checks passed; production build passed.
+- `npm run db:verify`: five migrations, eleven required tables, foreign-key and quick
+  checks OK.
+- Chromium browser acceptance: **96 passed** across 1440, 360, 390 and 768 widths.
+- Production-dependency audit: no known vulnerabilities. Full audit: one moderate
+  development-only `minimatch` advisory; no high or critical.
+- Built Worker probes: nonce CSP on `/`, strict CSP on static workspace HTML, baseline
+  and CSP on 404/redirect responses, baseline headers on the unauthenticated API, and
+  cross-origin MCP rejection.
+
+Changes reviewed in this cycle: the MCP browser origin check now rejects external
+`Origin` and `sec-fetch-site: cross-site` requests before identity or queue access; the
+session exposes the configured plan terms version/URL and workspace setup no longer uses
+the stale 28 October default; non-static Worker responses receive the baseline headers
+and an HTML CSP while the body-less Vinext static hand-off is left alone. The durable
+invoice outbox, leases, retry boundary, provider idempotency and suppression paths were
+reviewed with no new delivery defect found.
+
+Still open: hosted identity stripping/private origin; independent human review; hosted
+D1/R2 migration and isolated recovery; authorised Stripe test-mode lifecycle; approved
+Resend recipient delivery/bounce/complaint evidence; monitoring and on-call ownership;
+legal/privacy/commercial approval; Firefox/WebKit/physical-device/assistive acceptance.
+No deployment, production migration, live billing, customer email, DNS, secret, schedule
+or public-indexing change was made. See
+`launch/RELEASE_CANDIDATE_2026-11-28.md` for the full evidence and owner decisions.
+
+The material below is retained as historical evidence and is superseded by this section.
+
+## Historical engineering status — 20 October 2026
 
 Status: private server-backed development release. Do not label production-ready.
 

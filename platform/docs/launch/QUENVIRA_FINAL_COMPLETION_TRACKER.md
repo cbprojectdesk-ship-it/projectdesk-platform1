@@ -2,6 +2,21 @@
 
 Status: **NO-GO for commercial launch**. This public tracker contains aggregate evidence only. Keep diagnostic request references, provider object identifiers, tenant records, account details, infrastructure inventory and access-policy information in existing approved private facilities. Never copy credentials into this file.
 
+## Current candidate — 28 November 2026
+
+The consolidated engineering candidate is code head `0fda905` on
+`feature/quenvira-launch-preparation-2026-11-22`, based on integration head `526f0cf`.
+Local evidence: **320 platform tests**, **59 root demo tests**, **96 Chromium browser
+checks** at 1440/360/390/768, passing syntax/lint/TypeScript/build, five migrations and
+eleven tables verified, production dependency audit clean and no high/critical advisory.
+The full audit retains one moderate, development-only `minimatch` advisory.
+
+This cycle fixed cross-origin MCP browser access, stale workspace-setup terms, and missing
+HTML CSP/baseline coverage on non-static Worker responses. No outbound email, live billing,
+deployment, production migration, DNS, secret, schedule or public-indexing change was made.
+The full evidence and owner decisions are in `RELEASE_CANDIDATE_2026-11-28.md`. The
+commercial and hosted gates below remain open and are not waived by passing local tests.
+
 ## Implemented and locally tested
 
 - Manager-only reversible staff deactivation and access revocation; inactive staff do not consume active-person allowances. History and photographs remain retained.
